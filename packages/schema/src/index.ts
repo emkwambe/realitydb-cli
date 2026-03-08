@@ -1,1 +1,14 @@
-export const VERSION = '0.1.0';
+export type {
+  DatabaseSchema,
+  TableSchema,
+  ColumnSchema,
+  PrimaryKeySchema,
+  ForeignKeySchema,
+} from './types.js';
+
+export {
+  getTables,
+  getColumns,
+  getForeignKeys,
+  getPrimaryKeys,
+} from './introspection/index.js';
