@@ -9,4 +9,11 @@ export type {
   TableGenerationPlan,
   TemplatePlan,
   TemplateOverride,
+  DependencyGraph,
+  TopologicalResult,
+} from './planning/index.js';
+
+export {
+  buildDependencyGraph,
+  topologicalSort,
 } from './planning/index.js';

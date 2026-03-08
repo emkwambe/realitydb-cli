@@ -6,6 +6,14 @@ export type {
   ForeignKeySchema,
 } from './types.js';
 
+export { normalizeSchema } from './normalizer.js';
+export type { RawIntrospectionData } from './normalizer.js';
+
+export { validateSchema } from './validator.js';
+export type { ValidationResult } from './validator.js';
+
+export { introspectDatabase } from './introspectDatabase.js';
+
 export {
   getTables,
   getColumns,
