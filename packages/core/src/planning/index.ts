@@ -9,4 +9,4 @@ export type {
   TableGenerationPlan,
   TemplatePlan,
   TemplateOverride,
-} from './planning/index.js';
+} from './types.js';

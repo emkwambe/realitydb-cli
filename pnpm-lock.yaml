@@ -8,6 +8,9 @@ importers:
 
   .:
     devDependencies:
+      '@types/node':
+        specifier: ^25.3.5
+        version: 25.3.5
       turbo:
         specifier: ^2.0.0
         version: 2.8.14
@@ -16,6 +19,10 @@ importers:
         version: 5.9.3
 
   apps/cli:
+    dependencies:
+      commander:
+        specifier: ^14.0.3
+        version: 14.0.3
     devDependencies:
       typescript:
         specifier: ^5.4.0
@@ -65,6 +72,13 @@ importers:
 
 packages:
 
+  '@types/node@25.3.5':
+    resolution: {integrity: sha512-oX8xrhvpiyRCQkG1MFchB09f+cXftgIXb3a7UUa4Y3wpmZPw5tyZGTLWhlESOLq1Rq6oDlc8npVU2/9xiCuXMA==}
+
+  commander@14.0.3:
+    resolution: {integrity: sha512-H+y0Jo/T1RZ9qPP4Eh1pkcQcLRglraJaSLoyOtHxu6AapkjWVCy2Sit1QQ4x3Dng8qDlSsZEet7g5Pq06MvTgw==}
+    engines: {node: '>=20'}
+
   turbo-darwin-64@2.8.14:
     resolution: {integrity: sha512-9sFi7n2lLfEsGWi5OEoA/eTtQU2BPKtzSYKqufMtDeRmqMT9vKjbv9gJCRkllSVE9BOXA0qXC3diyX8V8rKIKw==}
     cpu: [x64]
@@ -104,7 +118,16 @@ packages:
     engines: {node: '>=14.17'}
     hasBin: true
 
+  undici-types@7.18.2:
+    resolution: {integrity: sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w==}
+
 snapshots:
+
+  '@types/node@25.3.5':
+    dependencies:
+      undici-types: 7.18.2
+
+  commander@14.0.3: {}
 
   turbo-darwin-64@2.8.14:
     optional: true
@@ -134,3 +157,5 @@ snapshots:
       turbo-windows-arm64: 2.8.14
 
   typescript@5.9.3: {}
+
+  undici-types@7.18.2: {}
