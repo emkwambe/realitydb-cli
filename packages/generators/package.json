@@ -10,6 +10,11 @@
     "clean": "rm -rf dist *.tsbuildinfo",
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "@databox/shared": "workspace:*",
+    "@databox/schema": "workspace:*",
+    "@databox/core": "workspace:*"
+  },
   "devDependencies": {
     "typescript": "^5.4.0"
   }
