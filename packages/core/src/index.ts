@@ -17,3 +17,6 @@ export {
   buildDependencyGraph,
   topologicalSort,
 } from './planning/index.js';
+
+export { scanDatabase } from './scanPipeline.js';
+export type { ScanResult } from './scanPipeline.js';

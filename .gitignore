@@ -140,3 +140,6 @@ vite.config.ts.timestamp-*
 
 # Turbo cache
 .turbo/
+
+# DataBox config (contains database credentials)
+databox.config.json

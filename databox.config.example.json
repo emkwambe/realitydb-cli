@@ -9,9 +9,5 @@
     "environment": "dev",
     "randomSeed": 42
   },
-  "template": "saas",
-  "export": {
-    "defaultFormat": "json",
-    "outputDir": "./.databox"
-  }
+  "template": "saas"
 }

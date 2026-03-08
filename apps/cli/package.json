@@ -16,6 +16,9 @@
     "typescript": "^5.4.0"
   },
   "dependencies": {
+    "@databox/config": "workspace:^",
+    "@databox/core": "workspace:^",
+    "@databox/schema": "workspace:^",
     "commander": "^14.0.3"
   }
 }
