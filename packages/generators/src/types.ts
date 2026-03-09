@@ -24,4 +24,5 @@ export interface GeneratorContext {
   tableName: string;
   columnName: string;
   allGeneratedTables: Map<string, GeneratedTable>;
+  maxLength?: number | null;
 }

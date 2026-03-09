@@ -1,19 +1,26 @@
 import type { GeneratorContext } from '../types.js';
 
 export function generateEnum(ctx: GeneratorContext, values: string[], weights?: number[]): string {
-  if (!weights || weights.length === 0) {
-    return ctx.seed.pick(values);
-  }
+  let result: string;
 
-  const roll = ctx.seed.next();
-  let cumulative = 0;
-  for (let i = 0; i < values.length; i++) {
-    cumulative += weights[i];
-    if (roll < cumulative) {
-      return values[i];
+  if (!weights || weights.length === 0) {
+    result = ctx.seed.pick(values);
+  } else {
+    const roll = ctx.seed.next();
+    let cumulative = 0;
+    result = values[values.length - 1]; // fallback for floating point rounding
+    for (let i = 0; i < values.length; i++) {
+      cumulative += weights[i];
+      if (roll < cumulative) {
+        result = values[i];
+        break;
+      }
     }
   }
 
-  // Fallback to last value (handles floating point rounding)
-  return values[values.length - 1];
+  // Respect column maxLength
+  if (ctx.maxLength != null && ctx.maxLength > 0 && result.length > ctx.maxLength) {
+    return result.slice(0, ctx.maxLength);
+  }
+  return result;
 }

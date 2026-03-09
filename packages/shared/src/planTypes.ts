@@ -37,6 +37,7 @@ export interface ColumnGenerationPlan {
   foreignKeyRef?: ForeignKeyReferencePlan;
   defaultValueMode?: 'generated' | 'db_default' | 'fixed';
   fixedValue?: string | number | boolean | null;
+  maxLength?: number | null;
 }
 
 export interface TableGenerationPlan {

@@ -35,6 +35,7 @@ export function generateDataset(plan: GenerationPlan): GeneratedDataset {
       foreignKeyRef?: typeof tablePlan.columns[0]['foreignKeyRef'];
       defaultValueMode?: string;
       fixedValue?: string | number | boolean | null;
+      maxLength?: number | null;
     }> = tablePlan.columns.map((colPlan) => {
       if (colPlan.strategy.kind === 'foreign_key' && colPlan.foreignKeyRef) {
         return {
@@ -44,6 +45,7 @@ export function generateDataset(plan: GenerationPlan): GeneratedDataset {
           foreignKeyRef: colPlan.foreignKeyRef,
           defaultValueMode: colPlan.defaultValueMode,
           fixedValue: colPlan.fixedValue,
+          maxLength: colPlan.maxLength,
         };
       }
 
@@ -53,6 +55,7 @@ export function generateDataset(plan: GenerationPlan): GeneratedDataset {
         isForeignKey: false,
         defaultValueMode: colPlan.defaultValueMode,
         fixedValue: colPlan.fixedValue,
+        maxLength: colPlan.maxLength,
       };
     });
 
@@ -69,6 +72,7 @@ export function generateDataset(plan: GenerationPlan): GeneratedDataset {
           tableName,
           columnName: colGen.columnName,
           allGeneratedTables,
+          maxLength: colGen.maxLength,
         };
 
         // Handle fixed/db_default values

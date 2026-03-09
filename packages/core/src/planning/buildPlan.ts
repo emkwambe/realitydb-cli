@@ -94,6 +94,7 @@ export function buildGenerationPlan(
         required: !column.isNullable && !column.hasDefault,
         strategy,
         defaultValueMode: 'generated',
+        maxLength: column.maxLength,
       };
 
       // If this column is a FK source, populate foreignKeyRef

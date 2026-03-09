@@ -71,28 +71,28 @@ export function generateEmail(ctx: GeneratorContext): string {
   const first = ctx.seed.pick(FIRST_NAMES).toLowerCase();
   const last = ctx.seed.pick(LAST_NAMES).toLowerCase();
   const domain = ctx.seed.pick(EMAIL_DOMAINS);
-  return `${first}.${last}@${domain}`;
+  return truncate(`${first}.${last}@${domain}`, ctx.maxLength);
 }
 
 export function generateFirstName(ctx: GeneratorContext): string {
-  return ctx.seed.pick(FIRST_NAMES);
+  return truncate(ctx.seed.pick(FIRST_NAMES), ctx.maxLength);
 }
 
 export function generateLastName(ctx: GeneratorContext): string {
-  return ctx.seed.pick(LAST_NAMES);
+  return truncate(ctx.seed.pick(LAST_NAMES), ctx.maxLength);
 }
 
 export function generateFullName(ctx: GeneratorContext): string {
   const first = ctx.seed.pick(FIRST_NAMES);
   const last = ctx.seed.pick(LAST_NAMES);
-  return `${first} ${last}`;
+  return truncate(`${first} ${last}`, ctx.maxLength);
 }
 
 export function generatePhone(ctx: GeneratorContext): string {
   const area = ctx.seed.nextInt(200, 999);
   const prefix = ctx.seed.nextInt(200, 999);
   const line = ctx.seed.nextInt(1000, 9999);
-  return `+1-${area}-${prefix}-${line}`;
+  return truncate(`+1-${area}-${prefix}-${line}`, ctx.maxLength);
 }
 
 export function generateAddress(ctx: GeneratorContext): string {
@@ -100,13 +100,13 @@ export function generateAddress(ctx: GeneratorContext): string {
   const street = ctx.seed.pick(STREET_NAMES);
   const suffix = ctx.seed.pick(STREET_SUFFIXES);
   const city = ctx.seed.pick(CITIES);
-  return `${number} ${street} ${suffix}, ${city}`;
+  return truncate(`${number} ${street} ${suffix}, ${city}`, ctx.maxLength);
 }
 
 export function generateCompanyName(ctx: GeneratorContext): string {
   const name = ctx.seed.pick(COMPANY_NAMES);
   const suffix = ctx.seed.pick(COMPANY_SUFFIXES);
-  return `${name} ${suffix}`;
+  return truncate(`${name} ${suffix}`, ctx.maxLength);
 }
 
 export function generateText(ctx: GeneratorContext, mode: 'short' | 'medium' | 'long'): string {
@@ -116,6 +116,14 @@ export function generateText(ctx: GeneratorContext, mode: 'short' | 'medium' | '
   for (let i = 0; i < wordCount; i++) {
     words.push(ctx.seed.pick(WORDS));
   }
-  const text = words.join(' ');
-  return text.charAt(0).toUpperCase() + text.slice(1);
+  let text = words.join(' ');
+  text = text.charAt(0).toUpperCase() + text.slice(1);
+  return truncate(text, ctx.maxLength);
+}
+
+function truncate(value: string, maxLength?: number | null): string {
+  if (maxLength != null && maxLength > 0 && value.length > maxLength) {
+    return value.slice(0, maxLength);
+  }
+  return value;
 }
