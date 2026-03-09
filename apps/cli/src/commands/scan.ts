@@ -1,17 +1,6 @@
 import { loadConfig } from '@databox/config';
 import { scanDatabase } from '@databox/core';
-
-function maskConnectionString(connectionString: string): string {
-  try {
-    const url = new URL(connectionString);
-    if (url.password) {
-      url.password = '****';
-    }
-    return url.toString();
-  } catch {
-    return connectionString.replace(/:([^@/]+)@/, ':****@');
-  }
-}
+import { maskConnectionString } from '../utils.js';
 
 export async function scanCommand(): Promise<void> {
   try {

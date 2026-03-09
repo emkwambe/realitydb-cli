@@ -143,3 +143,6 @@ vite.config.ts.timestamp-*
 
 # DataBox config (contains database credentials)
 databox.config.json
+
+# DataBox export output
+.databox/

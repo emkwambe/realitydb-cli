@@ -22,7 +22,7 @@ export function run(argv: string[]): void {
   program
     .command('seed')
     .description('Seed database with generated data')
-    .option('--records <count>', 'Number of records to generate')
+    .option('--records <count>', 'Number of records per table')
     .option('--template <name>', 'Template to use')
     .option('--seed <number>', 'Random seed for reproducibility')
     .action(seedCommand);
@@ -37,6 +37,9 @@ export function run(argv: string[]): void {
     .command('export')
     .description('Export generated data')
     .option('--format <format>', 'Output format (json|csv|sql)', 'json')
+    .option('--output <dir>', 'Output directory', './.databox')
+    .option('--records <count>', 'Number of records per table')
+    .option('--seed <number>', 'Random seed for reproducibility')
     .action(exportCommand);
 
   program.parse(argv);
