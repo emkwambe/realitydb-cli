@@ -52,7 +52,7 @@ export function parseTimelineString(input: string): TimelineConfig {
     growthModel: {
       kind: 's-curve',
       initialCount: 1,
-      finalCount: 0, // Will be computed from plan's rowCount
+      finalCount: 0, // Set by pipeline from plan's defaultRecords before use
     },
   };
 }

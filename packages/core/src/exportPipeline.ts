@@ -52,6 +52,11 @@ export async function exportDataset(
     ? parseTimelineString(options.timeline)
     : undefined;
 
+  // Set finalCount from plan's rowCount so the config is self-consistent
+  if (timelineConfig) {
+    timelineConfig.growthModel.finalCount = effectiveConfig.seed.defaultRecords;
+  }
+
   const pool = createPostgresClient(effectiveConfig.database.connectionString);
 
   try {
