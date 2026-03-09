@@ -31,3 +31,10 @@ export { resolveForeignKey } from './foreignKeyResolver.js';
 export { exportToJson } from './exporters/json.js';
 export { exportToCsv } from './exporters/csv.js';
 export { exportToSql } from './exporters/sql.js';
+export {
+  weightedChoice,
+  boundedNormal,
+  longTailInteger,
+  uniformChoice,
+  percentageChance,
+} from './distributions.js';
