@@ -84,4 +84,5 @@ export interface GenerationPlan {
   reproducibility: ReproducibilityPlan;
   template?: TemplatePlan;
   timeline?: import('./timelineTypes.js').TimelineConfig;
+  scenarios?: import('./scenarioTypes.js').ScenarioConfig[];
 }

@@ -21,3 +21,7 @@ export type {
   TimelineSlot,
   TemporalConstraint,
 } from './timelineTypes.js';
+export type {
+  ScenarioConfig,
+  ScenarioResult,
+} from './scenarioTypes.js';

@@ -51,3 +51,17 @@ export {
   applyTemporalConstraint,
 } from './temporalResolver.js';
 export { generateTimelineDataset } from './timeline.js';
+export {
+  ScenarioRegistry,
+  createScenarioRegistry,
+  getDefaultScenarioRegistry,
+  applyScenarios,
+  matchesAnyPattern,
+} from './scenarioEngine.js';
+export type { ScenarioDefinition, ScenarioApplyFn } from './scenarioEngine.js';
+export {
+  paymentFailuresScenario,
+  churnSpikeScenario,
+  fraudSpikeScenario,
+  dataQualityScenario,
+} from './scenarios/index.js';
