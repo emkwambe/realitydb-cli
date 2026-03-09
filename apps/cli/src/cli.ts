@@ -86,5 +86,13 @@ export function run(argv: string[]): void {
     .option('--confirm', 'Confirm import operation')
     .action(packImportCommand);
 
+  // Print version banner when no command is given
+  program.action(() => {
+    console.log('');
+    console.log('DataBox v0.1.0 — Developer Reality Platform');
+    console.log('Run `databox --help` for available commands.');
+    console.log('');
+  });
+
   program.parse(argv);
 }
