@@ -1,5 +1,5 @@
 import { loadConfig } from '@databox/config';
-import { exportDataset } from '@databox/core';
+import { exportDataset, getDefaultScenarioRegistry } from '@databox/core';
 import { getDefaultRegistry } from '@databox/templates';
 import { maskConnectionString } from '../utils.js';
 
@@ -9,6 +9,9 @@ export async function exportCommand(options: {
   records?: string;
   seed?: string;
   template?: string;
+  timeline?: string;
+  scenario?: string;
+  scenarioIntensity?: string;
 }): Promise<void> {
   try {
     const config = await loadConfig();
@@ -18,6 +21,9 @@ export async function exportCommand(options: {
     const records = options.records ? parseInt(options.records, 10) : undefined;
     const seed = options.seed ? parseInt(options.seed, 10) : undefined;
     const templateName = options.template ?? config.template;
+    const timeline = options.timeline;
+    const scenario = options.scenario;
+    const scenarioIntensity = (options.scenarioIntensity ?? 'medium') as 'low' | 'medium' | 'high';
     const effectiveRecords = records ?? config.seed.defaultRecords;
     const masked = maskConnectionString(config.database.connectionString);
 
@@ -41,6 +47,24 @@ export async function exportCommand(options: {
       }
     }
 
+    // Validate scenario names if specified
+    if (scenario) {
+      const scenarioRegistry = getDefaultScenarioRegistry();
+      const scenarioNames = scenario.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
+      for (const name of scenarioNames) {
+        if (!scenarioRegistry.get(name)) {
+          const available = scenarioRegistry.list();
+          console.error(`[databox] Scenario "${name}" not found.`);
+          console.error('');
+          console.error('Available scenarios:');
+          for (const s of available) {
+            console.error(`  ${s.name} — ${s.description} (${s.supportedIntensities.join(', ')})`);
+          }
+          process.exit(1);
+        }
+      }
+    }
+
     console.log('');
     console.log('DataBox Export');
     console.log('═══════════════════════════════════════');
@@ -48,9 +72,18 @@ export async function exportCommand(options: {
     if (templateName) {
       console.log(`Template: ${templateName}`);
     }
+    if (timeline) {
+      console.log(`Timeline: ${timeline}`);
+      console.log(`Growth: s-curve`);
+    }
     console.log(`Format: ${format}`);
     console.log(`Output: ${outputDir}`);
     console.log(`Records per table: ${effectiveRecords}`);
+    if (scenario) {
+      const scenarioNames = scenario.split(',').map((s) => s.trim());
+      const scenarioDisplay = scenarioNames.map((s) => `${s} (${scenarioIntensity})`).join(', ');
+      console.log(`Scenarios: ${scenarioDisplay}`);
+    }
     console.log('');
 
     console.log('Generating dataset...');
@@ -60,7 +93,18 @@ export async function exportCommand(options: {
       records,
       seed,
       template: templateName,
+      timeline,
+      scenarios: scenario,
+      scenarioIntensity,
     });
+
+    // Print scenario results if any
+    if (result.scenariosApplied && result.scenariosApplied.length > 0) {
+      console.log('Applying scenarios...');
+      for (const sr of result.scenariosApplied) {
+        console.log(`  ${sr.scenarioName}: ${sr.rowsAffected} rows affected`);
+      }
+    }
 
     console.log('Exporting...');
     for (const filePath of result.files) {
@@ -75,6 +119,8 @@ export async function exportCommand(options: {
     if (message.includes('Config file not found')) {
       console.error(`[databox] ${message}`);
       console.error('Hint: Copy databox.config.example.json to databox.config.json');
+    } else if (message.includes('Invalid timeline format')) {
+      console.error(`[databox] ${message}`);
     } else if (message.includes('connection') || message.includes('ECONNREFUSED')) {
       console.error(`[databox] Export failed: ${message}`);
       console.error('Hint: Check that your database is running (e.g. Docker)');

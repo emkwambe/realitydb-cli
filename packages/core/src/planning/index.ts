@@ -21,3 +21,5 @@ export { buildGenerationPlan } from './buildPlan.js';
 
 export { validateGenerationPlan } from './validatePlan.js';
 export type { PlanValidationResult } from './validatePlan.js';
+
+export { parseTimelineString } from './parseTimeline.js';

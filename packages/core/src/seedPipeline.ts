@@ -1,16 +1,21 @@
 import type { DataboxConfig } from '@databox/config';
 import type { DatabaseSchema } from '@databox/schema';
-import type { GenerationPlan } from '@databox/shared';
+import type { GenerationPlan, ScenarioConfig, ScenarioResult } from '@databox/shared';
 import type { DatasetInsertResult } from '@databox/db';
 import { createPostgresClient, testConnection, closeConnection, withTransaction, batchInsertDataset } from '@databox/db';
+import { createSeededRandom } from '@databox/shared';
 import { introspectDatabase } from '@databox/schema';
-import { generateDataset } from '@databox/generators';
+import { generateDataset, generateTimelineDataset, applyScenarios } from '@databox/generators';
 import { buildGenerationPlan, validateGenerationPlan } from './planning/index.js';
+import { parseTimelineString } from './planning/parseTimeline.js';
 
 export interface SeedOptions {
   records?: number;
   seed?: number;
   template?: string;
+  timeline?: string;
+  scenarios?: string;
+  scenarioIntensity?: 'low' | 'medium' | 'high';
 }
 
 export interface SeedResult {
@@ -19,6 +24,8 @@ export interface SeedResult {
   insertResult: DatasetInsertResult;
   totalRows: number;
   durationMs: number;
+  timelineUsed?: boolean;
+  scenariosApplied?: ScenarioResult[];
 }
 
 export async function seedDatabase(
@@ -40,6 +47,11 @@ export async function seedDatabase(
     effectiveConfig.template = options.template;
   }
 
+  // Parse timeline if provided
+  const timelineConfig = options?.timeline
+    ? parseTimelineString(options.timeline)
+    : undefined;
+
   const pool = createPostgresClient(effectiveConfig.database.connectionString);
 
   try {
@@ -47,7 +59,7 @@ export async function seedDatabase(
 
     const schema = await introspectDatabase(pool);
 
-    const plan = buildGenerationPlan(schema, effectiveConfig);
+    const plan = buildGenerationPlan(schema, effectiveConfig, timelineConfig);
 
     const validation = validateGenerationPlan(plan);
     if (!validation.valid) {
@@ -56,7 +68,23 @@ export async function seedDatabase(
       );
     }
 
-    const dataset = generateDataset(plan);
+    // Generate dataset — use timeline engine if timeline provided
+    let dataset = timelineConfig
+      ? generateTimelineDataset(plan, timelineConfig)
+      : generateDataset(plan);
+
+    // Apply scenarios if provided
+    let scenariosApplied: ScenarioResult[] | undefined;
+    if (options?.scenarios) {
+      const scenarioConfigs = parseScenarioString(
+        options.scenarios,
+        options.scenarioIntensity ?? 'medium',
+      );
+      const random = createSeededRandom(plan.reproducibility.randomSeed);
+      const result = applyScenarios(dataset, scenarioConfigs, random);
+      dataset = result.dataset;
+      scenariosApplied = result.results;
+    }
 
     const insertResult = await withTransaction(pool, async (client) => {
       return batchInsertDataset(client, dataset, plan.tableOrder, plan.config.batchSize);
@@ -70,8 +98,24 @@ export async function seedDatabase(
       insertResult,
       totalRows: insertResult.totalRows,
       durationMs,
+      timelineUsed: !!timelineConfig,
+      scenariosApplied,
     };
   } finally {
     await closeConnection(pool);
   }
+}
+
+function parseScenarioString(
+  scenarios: string,
+  intensity: 'low' | 'medium' | 'high',
+): ScenarioConfig[] {
+  return scenarios
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+    .map((name) => ({
+      name,
+      intensity,
+    }));
 }

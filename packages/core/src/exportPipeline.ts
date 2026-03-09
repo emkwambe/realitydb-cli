@@ -1,8 +1,11 @@
 import type { DataboxConfig } from '@databox/config';
+import type { ScenarioConfig, ScenarioResult } from '@databox/shared';
 import { createPostgresClient, testConnection, closeConnection } from '@databox/db';
+import { createSeededRandom } from '@databox/shared';
 import { introspectDatabase } from '@databox/schema';
-import { generateDataset, exportToJson, exportToCsv, exportToSql } from '@databox/generators';
+import { generateDataset, generateTimelineDataset, exportToJson, exportToCsv, exportToSql, applyScenarios } from '@databox/generators';
 import { buildGenerationPlan } from './planning/index.js';
+import { parseTimelineString } from './planning/parseTimeline.js';
 
 export interface ExportOptions {
   format?: 'json' | 'csv' | 'sql';
@@ -10,6 +13,9 @@ export interface ExportOptions {
   records?: number;
   seed?: number;
   template?: string;
+  timeline?: string;
+  scenarios?: string;
+  scenarioIntensity?: 'low' | 'medium' | 'high';
 }
 
 export interface ExportResult {
@@ -17,6 +23,8 @@ export interface ExportResult {
   files: string[];
   totalRows: number;
   outputDir: string;
+  timelineUsed?: boolean;
+  scenariosApplied?: ScenarioResult[];
 }
 
 export async function exportDataset(
@@ -39,6 +47,11 @@ export async function exportDataset(
     effectiveConfig.template = options.template;
   }
 
+  // Parse timeline if provided
+  const timelineConfig = options?.timeline
+    ? parseTimelineString(options.timeline)
+    : undefined;
+
   const pool = createPostgresClient(effectiveConfig.database.connectionString);
 
   try {
@@ -46,9 +59,25 @@ export async function exportDataset(
 
     const schema = await introspectDatabase(pool);
 
-    const plan = buildGenerationPlan(schema, effectiveConfig);
+    const plan = buildGenerationPlan(schema, effectiveConfig, timelineConfig);
 
-    const dataset = generateDataset(plan);
+    // Generate dataset — use timeline engine if timeline provided
+    let dataset = timelineConfig
+      ? generateTimelineDataset(plan, timelineConfig)
+      : generateDataset(plan);
+
+    // Apply scenarios if provided
+    let scenariosApplied: ScenarioResult[] | undefined;
+    if (options?.scenarios) {
+      const scenarioConfigs = parseScenarioString(
+        options.scenarios,
+        options.scenarioIntensity ?? 'medium',
+      );
+      const random = createSeededRandom(plan.reproducibility.randomSeed);
+      const result = applyScenarios(dataset, scenarioConfigs, random);
+      dataset = result.dataset;
+      scenariosApplied = result.results;
+    }
 
     let files: string[];
 
@@ -71,8 +100,24 @@ export async function exportDataset(
       files,
       totalRows: dataset.totalRows,
       outputDir,
+      timelineUsed: !!timelineConfig,
+      scenariosApplied,
     };
   } finally {
     await closeConnection(pool);
   }
+}
+
+function parseScenarioString(
+  scenarios: string,
+  intensity: 'low' | 'medium' | 'high',
+): ScenarioConfig[] {
+  return scenarios
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+    .map((name) => ({
+      name,
+      intensity,
+    }));
 }
