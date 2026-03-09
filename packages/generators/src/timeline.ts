@@ -19,6 +19,14 @@ import type {
 /**
  * Alternative to generateDataset that respects timeline configuration.
  * Generates rows distributed across time slots with temporal coherence.
+ *
+ * Architecture: slot-first iteration.
+ *   for each slot → for each table (in FK-safe tableOrder)
+ *
+ * This ensures that within each slot, parent tables are generated before
+ * child tables, and allGeneratedTables always contains the cumulative
+ * rows from all previous slots — so FK resolution never fails even when
+ * a parent has 0 rows in the current slot.
  */
 export function generateTimelineDataset(
   plan: GenerationPlan,
@@ -30,7 +38,6 @@ export function generateTimelineDataset(
 
   const slots = computeTimelineSlots(timelineConfig);
   if (slots.length === 0) {
-    // Fallback: no slots means empty or invalid range
     return {
       tables: allGeneratedTables,
       generatedAt: new Date().toISOString(),
@@ -52,7 +59,7 @@ export function generateTimelineDataset(
     }
   }
 
-  // Identify which tables have timestamp columns
+  // Identify which tables have timestamp columns (these get per-slot distribution)
   const tablesWithTimestamps = new Set<string>();
   for (const tablePlan of plan.tables) {
     const hasTimestamp = tablePlan.columns.some(
@@ -63,14 +70,23 @@ export function generateTimelineDataset(
     }
   }
 
-  // Generate tables in plan.tableOrder (parent tables first)
+  // Pre-resolve column generators for each table
+  const tableColumnGenerators = new Map<string, Array<{
+    columnName: string;
+    generator: GeneratorFunction | null;
+    isForeignKey: boolean;
+    isTimestamp: boolean;
+    foreignKeyRef: ReturnType<typeof getFKRef>;
+    maxLength: number | null | undefined;
+  }>>();
+
+  // Track which non-timestamp tables have already been fully generated
+  const nonTemporalGenerated = new Set<string>();
+
   for (const tableName of plan.tableOrder) {
     const tablePlan = tablePlanMap.get(tableName);
     if (!tablePlan || !tablePlan.enabled) continue;
 
-    const hasTimeline = tablesWithTimestamps.has(tableName);
-
-    // Pre-resolve generators
     const columnGenerators = tablePlan.columns.map((colPlan) => {
       if (colPlan.strategy.kind === 'foreign_key' && colPlan.foreignKeyRef) {
         return {
@@ -93,122 +109,70 @@ export function generateTimelineDataset(
       };
     });
 
-    const columns = tablePlan.columns.map((c) => c.columnName);
-    const constraints = constraintMap.get(tableName) ?? [];
-    const allRows: GeneratedRow[] = [];
+    tableColumnGenerators.set(tableName, columnGenerators);
 
-    if (hasTimeline) {
-      // Distribute rows across time slots
-      for (const slot of slots) {
-        const slotRowCount = Math.round(
-          (slot.targetRowCount / tablePlan.rowCount) * tablePlan.rowCount,
-        );
+    // Initialize the table entry in allGeneratedTables so FK resolver
+    // can find the table even before any rows are added
+    allGeneratedTables.set(tableName, {
+      tableName,
+      columns: tablePlan.columns.map((c) => c.columnName),
+      rows: [],
+      rowCount: 0,
+    });
+  }
 
-        for (let rowIndex = 0; rowIndex < slot.targetRowCount; rowIndex++) {
-          const globalRowIndex = allRows.length;
-          const row: GeneratedRow = {};
+  // Slot-first iteration: for each slot, generate rows for ALL tables in FK order
+  for (let slotIndex = 0; slotIndex < slots.length; slotIndex++) {
+    const slot = slots[slotIndex];
+    const isFirstSlot = slotIndex === 0;
 
-          for (const colGen of columnGenerators) {
-            const ctx: GeneratorContext = {
-              seed,
-              rowIndex: globalRowIndex,
-              tableName,
-              columnName: colGen.columnName,
-              allGeneratedTables,
-              maxLength: colGen.maxLength,
-            };
+    for (const tableName of plan.tableOrder) {
+      const tablePlan = tablePlanMap.get(tableName);
+      if (!tablePlan || !tablePlan.enabled) continue;
 
-            if (colGen.isForeignKey && colGen.foreignKeyRef) {
-              row[colGen.columnName] = resolveForeignKey(ctx, colGen.foreignKeyRef);
-            } else if (colGen.isTimestamp) {
-              // Check for temporal constraint
-              const constraint = constraints.find(
-                (c) => c.columnName === colGen.columnName,
-              );
+      const hasTimeline = tablesWithTimestamps.has(tableName);
+      const columnGenerators = tableColumnGenerators.get(tableName)!;
+      const constraints = constraintMap.get(tableName) ?? [];
+      const table = allGeneratedTables.get(tableName)!;
 
-              if (constraint) {
-                // Get parent row for dependent constraints
-                let parentRow: GeneratedRow | null = null;
-                if (constraint.mode === 'dependent' && constraint.afterTable) {
-                  const parentTable = allGeneratedTables.get(constraint.afterTable);
-                  if (parentTable && parentTable.rows.length > 0) {
-                    // Pick the parent row that this row references via FK
-                    const fkCol = columnGenerators.find(
-                      (c) => c.isForeignKey && c.foreignKeyRef?.referencedTable === constraint.afterTable,
-                    );
-                    if (fkCol && row[fkCol.columnName] !== undefined) {
-                      const parentPK = constraint.afterColumn
-                        ? undefined
-                        : undefined;
-                      // Find the parent row by FK value
-                      const fkValue = row[fkCol.columnName];
-                      const refCol = fkCol.foreignKeyRef!.referencedColumn;
-                      parentRow = parentTable.rows.find((r) => r[refCol] === fkValue) ?? null;
-                    }
-                    if (!parentRow) {
-                      parentRow = parentTable.rows[globalRowIndex % parentTable.rows.length] ?? null;
-                    }
-                  }
-                } else if (constraint.mode === 'lifecycle') {
-                  // Lifecycle: reference same row
-                  parentRow = row;
-                }
+      if (!hasTimeline) {
+        // Tables without timestamps: generate ALL rows in the first slot only,
+        // so child tables in this and subsequent slots can reference them.
+        if (!isFirstSlot) continue;
+        if (nonTemporalGenerated.has(tableName)) continue;
 
-                row[colGen.columnName] = applyTemporalConstraint(
-                  seed,
-                  constraint,
-                  parentRow,
-                  slot.startDate,
-                  slot.endDate,
-                );
-              } else {
-                // No constraint, place within slot
-                const slotMs = slot.endDate.getTime() - slot.startDate.getTime();
-                const offsetMs = Math.floor(seed.next() * Math.max(slotMs, 1));
-                row[colGen.columnName] = new Date(
-                  slot.startDate.getTime() + offsetMs,
-                ).toISOString();
-              }
-            } else if (colGen.generator) {
-              row[colGen.columnName] = colGen.generator(ctx);
-            }
-          }
-
-          allRows.push(row);
-        }
-      }
-    } else {
-      // Table without timestamps: generate all rows normally
-      for (let rowIndex = 0; rowIndex < tablePlan.rowCount; rowIndex++) {
-        const row: GeneratedRow = {};
-
-        for (const colGen of columnGenerators) {
-          const ctx: GeneratorContext = {
+        for (let rowIndex = 0; rowIndex < tablePlan.rowCount; rowIndex++) {
+          const row = generateRow(
+            columnGenerators,
+            constraints,
             seed,
             rowIndex,
             tableName,
-            columnName: colGen.columnName,
             allGeneratedTables,
-            maxLength: colGen.maxLength,
-          };
-
-          if (colGen.isForeignKey && colGen.foreignKeyRef) {
-            row[colGen.columnName] = resolveForeignKey(ctx, colGen.foreignKeyRef);
-          } else if (colGen.generator) {
-            row[colGen.columnName] = colGen.generator(ctx);
-          }
+            null, // no slot for non-temporal tables
+          );
+          table.rows.push(row);
         }
-
-        allRows.push(row);
+        table.rowCount = table.rows.length;
+        nonTemporalGenerated.add(tableName);
+      } else {
+        // Tables with timestamps: generate this slot's share of rows
+        for (let rowIndex = 0; rowIndex < slot.targetRowCount; rowIndex++) {
+          const globalRowIndex = table.rows.length;
+          const row = generateRow(
+            columnGenerators,
+            constraints,
+            seed,
+            globalRowIndex,
+            tableName,
+            allGeneratedTables,
+            slot,
+          );
+          table.rows.push(row);
+        }
+        table.rowCount = table.rows.length;
       }
     }
-
-    allGeneratedTables.set(tableName, {
-      tableName,
-      columns,
-      rows: allRows,
-      rowCount: allRows.length,
-    });
   }
 
   // Compute total rows
@@ -223,4 +187,96 @@ export function generateTimelineDataset(
     seed: plan.reproducibility.randomSeed,
     totalRows,
   };
+}
+
+/**
+ * Generate a single row using column generators and temporal constraints.
+ */
+function generateRow(
+  columnGenerators: Array<{
+    columnName: string;
+    generator: GeneratorFunction | null;
+    isForeignKey: boolean;
+    isTimestamp: boolean;
+    foreignKeyRef: ReturnType<typeof getFKRef>;
+    maxLength: number | null | undefined;
+  }>,
+  constraints: TemporalConstraint[],
+  seed: ReturnType<typeof createSeededRandom>,
+  rowIndex: number,
+  tableName: string,
+  allGeneratedTables: Map<string, GeneratedTable>,
+  slot: { startDate: Date; endDate: Date; targetRowCount: number } | null,
+): GeneratedRow {
+  const row: GeneratedRow = {};
+
+  for (const colGen of columnGenerators) {
+    const ctx: GeneratorContext = {
+      seed,
+      rowIndex,
+      tableName,
+      columnName: colGen.columnName,
+      allGeneratedTables,
+      maxLength: colGen.maxLength,
+    };
+
+    if (colGen.isForeignKey && colGen.foreignKeyRef) {
+      row[colGen.columnName] = resolveForeignKey(ctx, colGen.foreignKeyRef);
+    } else if (colGen.isTimestamp && slot) {
+      // Check for temporal constraint
+      const constraint = constraints.find(
+        (c) => c.columnName === colGen.columnName,
+      );
+
+      if (constraint) {
+        // Get parent row for dependent constraints
+        let parentRow: GeneratedRow | null = null;
+        if (constraint.mode === 'dependent' && constraint.afterTable) {
+          const parentTable = allGeneratedTables.get(constraint.afterTable);
+          if (parentTable && parentTable.rows.length > 0) {
+            // Pick the parent row that this row references via FK
+            const fkCol = columnGenerators.find(
+              (c) => c.isForeignKey && c.foreignKeyRef?.referencedTable === constraint.afterTable,
+            );
+            if (fkCol && row[fkCol.columnName] !== undefined) {
+              // Find the parent row by FK value
+              const fkValue = row[fkCol.columnName];
+              const refCol = fkCol.foreignKeyRef!.referencedColumn;
+              parentRow = parentTable.rows.find((r) => r[refCol] === fkValue) ?? null;
+            }
+            if (!parentRow) {
+              parentRow = parentTable.rows[rowIndex % parentTable.rows.length] ?? null;
+            }
+          }
+        } else if (constraint.mode === 'lifecycle') {
+          // Lifecycle: reference same row
+          parentRow = row;
+        }
+
+        row[colGen.columnName] = applyTemporalConstraint(
+          seed,
+          constraint,
+          parentRow,
+          slot.startDate,
+          slot.endDate,
+        );
+      } else {
+        // No constraint, place within slot
+        const slotMs = slot.endDate.getTime() - slot.startDate.getTime();
+        const offsetMs = Math.floor(seed.next() * Math.max(slotMs, 1));
+        row[colGen.columnName] = new Date(
+          slot.startDate.getTime() + offsetMs,
+        ).toISOString();
+      }
+    } else if (colGen.generator) {
+      row[colGen.columnName] = colGen.generator(ctx);
+    }
+  }
+
+  return row;
+}
+
+// Helper type extraction — used only for type inference
+function getFKRef() {
+  return undefined as import('@databox/shared').ForeignKeyReferencePlan | undefined;
 }
