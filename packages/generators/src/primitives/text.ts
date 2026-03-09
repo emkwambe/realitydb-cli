@@ -71,7 +71,7 @@ export function generateEmail(ctx: GeneratorContext): string {
   const first = ctx.seed.pick(FIRST_NAMES).toLowerCase();
   const last = ctx.seed.pick(LAST_NAMES).toLowerCase();
   const domain = ctx.seed.pick(EMAIL_DOMAINS);
-  return truncate(`${first}.${last}@${domain}`, ctx.maxLength);
+  return truncate(`${first}.${last}.${ctx.rowIndex}@${domain}`, ctx.maxLength);
 }
 
 export function generateFirstName(ctx: GeneratorContext): string {
