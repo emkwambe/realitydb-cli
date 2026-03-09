@@ -39,3 +39,15 @@ export {
   uniformChoice,
   percentageChance,
 } from './distributions.js';
+export {
+  computeTimelineSlots,
+  linearGrowth,
+  exponentialGrowth,
+  sCurveGrowth,
+  flatGrowth,
+} from './growthModels.js';
+export {
+  resolveTemporalConstraints,
+  applyTemporalConstraint,
+} from './temporalResolver.js';
+export { generateTimelineDataset } from './timeline.js';

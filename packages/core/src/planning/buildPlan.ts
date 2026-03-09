@@ -1,6 +1,7 @@
 import type { DatabaseSchema, ForeignKeySchema } from '@databox/schema';
 import type { DataboxConfig } from '@databox/config';
-import { inferColumnStrategy } from '@databox/generators';
+import type { TimelineConfig } from '@databox/shared';
+import { inferColumnStrategy, resolveTemporalConstraints } from '@databox/generators';
 import { getDefaultRegistry, resolveColumnOverride } from '@databox/templates';
 import { buildDependencyGraph } from './dependencyGraph.js';
 import { topologicalSort } from './topologicalSort.js';
@@ -14,6 +15,7 @@ import type {
 export function buildGenerationPlan(
   schema: DatabaseSchema,
   config: DataboxConfig,
+  timelineConfig?: TimelineConfig,
 ): GenerationPlan {
   const defaultRowCount = config.seed.defaultRecords;
   const batchSize = config.seed.batchSize;
@@ -127,6 +129,22 @@ export function buildGenerationPlan(
     };
   });
 
+  // Resolve temporal constraints if timeline is enabled
+  if (timelineConfig?.enabled) {
+    const temporalConstraints = resolveTemporalConstraints(
+      schema,
+      schema.foreignKeys,
+      config.template,
+    );
+
+    for (const tablePlan of tables) {
+      const constraints = temporalConstraints.get(tablePlan.tableName);
+      if (constraints) {
+        tablePlan.temporalConstraints = constraints;
+      }
+    }
+  }
+
   // Compute deterministic planId from schema + config
   const planId = computePlanId(schema, config);
 
@@ -155,6 +173,11 @@ export function buildGenerationPlan(
       name: template.name,
       version: template.version,
     };
+  }
+
+  // Attach timeline config if provided
+  if (timelineConfig?.enabled) {
+    plan.timeline = timelineConfig;
   }
 
   return plan;

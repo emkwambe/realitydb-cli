@@ -46,6 +46,7 @@ export interface TableGenerationPlan {
   dependencies: string[];
   columns: ColumnGenerationPlan[];
   enabled: boolean;
+  temporalConstraints?: import('./timelineTypes.js').TemporalConstraint[];
 }
 
 export interface GenerationPlanConfig {
@@ -82,4 +83,5 @@ export interface GenerationPlan {
   tables: TableGenerationPlan[];
   reproducibility: ReproducibilityPlan;
   template?: TemplatePlan;
+  timeline?: import('./timelineTypes.js').TimelineConfig;
 }

@@ -15,3 +15,9 @@ export type {
   TemplatePlan,
   GenerationPlan,
 } from './planTypes.js';
+export type {
+  TimelineConfig,
+  GrowthModelConfig,
+  TimelineSlot,
+  TemporalConstraint,
+} from './timelineTypes.js';
