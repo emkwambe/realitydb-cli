@@ -51,7 +51,7 @@ export function parseTimelineString(input: string): TimelineConfig {
     granularity: 'month',
     growthModel: {
       kind: 's-curve',
-      initialCount: 0,
+      initialCount: 1,
       finalCount: 0, // Will be computed from plan's rowCount
     },
   };

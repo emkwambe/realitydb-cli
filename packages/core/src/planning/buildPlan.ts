@@ -120,14 +120,44 @@ export function buildGenerationPlan(
       ? Math.round(defaultRowCount * tableConfig.rowCountMultiplier)
       : defaultRowCount;
 
+    // When a template is active, only enable tables matched by the template
+    const enabled = template ? tableConfig !== null : true;
+
     return {
       tableName: table.name,
       rowCount,
       dependencies: uniqueDeps,
       columns,
-      enabled: true,
+      enabled,
     };
   });
+
+  // When a template is active, also enable any disabled tables that are
+  // FK dependencies of enabled tables (transitive closure).
+  if (template) {
+    const enabledSet = new Set(
+      tables.filter((t) => t.enabled).map((t) => t.tableName),
+    );
+
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const tablePlan of tables) {
+        if (tablePlan.enabled) {
+          for (const dep of tablePlan.dependencies) {
+            if (!enabledSet.has(dep)) {
+              enabledSet.add(dep);
+              const depPlan = tables.find((t) => t.tableName === dep);
+              if (depPlan && !depPlan.enabled) {
+                depPlan.enabled = true;
+                changed = true;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
 
   // Resolve temporal constraints if timeline is enabled
   if (timelineConfig?.enabled) {
