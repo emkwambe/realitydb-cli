@@ -1,5 +1,6 @@
 import { loadConfig } from '@databox/config';
 import { seedDatabase } from '@databox/core';
+import { getDefaultRegistry } from '@databox/templates';
 import { maskConnectionString } from '../utils.js';
 
 export async function seedCommand(options: {
@@ -12,6 +13,27 @@ export async function seedCommand(options: {
 
     const records = options.records ? parseInt(options.records, 10) : undefined;
     const seed = options.seed ? parseInt(options.seed, 10) : undefined;
+    const templateName = options.template ?? config.template;
+
+    // Validate template if specified
+    if (templateName) {
+      const registry = getDefaultRegistry();
+      const template = registry.get(templateName);
+      if (!template) {
+        const available = registry.list();
+        console.error(`[databox] Template "${templateName}" not found.`);
+        console.error('');
+        if (available.length > 0) {
+          console.error('Available templates:');
+          for (const t of available) {
+            console.error(`  ${t.name} (v${t.version}) — ${t.description}`);
+          }
+        } else {
+          console.error('No templates registered.');
+        }
+        process.exit(1);
+      }
+    }
 
     const effectiveSeed = seed ?? config.seed.randomSeed ?? 42;
     const effectiveRecords = records ?? config.seed.defaultRecords;
@@ -21,8 +43,8 @@ export async function seedCommand(options: {
     console.log('DataBox Seed');
     console.log('═══════════════════════════════════════');
     console.log(`Database: ${masked}`);
-    if (config.template) {
-      console.log(`Template: ${config.template}`);
+    if (templateName) {
+      console.log(`Template: ${templateName}`);
     }
     console.log(`Seed: ${effectiveSeed}`);
     console.log(`Records per table: ${effectiveRecords}`);
@@ -32,7 +54,7 @@ export async function seedCommand(options: {
     const result = await seedDatabase(config, {
       records,
       seed,
-      template: options.template,
+      template: templateName,
     });
 
     console.log('');

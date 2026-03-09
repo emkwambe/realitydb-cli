@@ -3,6 +3,7 @@ import { scanCommand } from './commands/scan.js';
 import { seedCommand } from './commands/seed.js';
 import { resetCommand } from './commands/reset.js';
 import { exportCommand } from './commands/export.js';
+import { templatesCommand } from './commands/templates.js';
 
 export function run(argv: string[]): void {
   const program = new Command();
@@ -40,7 +41,13 @@ export function run(argv: string[]): void {
     .option('--output <dir>', 'Output directory', './.databox')
     .option('--records <count>', 'Number of records per table')
     .option('--seed <number>', 'Random seed for reproducibility')
+    .option('--template <name>', 'Template to use')
     .action(exportCommand);
+
+  program
+    .command('templates')
+    .description('List available domain templates')
+    .action(templatesCommand);
 
   program.parse(argv);
 }

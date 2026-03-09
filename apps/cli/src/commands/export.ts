@@ -1,5 +1,6 @@
 import { loadConfig } from '@databox/config';
 import { exportDataset } from '@databox/core';
+import { getDefaultRegistry } from '@databox/templates';
 import { maskConnectionString } from '../utils.js';
 
 export async function exportCommand(options: {
@@ -7,6 +8,7 @@ export async function exportCommand(options: {
   output?: string;
   records?: string;
   seed?: string;
+  template?: string;
 }): Promise<void> {
   try {
     const config = await loadConfig();
@@ -15,13 +17,37 @@ export async function exportCommand(options: {
     const outputDir = options.output ?? config.export?.outputDir ?? './.databox';
     const records = options.records ? parseInt(options.records, 10) : undefined;
     const seed = options.seed ? parseInt(options.seed, 10) : undefined;
+    const templateName = options.template ?? config.template;
     const effectiveRecords = records ?? config.seed.defaultRecords;
     const masked = maskConnectionString(config.database.connectionString);
+
+    // Validate template if specified
+    if (templateName) {
+      const registry = getDefaultRegistry();
+      const template = registry.get(templateName);
+      if (!template) {
+        const available = registry.list();
+        console.error(`[databox] Template "${templateName}" not found.`);
+        console.error('');
+        if (available.length > 0) {
+          console.error('Available templates:');
+          for (const t of available) {
+            console.error(`  ${t.name} (v${t.version}) — ${t.description}`);
+          }
+        } else {
+          console.error('No templates registered.');
+        }
+        process.exit(1);
+      }
+    }
 
     console.log('');
     console.log('DataBox Export');
     console.log('═══════════════════════════════════════');
     console.log(`Database: ${masked}`);
+    if (templateName) {
+      console.log(`Template: ${templateName}`);
+    }
     console.log(`Format: ${format}`);
     console.log(`Output: ${outputDir}`);
     console.log(`Records per table: ${effectiveRecords}`);
@@ -33,6 +59,7 @@ export async function exportCommand(options: {
       outputDir,
       records,
       seed,
+      template: templateName,
     });
 
     console.log('Exporting...');

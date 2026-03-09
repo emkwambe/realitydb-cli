@@ -9,6 +9,7 @@ export interface ExportOptions {
   outputDir?: string;
   records?: number;
   seed?: number;
+  template?: string;
 }
 
 export interface ExportResult {
@@ -33,6 +34,9 @@ export async function exportDataset(
   }
   if (options?.seed !== undefined) {
     effectiveConfig.seed.randomSeed = options.seed;
+  }
+  if (options?.template !== undefined) {
+    effectiveConfig.template = options.template;
   }
 
   const pool = createPostgresClient(effectiveConfig.database.connectionString);

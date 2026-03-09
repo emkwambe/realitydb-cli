@@ -18,6 +18,7 @@
     "@databox/db": "workspace:^",
     "@databox/generators": "workspace:^",
     "@databox/schema": "workspace:^",
-    "@databox/shared": "workspace:^"
+    "@databox/shared": "workspace:^",
+    "@databox/templates": "workspace:^"
   }
 }
