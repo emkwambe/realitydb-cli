@@ -13,3 +13,5 @@ export {
   resolveColumnOverride,
   resolveTableConfig,
 } from './resolver.js';
+export { saasTemplate } from './domains/saas.js';
+export { ecommerceTemplate } from './domains/ecommerce.js';

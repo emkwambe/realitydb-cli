@@ -19,6 +19,7 @@ import {
 } from './primitives/numeric.js';
 import { generateTimestamp } from './primitives/temporal.js';
 import { generateEnum } from './primitives/enum.js';
+import { generateSku } from './primitives/custom.js';
 
 export interface GeneratorRegistry {
   getGenerator(strategy: ColumnStrategy): GeneratorFunction;
@@ -72,8 +73,14 @@ export function createGeneratorRegistry(): GeneratorRegistry {
         `Foreign key generator called directly for ${ctx.tableName}.${ctx.columnName}. FK resolution must be handled by the dataset engine.`
       );
     },
-    custom: () => () => {
-      throw new Error('Custom generators must be registered explicitly.');
+    custom: (strategy) => {
+      const name = strategy.options?.['name'] as string | undefined;
+      if (name === 'sku') {
+        return (ctx: GeneratorContext) => generateSku(ctx);
+      }
+      // Fallback to text generator with warning for unknown custom generators
+      console.warn(`[databox] Unknown custom generator "${name}", falling back to text.`);
+      return (ctx: GeneratorContext) => generateText(ctx, 'short');
     },
   };
 

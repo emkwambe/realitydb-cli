@@ -17,3 +17,4 @@ export {
 } from './numeric.js';
 export { generateTimestamp } from './temporal.js';
 export { generateEnum } from './enum.js';
+export { generateSku } from './custom.js';

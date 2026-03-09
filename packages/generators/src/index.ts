@@ -25,6 +25,7 @@ export {
   generateBoolean,
   generateTimestamp,
   generateEnum,
+  generateSku,
 } from './primitives/index.js';
 export { generateDataset } from './engine.js';
 export { resolveForeignKey } from './foreignKeyResolver.js';

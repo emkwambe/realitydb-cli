@@ -1,4 +1,6 @@
 import type { DomainTemplate, TableTemplateConfig } from './types.js';
+import { saasTemplate } from './domains/saas.js';
+import { ecommerceTemplate } from './domains/ecommerce.js';
 
 export class TemplateRegistry {
   private templates: Map<string, DomainTemplate> = new Map();
@@ -79,8 +81,10 @@ export function createTemplateRegistry(): TemplateRegistry {
 
 /**
  * Returns a registry pre-loaded with all built-in templates.
- * For now returns empty registry — templates added in Sprint 6B.
  */
 export function getDefaultRegistry(): TemplateRegistry {
-  return new TemplateRegistry();
+  const registry = new TemplateRegistry();
+  registry.register(saasTemplate);
+  registry.register(ecommerceTemplate);
+  return registry;
 }
