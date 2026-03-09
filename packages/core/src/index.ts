@@ -11,11 +11,14 @@ export type {
   TemplateOverride,
   DependencyGraph,
   TopologicalResult,
+  PlanValidationResult,
 } from './planning/index.js';
 
 export {
   buildDependencyGraph,
   topologicalSort,
+  buildGenerationPlan,
+  validateGenerationPlan,
 } from './planning/index.js';
 
 export { scanDatabase } from './scanPipeline.js';

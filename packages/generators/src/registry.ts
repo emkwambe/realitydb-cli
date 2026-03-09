@@ -1,4 +1,4 @@
-import type { ColumnStrategy } from '@databox/core';
+import type { ColumnStrategy } from '@databox/shared';
 import type { GeneratorContext, GeneratorFunction } from './types.js';
 import { generateUuid } from './primitives/uuid.js';
 import {

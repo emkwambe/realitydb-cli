@@ -26,3 +26,5 @@ export {
   generateTimestamp,
   generateEnum,
 } from './primitives/index.js';
+export { generateDataset } from './engine.js';
+export { resolveForeignKey } from './foreignKeyResolver.js';

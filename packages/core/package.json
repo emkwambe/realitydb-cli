@@ -16,6 +16,8 @@
   "dependencies": {
     "@databox/config": "workspace:^",
     "@databox/db": "workspace:^",
-    "@databox/schema": "workspace:^"
+    "@databox/generators": "workspace:^",
+    "@databox/schema": "workspace:^",
+    "@databox/shared": "workspace:^"
   }
 }

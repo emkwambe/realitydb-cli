@@ -1,5 +1,5 @@
 import type { ColumnSchema, ForeignKeySchema, TableSchema } from '@databox/schema';
-import type { ColumnStrategy } from '@databox/core';
+import type { ColumnStrategy } from '@databox/shared';
 
 const PERSON_LIKE_TABLES = ['users', 'user', 'people', 'person', 'contacts', 'contact', 'members', 'member', 'employees', 'employee', 'customers', 'customer'];
 

@@ -12,8 +12,7 @@
   },
   "dependencies": {
     "@databox/shared": "workspace:*",
-    "@databox/schema": "workspace:*",
-    "@databox/core": "workspace:*"
+    "@databox/schema": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.4.0"
