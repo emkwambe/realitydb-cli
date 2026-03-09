@@ -23,3 +23,12 @@ export {
 
 export { scanDatabase } from './scanPipeline.js';
 export type { ScanResult } from './scanPipeline.js';
+
+export { seedDatabase } from './seedPipeline.js';
+export type { SeedResult, SeedOptions } from './seedPipeline.js';
+
+export { resetDatabase } from './resetPipeline.js';
+export type { ResetResult } from './resetPipeline.js';
+
+export { exportDataset } from './exportPipeline.js';
+export type { ExportResult, ExportOptions } from './exportPipeline.js';

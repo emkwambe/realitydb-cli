@@ -28,3 +28,6 @@ export {
 } from './primitives/index.js';
 export { generateDataset } from './engine.js';
 export { resolveForeignKey } from './foreignKeyResolver.js';
+export { exportToJson } from './exporters/json.js';
+export { exportToCsv } from './exporters/csv.js';
+export { exportToSql } from './exporters/sql.js';
