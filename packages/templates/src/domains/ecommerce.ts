@@ -8,7 +8,7 @@ export const ecommerceTemplate: DomainTemplate = {
   tableConfigs: new Map([
     ['customers', {
       tableName: 'customers',
-      matchPattern: ['customers', 'users', '*customer*', '*user*'],
+      matchPattern: ['customers', '*customer*'],
       columnOverrides: [
         { columnName: 'email', strategy: { kind: 'email' } },
         { columnName: 'first_name', strategy: { kind: 'first_name' } },

@@ -8,7 +8,7 @@ export const saasTemplate: DomainTemplate = {
   tableConfigs: new Map([
     ['users', {
       tableName: 'users',
-      matchPattern: ['users', 'accounts', 'customers', '*user*', '*account*'],
+      matchPattern: ['users', 'accounts', '*user*', '*account*'],
       columnOverrides: [
         { columnName: 'email', strategy: { kind: 'email' } },
         {
