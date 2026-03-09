@@ -5,6 +5,7 @@ import { resetCommand } from './commands/reset.js';
 import { exportCommand } from './commands/export.js';
 import { templatesCommand } from './commands/templates.js';
 import { scenariosCommand } from './commands/scenarios.js';
+import { packExportCommand, packImportCommand } from './commands/pack.js';
 
 export function run(argv: string[]): void {
   const program = new Command();
@@ -60,6 +61,30 @@ export function run(argv: string[]): void {
     .command('scenarios')
     .description('List available scenarios')
     .action(scenariosCommand);
+
+  const pack = program
+    .command('pack')
+    .description('Reality Pack operations');
+
+  pack
+    .command('export')
+    .description('Export environment as Reality Pack')
+    .option('--name <name>', 'Pack name')
+    .option('--description <desc>', 'Pack description')
+    .option('--output <dir>', 'Output directory', '.')
+    .option('--records <count>', 'Number of records per table')
+    .option('--seed <number>', 'Random seed for reproducibility')
+    .option('--template <name>', 'Template to use')
+    .option('--timeline <duration>', 'Timeline duration (e.g., "12-months", "1-year")')
+    .option('--scenario <names>', 'Scenarios to apply (comma-separated)')
+    .option('--scenario-intensity <level>', 'Scenario intensity (low|medium|high)', 'medium')
+    .action(packExportCommand);
+
+  pack
+    .command('import <file>')
+    .description('Import Reality Pack into database')
+    .option('--confirm', 'Confirm import operation')
+    .action(packImportCommand);
 
   program.parse(argv);
 }
