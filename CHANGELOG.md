@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.1.2 (2026-03-10)
+
+### Fix
+
+- Complete rebrand cleanup to RealityDB.
+- Config example renamed to `realitydb.config.example.json`.
+- Fix description encoding (em-dash replaced with ASCII dash).
+- Update `.gitignore` with `realitydb` config and export directory entries.
+
 ## v0.1.1 (2026-03-10)
 
 ### Fix

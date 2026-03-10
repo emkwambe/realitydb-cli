@@ -141,8 +141,12 @@ vite.config.ts.timestamp-*
 # Turbo cache
 .turbo/
 
-# DataBox config (contains database credentials)
+# RealityDB config (contains database credentials)
+realitydb.config.json
+seedforge.config.json
 databox.config.json
 
-# DataBox export output
+# RealityDB export output
+.realitydb/
+.seedforge/
 .databox/

@@ -13,7 +13,7 @@ export function run(argv: string[]): void {
   program
     .name('realitydb')
     .description('RealityDB — Developer Reality Platform')
-    .version('0.1.1')
+    .version('0.1.2')
     .option('--config <path>', 'Path to config file')
     .option('--verbose', 'Enable verbose output', false);
 
@@ -89,7 +89,7 @@ export function run(argv: string[]): void {
   // Print version banner when no command is given
   program.action(() => {
     console.log('');
-    console.log('RealityDB v0.1.1 — Developer Reality Platform');
+    console.log('RealityDB v0.1.2 — Developer Reality Platform');
     console.log('Run `realitydb --help` for available commands.');
     console.log('');
   });
