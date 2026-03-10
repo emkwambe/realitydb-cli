@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.3.0 (2026-03-10)
+
+### Features
+
+- `realitydb capture` -- snapshot live database into Reality Pack
+- `realitydb share` -- share Reality Pack with teammates
+- `realitydb load` -- load Reality Pack into database
+- Schema DDL included in captured packs
+- Selective table capture with `--tables` flag
+- CI mode support for all new commands
+
 ## v0.2.0 (2026-03-10)
 
 ### Features

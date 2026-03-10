@@ -6,8 +6,11 @@ import { exportCommand } from './commands/export.js';
 import { templatesCommand } from './commands/templates.js';
 import { scenariosCommand } from './commands/scenarios.js';
 import { packExportCommand, packImportCommand } from './commands/pack.js';
+import { captureCommand } from './commands/capture.js';
+import { shareCommand } from './commands/share.js';
+import { loadCommand } from './commands/load.js';
 
-const VERSION = '0.2.0';
+const VERSION = '0.3.0';
 
 export function run(argv: string[]): void {
   const program = new Command();
@@ -76,6 +79,36 @@ export function run(argv: string[]): void {
     .command('scenarios')
     .description('List available scenarios')
     .action(scenariosCommand);
+
+  program
+    .command('capture')
+    .description('Capture live database state into a Reality Pack')
+    .requiredOption('--name <name>', 'Name for the captured pack')
+    .option('--description <desc>', 'Pack description')
+    .option('--tables <tables>', 'Comma-separated list of tables to capture')
+    .option('--output <dir>', 'Output directory', '.')
+    .action(async (cmdOpts) => {
+      const opts = program.opts();
+      await captureCommand({ ...cmdOpts, ci: opts.ci });
+    });
+
+  program
+    .command('share <file>')
+    .description('Share a Reality Pack file')
+    .action(async (filePath) => {
+      const opts = program.opts();
+      await shareCommand(filePath, { ci: opts.ci });
+    });
+
+  program
+    .command('load <file>')
+    .description('Load a Reality Pack into the database')
+    .option('--confirm', 'Confirm import operation')
+    .option('--show-ddl', 'Show schema DDL without importing')
+    .action(async (filePath, cmdOpts) => {
+      const opts = program.opts();
+      await loadCommand(filePath, { ...cmdOpts, ci: opts.ci });
+    });
 
   const pack = program
     .command('pack')

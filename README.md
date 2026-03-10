@@ -57,6 +57,26 @@ realitydb pack export --template saas --name my-saas-env --seed 42
 realitydb pack import ./my-saas-env.databox-pack.json --confirm
 ```
 
+## Environment Reproduction
+
+Capture and share database environments for debugging:
+
+```bash
+# Capture current database state
+realitydb capture --name bug-4821
+
+# Share with teammate
+# (send the .realitydb-pack.json file)
+
+# Teammate loads the environment
+realitydb load bug-4821.realitydb-pack.json --confirm
+```
+
+Capture specific tables:
+```bash
+realitydb capture --name user-issue --tables users,subscriptions
+```
+
 ## CI/CD Integration
 
 RealityDB works seamlessly in CI pipelines:
@@ -115,6 +135,9 @@ Create `realitydb.config.json` (also reads `seedforge.config.json` and `databox.
 | `realitydb export` | Export dataset to JSON/CSV/SQL files |
 | `realitydb templates` | List available domain templates |
 | `realitydb scenarios` | List available scenarios |
+| `realitydb capture` | Capture live database state into a Reality Pack |
+| `realitydb share` | Share a Reality Pack file |
+| `realitydb load` | Load a Reality Pack into the database |
 | `realitydb pack export` | Export environment as Reality Pack |
 | `realitydb pack import` | Import Reality Pack into database |
 

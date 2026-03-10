@@ -21,6 +21,8 @@ export interface PackMetadata {
   seed: number;
   totalRows: number;
   tableCount: number;
+  ddl?: string;
+  capturedFrom?: string;
 }
 
 export interface PackSchema {

@@ -20,3 +20,5 @@ export {
   getForeignKeys,
   getPrimaryKeys,
 } from './introspection/index.js';
+
+export { generateCreateTableDDL } from './generateDDL.js';
