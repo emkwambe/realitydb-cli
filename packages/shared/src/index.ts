@@ -35,3 +35,5 @@ export type {
   PackDataset,
   PackTableData,
 } from './realityPackTypes.js';
+export type { CIOutput } from './output.js';
+export { formatCIOutput } from './output.js';

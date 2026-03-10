@@ -36,6 +36,9 @@ importers:
       '@databox/schema':
         specifier: workspace:^
         version: link:../../packages/schema
+      '@databox/shared':
+        specifier: workspace:^
+        version: link:../../packages/shared
       '@databox/templates':
         specifier: workspace:^
         version: link:../../packages/templates

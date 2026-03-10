@@ -1,7 +1,10 @@
 import { loadConfig } from '@databox/config';
 import { seedDatabase, getDefaultScenarioRegistry } from '@databox/core';
 import { getDefaultRegistry } from '@databox/templates';
+import { formatCIOutput } from '@databox/shared';
 import { maskConnectionString } from '../utils.js';
+
+const VERSION = '0.2.0';
 
 export async function seedCommand(options: {
   records?: string;
@@ -10,7 +13,9 @@ export async function seedCommand(options: {
   timeline?: string;
   scenario?: string;
   scenarioIntensity?: string;
+  ci?: boolean;
 }): Promise<void> {
+  const start = performance.now();
   try {
     const config = await loadConfig();
 
@@ -27,6 +32,17 @@ export async function seedCommand(options: {
       const template = registry.get(templateName);
       if (!template) {
         const available = registry.list();
+        if (options.ci) {
+          console.log(formatCIOutput({
+            success: false,
+            command: 'seed',
+            version: VERSION,
+            timestamp: new Date().toISOString(),
+            durationMs: Math.round(performance.now() - start),
+            error: `Template "${templateName}" not found. Available: ${available.map((t) => t.name).join(', ')}`,
+          }));
+          process.exit(1);
+        }
         console.error(`[realitydb] Template "${templateName}" not found.`);
         console.error('');
         if (available.length > 0) {
@@ -47,6 +63,17 @@ export async function seedCommand(options: {
       const scenarioNames = scenario.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
       for (const name of scenarioNames) {
         if (!scenarioRegistry.get(name)) {
+          if (options.ci) {
+            console.log(formatCIOutput({
+              success: false,
+              command: 'seed',
+              version: VERSION,
+              timestamp: new Date().toISOString(),
+              durationMs: Math.round(performance.now() - start),
+              error: `Scenario "${name}" not found`,
+            }));
+            process.exit(1);
+          }
           const available = scenarioRegistry.list();
           console.error(`[realitydb] Scenario "${name}" not found.`);
           console.error('');
@@ -63,30 +90,32 @@ export async function seedCommand(options: {
     const effectiveRecords = records ?? config.seed.defaultRecords;
     const masked = maskConnectionString(config.database.connectionString);
 
-    console.log('');
-    console.log('RealityDB Seed');
-    console.log('═══════════════════════════════════════');
-    console.log(`Database: ${masked}`);
-    if (templateName) {
-      console.log(`Template: ${templateName}`);
-    }
-    if (timeline) {
-      console.log(`Timeline: ${timeline}`);
-      console.log(`Growth: s-curve`);
-    }
-    console.log(`Seed: ${effectiveSeed}`);
-    console.log(`Records per table: ${effectiveRecords}`);
-    if (scenario) {
-      const scenarioNames = scenario.split(',').map((s) => s.trim());
-      const scenarioDisplay = scenarioNames.map((s) => `${s} (${scenarioIntensity})`).join(', ');
-      console.log(`Scenarios: ${scenarioDisplay}`);
-    }
-    console.log('');
+    if (!options.ci) {
+      console.log('');
+      console.log('RealityDB Seed');
+      console.log('═══════════════════════════════════════');
+      console.log(`Database: ${masked}`);
+      if (templateName) {
+        console.log(`Template: ${templateName}`);
+      }
+      if (timeline) {
+        console.log(`Timeline: ${timeline}`);
+        console.log(`Growth: s-curve`);
+      }
+      console.log(`Seed: ${effectiveSeed}`);
+      console.log(`Records per table: ${effectiveRecords}`);
+      if (scenario) {
+        const scenarioNames = scenario.split(',').map((s) => s.trim());
+        const scenarioDisplay = scenarioNames.map((s) => `${s} (${scenarioIntensity})`).join(', ');
+        console.log(`Scenarios: ${scenarioDisplay}`);
+      }
+      console.log('');
 
-    if (timeline) {
-      console.log('Generating with timeline...');
-    } else {
-      console.log('Seeding...');
+      if (timeline) {
+        console.log('Generating with timeline...');
+      } else {
+        console.log('Seeding...');
+      }
     }
 
     const result = await seedDatabase(config, {
@@ -97,6 +126,34 @@ export async function seedCommand(options: {
       scenarios: scenario,
       scenarioIntensity,
     });
+
+    const durationMs = Math.round(performance.now() - start);
+
+    if (options.ci) {
+      console.log(formatCIOutput({
+        success: true,
+        command: 'seed',
+        version: VERSION,
+        timestamp: new Date().toISOString(),
+        durationMs,
+        data: {
+          database: masked,
+          template: templateName ?? null,
+          seed: effectiveSeed,
+          recordsPerTable: effectiveRecords,
+          totalRows: result.totalRows,
+          tables: result.insertResult.tables.map((t) => ({
+            name: t.tableName,
+            rowsInserted: t.rowsInserted,
+            batchCount: t.batchCount,
+            durationMs: t.durationMs,
+          })),
+          timelineUsed: !!timeline,
+          scenariosApplied: result.scenariosApplied ?? [],
+        },
+      }));
+      return;
+    }
 
     // Print scenario results if any
     if (result.scenariosApplied && result.scenariosApplied.length > 0) {
@@ -121,6 +178,17 @@ export async function seedCommand(options: {
     console.log('');
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
+    if (options.ci) {
+      console.log(formatCIOutput({
+        success: false,
+        command: 'seed',
+        version: VERSION,
+        timestamp: new Date().toISOString(),
+        durationMs: Math.round(performance.now() - start),
+        error: message,
+      }));
+      process.exit(1);
+    }
     if (message.includes('Config file not found')) {
       console.error(`[realitydb] ${message}`);
       console.error('Hint: Copy realitydb.config.json to realitydb.config.json');

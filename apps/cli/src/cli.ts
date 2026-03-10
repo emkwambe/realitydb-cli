@@ -7,20 +7,26 @@ import { templatesCommand } from './commands/templates.js';
 import { scenariosCommand } from './commands/scenarios.js';
 import { packExportCommand, packImportCommand } from './commands/pack.js';
 
+const VERSION = '0.2.0';
+
 export function run(argv: string[]): void {
   const program = new Command();
 
   program
     .name('realitydb')
     .description('RealityDB — Developer Reality Platform')
-    .version('0.1.2')
+    .version(VERSION)
     .option('--config <path>', 'Path to config file')
+    .option('--ci', 'CI mode: JSON output, no prompts, proper exit codes', false)
     .option('--verbose', 'Enable verbose output', false);
 
   program
     .command('scan')
     .description('Scan database schema')
-    .action(scanCommand);
+    .action(async () => {
+      const opts = program.opts();
+      await scanCommand({ ci: opts.ci });
+    });
 
   program
     .command('seed')
@@ -31,13 +37,19 @@ export function run(argv: string[]): void {
     .option('--timeline <duration>', 'Timeline duration (e.g., "12-months", "1-year")')
     .option('--scenario <names>', 'Scenarios to apply (comma-separated)')
     .option('--scenario-intensity <level>', 'Scenario intensity (low|medium|high)', 'medium')
-    .action(seedCommand);
+    .action(async (cmdOpts) => {
+      const opts = program.opts();
+      await seedCommand({ ...cmdOpts, ci: opts.ci });
+    });
 
   program
     .command('reset')
     .description('Reset seeded data')
     .option('--confirm', 'Confirm destructive operation')
-    .action(resetCommand);
+    .action(async (cmdOpts) => {
+      const opts = program.opts();
+      await resetCommand({ ...cmdOpts, ci: opts.ci });
+    });
 
   program
     .command('export')
@@ -50,7 +62,10 @@ export function run(argv: string[]): void {
     .option('--timeline <duration>', 'Timeline duration (e.g., "12-months", "1-year")')
     .option('--scenario <names>', 'Scenarios to apply (comma-separated)')
     .option('--scenario-intensity <level>', 'Scenario intensity (low|medium|high)', 'medium')
-    .action(exportCommand);
+    .action(async (cmdOpts) => {
+      const opts = program.opts();
+      await exportCommand({ ...cmdOpts, ci: opts.ci });
+    });
 
   program
     .command('templates')
@@ -88,10 +103,15 @@ export function run(argv: string[]): void {
 
   // Print version banner when no command is given
   program.action(() => {
-    console.log('');
-    console.log('RealityDB v0.1.2 — Developer Reality Platform');
-    console.log('Run `realitydb --help` for available commands.');
-    console.log('');
+    const opts = program.opts();
+    if (opts.ci) {
+      console.log(JSON.stringify({ name: 'realitydb', version: VERSION }));
+    } else {
+      console.log('');
+      console.log(`RealityDB v${VERSION} — Developer Reality Platform`);
+      console.log('Run `realitydb --help` for available commands.');
+      console.log('');
+    }
   });
 
   program.parse(argv);

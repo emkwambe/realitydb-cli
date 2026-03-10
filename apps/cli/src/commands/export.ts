@@ -1,7 +1,10 @@
 import { loadConfig } from '@databox/config';
 import { exportDataset, getDefaultScenarioRegistry } from '@databox/core';
 import { getDefaultRegistry } from '@databox/templates';
+import { formatCIOutput } from '@databox/shared';
 import { maskConnectionString } from '../utils.js';
+
+const VERSION = '0.2.0';
 
 export async function exportCommand(options: {
   format?: string;
@@ -12,7 +15,9 @@ export async function exportCommand(options: {
   timeline?: string;
   scenario?: string;
   scenarioIntensity?: string;
+  ci?: boolean;
 }): Promise<void> {
+  const start = performance.now();
   try {
     const config = await loadConfig();
 
@@ -33,6 +38,17 @@ export async function exportCommand(options: {
       const template = registry.get(templateName);
       if (!template) {
         const available = registry.list();
+        if (options.ci) {
+          console.log(formatCIOutput({
+            success: false,
+            command: 'export',
+            version: VERSION,
+            timestamp: new Date().toISOString(),
+            durationMs: Math.round(performance.now() - start),
+            error: `Template "${templateName}" not found. Available: ${available.map((t) => t.name).join(', ')}`,
+          }));
+          process.exit(1);
+        }
         console.error(`[realitydb] Template "${templateName}" not found.`);
         console.error('');
         if (available.length > 0) {
@@ -53,6 +69,17 @@ export async function exportCommand(options: {
       const scenarioNames = scenario.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
       for (const name of scenarioNames) {
         if (!scenarioRegistry.get(name)) {
+          if (options.ci) {
+            console.log(formatCIOutput({
+              success: false,
+              command: 'export',
+              version: VERSION,
+              timestamp: new Date().toISOString(),
+              durationMs: Math.round(performance.now() - start),
+              error: `Scenario "${name}" not found`,
+            }));
+            process.exit(1);
+          }
           const available = scenarioRegistry.list();
           console.error(`[realitydb] Scenario "${name}" not found.`);
           console.error('');
@@ -65,28 +92,30 @@ export async function exportCommand(options: {
       }
     }
 
-    console.log('');
-    console.log('RealityDB Export');
-    console.log('═══════════════════════════════════════');
-    console.log(`Database: ${masked}`);
-    if (templateName) {
-      console.log(`Template: ${templateName}`);
+    if (!options.ci) {
+      console.log('');
+      console.log('RealityDB Export');
+      console.log('═══════════════════════════════════════');
+      console.log(`Database: ${masked}`);
+      if (templateName) {
+        console.log(`Template: ${templateName}`);
+      }
+      if (timeline) {
+        console.log(`Timeline: ${timeline}`);
+        console.log(`Growth: s-curve`);
+      }
+      console.log(`Format: ${format}`);
+      console.log(`Output: ${outputDir}`);
+      console.log(`Records per table: ${effectiveRecords}`);
+      if (scenario) {
+        const scenarioNames = scenario.split(',').map((s) => s.trim());
+        const scenarioDisplay = scenarioNames.map((s) => `${s} (${scenarioIntensity})`).join(', ');
+        console.log(`Scenarios: ${scenarioDisplay}`);
+      }
+      console.log('');
+      console.log('Generating dataset...');
     }
-    if (timeline) {
-      console.log(`Timeline: ${timeline}`);
-      console.log(`Growth: s-curve`);
-    }
-    console.log(`Format: ${format}`);
-    console.log(`Output: ${outputDir}`);
-    console.log(`Records per table: ${effectiveRecords}`);
-    if (scenario) {
-      const scenarioNames = scenario.split(',').map((s) => s.trim());
-      const scenarioDisplay = scenarioNames.map((s) => `${s} (${scenarioIntensity})`).join(', ');
-      console.log(`Scenarios: ${scenarioDisplay}`);
-    }
-    console.log('');
 
-    console.log('Generating dataset...');
     const result = await exportDataset(config, {
       format,
       outputDir,
@@ -97,6 +126,26 @@ export async function exportCommand(options: {
       scenarios: scenario,
       scenarioIntensity,
     });
+
+    const durationMs = Math.round(performance.now() - start);
+
+    if (options.ci) {
+      console.log(formatCIOutput({
+        success: true,
+        command: 'export',
+        version: VERSION,
+        timestamp: new Date().toISOString(),
+        durationMs,
+        data: {
+          format,
+          outputDir,
+          files: result.files,
+          totalRows: result.totalRows,
+          fileCount: result.files.length,
+        },
+      }));
+      return;
+    }
 
     // Print scenario results if any
     if (result.scenariosApplied && result.scenariosApplied.length > 0) {
@@ -116,6 +165,17 @@ export async function exportCommand(options: {
     console.log('');
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
+    if (options.ci) {
+      console.log(formatCIOutput({
+        success: false,
+        command: 'export',
+        version: VERSION,
+        timestamp: new Date().toISOString(),
+        durationMs: Math.round(performance.now() - start),
+        error: message,
+      }));
+      process.exit(1);
+    }
     if (message.includes('Config file not found')) {
       console.error(`[realitydb] ${message}`);
       console.error('Hint: Copy realitydb.config.json to realitydb.config.json');

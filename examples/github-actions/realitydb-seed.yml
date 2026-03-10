@@ -1,0 +1,36 @@
+name: Test with RealityDB
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Apply schema
+        run: psql -h localhost -U postgres -d test_db -f schema.sql
+        env:
+          PGPASSWORD: postgres
+      - name: Seed test data
+        run: |
+          npx realitydb seed --ci \
+            --template saas \
+            --records 500 \
+            --seed 42 \
+            --config realitydb.ci.json
+      - name: Run tests
+        run: npm test

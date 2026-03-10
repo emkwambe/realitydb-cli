@@ -1,0 +1,13 @@
+{
+  "database": {
+    "client": "postgres",
+    "connectionString": "postgres://postgres:postgres@localhost:5432/test_db"
+  },
+  "seed": {
+    "defaultRecords": 500,
+    "batchSize": 1000,
+    "environment": "test",
+    "randomSeed": 42
+  },
+  "template": "saas"
+}
