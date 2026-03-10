@@ -30,7 +30,7 @@ export async function packExportCommand(options: {
       const template = registry.get(templateName);
       if (!template) {
         const available = registry.list();
-        console.error(`[seedforge] Template "${templateName}" not found.`);
+        console.error(`[realitydb] Template "${templateName}" not found.`);
         console.error('');
         if (available.length > 0) {
           console.error('Available templates:');
@@ -49,7 +49,7 @@ export async function packExportCommand(options: {
       for (const name of scenarioNames) {
         if (!scenarioRegistry.get(name)) {
           const available = scenarioRegistry.list();
-          console.error(`[seedforge] Scenario "${name}" not found.`);
+          console.error(`[realitydb] Scenario "${name}" not found.`);
           console.error('');
           console.error('Available scenarios:');
           for (const s of available) {
@@ -112,13 +112,13 @@ export async function packExportCommand(options: {
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     if (message.includes('Config file not found')) {
-      console.error(`[seedforge] ${message}`);
-      console.error('Hint: Copy seedforge.config.json to seedforge.config.json');
+      console.error(`[realitydb] ${message}`);
+      console.error('Hint: Copy realitydb.config.json to realitydb.config.json');
     } else if (message.includes('connection') || message.includes('ECONNREFUSED')) {
-      console.error(`[seedforge] Pack export failed: ${message}`);
+      console.error(`[realitydb] Pack export failed: ${message}`);
       console.error('Hint: Check that your database is running (e.g. Docker)');
     } else {
-      console.error(`[seedforge] Pack export failed: ${message}`);
+      console.error(`[realitydb] Pack export failed: ${message}`);
     }
     process.exit(1);
   }
@@ -130,14 +130,14 @@ export async function packImportCommand(
 ): Promise<void> {
   try {
     if (!options.confirm) {
-      console.error('[seedforge] Import requires --confirm flag.');
+      console.error('[realitydb] Import requires --confirm flag.');
       console.error('Hint: This will insert data into your database. Use --confirm to proceed.');
       process.exit(1);
     }
 
     if (!filePath) {
-      console.error('[seedforge] Missing file path argument.');
-      console.error('Usage: seedforge pack import <file> --confirm');
+      console.error('[realitydb] Missing file path argument.');
+      console.error('Usage: realitydb pack import <file> --confirm');
       process.exit(1);
     }
 
@@ -175,19 +175,19 @@ export async function packImportCommand(
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     if (message.includes('Config file not found')) {
-      console.error(`[seedforge] ${message}`);
-      console.error('Hint: Copy seedforge.config.json to seedforge.config.json');
+      console.error(`[realitydb] ${message}`);
+      console.error('Hint: Copy realitydb.config.json to realitydb.config.json');
     } else if (message.includes('Cannot import Reality Pack')) {
-      console.error(`[seedforge] ${message}`);
+      console.error(`[realitydb] ${message}`);
     } else if (message.includes('Invalid Reality Pack')) {
-      console.error(`[seedforge] ${message}`);
+      console.error(`[realitydb] ${message}`);
     } else if (message.includes('Failed to read Reality Pack')) {
-      console.error(`[seedforge] ${message}`);
+      console.error(`[realitydb] ${message}`);
     } else if (message.includes('connection') || message.includes('ECONNREFUSED')) {
-      console.error(`[seedforge] Pack import failed: ${message}`);
+      console.error(`[realitydb] Pack import failed: ${message}`);
       console.error('Hint: Check that your database is running (e.g. Docker)');
     } else {
-      console.error(`[seedforge] Pack import failed: ${message}`);
+      console.error(`[realitydb] Pack import failed: ${message}`);
     }
     process.exit(1);
   }

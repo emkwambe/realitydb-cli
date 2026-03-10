@@ -11,9 +11,9 @@ export function run(argv: string[]): void {
   const program = new Command();
 
   program
-    .name('seedforge')
-    .description('SeedForge — Developer Reality Platform')
-    .version('0.1.0')
+    .name('realitydb')
+    .description('RealityDB — Developer Reality Platform')
+    .version('0.1.1')
     .option('--config <path>', 'Path to config file')
     .option('--verbose', 'Enable verbose output', false);
 
@@ -43,7 +43,7 @@ export function run(argv: string[]): void {
     .command('export')
     .description('Export generated data')
     .option('--format <format>', 'Output format (json|csv|sql)', 'json')
-    .option('--output <dir>', 'Output directory', './.seedforge')
+    .option('--output <dir>', 'Output directory', './.realitydb')
     .option('--records <count>', 'Number of records per table')
     .option('--seed <number>', 'Random seed for reproducibility')
     .option('--template <name>', 'Template to use')
@@ -89,8 +89,8 @@ export function run(argv: string[]): void {
   // Print version banner when no command is given
   program.action(() => {
     console.log('');
-    console.log('SeedForge v0.1.0 — Developer Reality Platform');
-    console.log('Run `seedforge --help` for available commands.');
+    console.log('RealityDB v0.1.1 — Developer Reality Platform');
+    console.log('Run `realitydb --help` for available commands.');
     console.log('');
   });
 

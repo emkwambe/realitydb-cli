@@ -1,29 +1,29 @@
-# SeedForge
+# RealityDB
 
 > Production-like data before production exists.
 
-SeedForge is a developer tool that instantly populates your database with
+RealityDB is a developer tool that instantly populates your database with
 realistic, schema-aware data. One command, realistic environments.
 
 ## Install
 
 ```bash
-npm install -g seedforge
+npm install -g realitydb
 ```
 
 ## Quick Start
 
 ```bash
-seedforge scan              # Understand your schema
-seedforge seed --seed 42    # Populate with realistic data
-seedforge reset --confirm   # Clear and start fresh
+realitydb scan              # Understand your schema
+realitydb seed --seed 42    # Populate with realistic data
+realitydb reset --confirm   # Clear and start fresh
 ```
 
 Or use npx without installing:
 
 ```bash
-npx seedforge scan
-npx seedforge seed --template saas --records 1000 --seed 42
+npx realitydb scan
+npx realitydb seed --template saas --records 1000 --seed 42
 ```
 
 ## Features
@@ -38,28 +38,28 @@ npx seedforge seed --template saas --records 1000 --seed 42
 ## Templates
 
 ```bash
-seedforge seed --template saas --records 1000 --seed 42
-seedforge seed --template ecommerce --records 1000 --seed 42
-seedforge seed --template education --records 1000 --seed 42
+realitydb seed --template saas --records 1000 --seed 42
+realitydb seed --template ecommerce --records 1000 --seed 42
+realitydb seed --template education --records 1000 --seed 42
 ```
 
 ## Timeline & Scenarios
 
 ```bash
-seedforge seed --template saas --timeline 12-months --seed 42
-seedforge seed --template saas --scenario payment-failures --scenario-intensity high
+realitydb seed --template saas --timeline 12-months --seed 42
+realitydb seed --template saas --scenario payment-failures --scenario-intensity high
 ```
 
 ## Reality Packs
 
 ```bash
-seedforge pack export --template saas --name my-saas-env --seed 42
-seedforge pack import ./my-saas-env.databox-pack.json --confirm
+realitydb pack export --template saas --name my-saas-env --seed 42
+realitydb pack import ./my-saas-env.databox-pack.json --confirm
 ```
 
 ## Configuration
 
-Create `seedforge.config.json` (also reads `databox.config.json` for backward compatibility):
+Create `realitydb.config.json` (also reads `seedforge.config.json` and `databox.config.json` for backward compatibility):
 
 ```json
 {
@@ -85,14 +85,14 @@ Create `seedforge.config.json` (also reads `databox.config.json` for backward co
 
 | Command | Description |
 |---------|-------------|
-| `seedforge scan` | Scan and display database schema |
-| `seedforge seed` | Generate and insert realistic data |
-| `seedforge reset` | Clear seeded data |
-| `seedforge export` | Export dataset to JSON/CSV/SQL files |
-| `seedforge templates` | List available domain templates |
-| `seedforge scenarios` | List available scenarios |
-| `seedforge pack export` | Export environment as Reality Pack |
-| `seedforge pack import` | Import Reality Pack into database |
+| `realitydb scan` | Scan and display database schema |
+| `realitydb seed` | Generate and insert realistic data |
+| `realitydb reset` | Clear seeded data |
+| `realitydb export` | Export dataset to JSON/CSV/SQL files |
+| `realitydb templates` | List available domain templates |
+| `realitydb scenarios` | List available scenarios |
+| `realitydb pack export` | Export environment as Reality Pack |
+| `realitydb pack import` | Import Reality Pack into database |
 
 ## License
 

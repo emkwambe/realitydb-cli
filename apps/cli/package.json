@@ -1,6 +1,6 @@
 {
-  "name": "seedforge",
-  "version": "0.1.0",
+  "name": "realitydb",
+  "version": "0.1.1",
   "description": "Developer Reality Platform — realistic database environments from your schema",
   "license": "MIT",
   "keywords": [
@@ -14,7 +14,7 @@
     "test-data",
     "reality-engine",
     "schema",
-    "seedforge"
+    "realitydb"
   ],
   "repository": {
     "type": "git",
@@ -26,7 +26,7 @@
     "url": "https://github.com/emkwambe/databox/issues"
   },
   "bin": {
-    "seedforge": "./dist/index.js"
+    "realitydb": "./dist/index.js"
   },
   "files": [
     "dist/",

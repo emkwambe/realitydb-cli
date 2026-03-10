@@ -17,7 +17,7 @@ export async function exportCommand(options: {
     const config = await loadConfig();
 
     const format = (options.format ?? config.export?.defaultFormat ?? 'json') as 'json' | 'csv' | 'sql';
-    const outputDir = options.output ?? config.export?.outputDir ?? './.seedforge';
+    const outputDir = options.output ?? config.export?.outputDir ?? './.realitydb';
     const records = options.records ? parseInt(options.records, 10) : undefined;
     const seed = options.seed ? parseInt(options.seed, 10) : undefined;
     const templateName = options.template ?? config.template;
@@ -33,7 +33,7 @@ export async function exportCommand(options: {
       const template = registry.get(templateName);
       if (!template) {
         const available = registry.list();
-        console.error(`[seedforge] Template "${templateName}" not found.`);
+        console.error(`[realitydb] Template "${templateName}" not found.`);
         console.error('');
         if (available.length > 0) {
           console.error('Available templates:');
@@ -54,7 +54,7 @@ export async function exportCommand(options: {
       for (const name of scenarioNames) {
         if (!scenarioRegistry.get(name)) {
           const available = scenarioRegistry.list();
-          console.error(`[seedforge] Scenario "${name}" not found.`);
+          console.error(`[realitydb] Scenario "${name}" not found.`);
           console.error('');
           console.error('Available scenarios:');
           for (const s of available) {
@@ -66,7 +66,7 @@ export async function exportCommand(options: {
     }
 
     console.log('');
-    console.log('SeedForge Export');
+    console.log('RealityDB Export');
     console.log('═══════════════════════════════════════');
     console.log(`Database: ${masked}`);
     if (templateName) {
@@ -117,15 +117,15 @@ export async function exportCommand(options: {
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     if (message.includes('Config file not found')) {
-      console.error(`[seedforge] ${message}`);
-      console.error('Hint: Copy seedforge.config.json to seedforge.config.json');
+      console.error(`[realitydb] ${message}`);
+      console.error('Hint: Copy realitydb.config.json to realitydb.config.json');
     } else if (message.includes('Invalid timeline format')) {
-      console.error(`[seedforge] ${message}`);
+      console.error(`[realitydb] ${message}`);
     } else if (message.includes('connection') || message.includes('ECONNREFUSED')) {
-      console.error(`[seedforge] Export failed: ${message}`);
+      console.error(`[realitydb] Export failed: ${message}`);
       console.error('Hint: Check that your database is running (e.g. Docker)');
     } else {
-      console.error(`[seedforge] Export failed: ${message}`);
+      console.error(`[realitydb] Export failed: ${message}`);
     }
     process.exit(1);
   }

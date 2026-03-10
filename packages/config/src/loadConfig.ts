@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import type { DataboxConfig } from './types.js';
 import { DEFAULT_CONFIG } from './defaults.js';
 
-const CONFIG_FILES = ['seedforge.config.json', 'databox.config.json'];
+const CONFIG_FILES = ['realitydb.config.json', 'seedforge.config.json', 'databox.config.json'];
 
 async function findConfigFile(basePath: string): Promise<string | null> {
   for (const name of CONFIG_FILES) {
@@ -29,8 +29,8 @@ export async function loadConfig(
     const found = await findConfigFile('.');
     if (!found) {
       throw new Error(
-        `[seedforge] Config file not found.\n` +
-          'Create a seedforge.config.json or specify a path with --config.',
+        `[realitydb] Config file not found.\n` +
+          'Create a realitydb.config.json or specify a path with --config.',
       );
     }
     resolvedPath = found;
@@ -41,8 +41,8 @@ export async function loadConfig(
     raw = await readFile(resolvedPath, 'utf-8');
   } catch {
     throw new Error(
-      `[seedforge] Config file not found: ${resolvedPath}\n` +
-        'Create a seedforge.config.json or specify a path with --config.',
+      `[realitydb] Config file not found: ${resolvedPath}\n` +
+        'Create a realitydb.config.json or specify a path with --config.',
     );
   }
 
@@ -51,7 +51,7 @@ export async function loadConfig(
     parsed = JSON.parse(raw);
   } catch {
     throw new Error(
-      `[seedforge] Invalid JSON in config file: ${resolvedPath}`,
+      `[realitydb] Invalid JSON in config file: ${resolvedPath}`,
     );
   }
 
@@ -62,7 +62,7 @@ export async function loadConfig(
     | undefined;
   if (!database || typeof database['connectionString'] !== 'string') {
     throw new Error(
-      '[seedforge] Config validation failed: database.connectionString is required.',
+      '[realitydb] Config validation failed: database.connectionString is required.',
     );
   }
 
