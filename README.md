@@ -2,108 +2,158 @@
 
 > Production-like data before production exists.
 
-RealityDB is a developer tool that instantly populates your database with
-realistic, schema-aware data. One command, realistic environments.
-
-## Install
-
-```bash
-npm install -g realitydb
-```
+RealityDB populates your PostgreSQL database with realistic, schema-aware data. Point it at your schema, pick a domain template, and get thousands of rows that look like they came from a real application. Deterministic seeds mean the same command always produces the same data.
 
 ## Quick Start
 
 ```bash
-realitydb scan              # Understand your schema
-realitydb seed --seed 42    # Populate with realistic data
-realitydb reset --confirm   # Clear and start fresh
+npm install -g realitydb
+
+realitydb scan                                    # Inspect your schema
+realitydb seed --template saas --seed 42          # Populate with realistic data
+realitydb reset --confirm                         # Clear and start fresh
 ```
 
 Or use npx without installing:
 
 ```bash
-npx realitydb scan
 npx realitydb seed --template saas --records 1000 --seed 42
 ```
 
-## Features
+## What You Get
 
-- **Schema Intelligence** — Automatically understands your database structure
-- **Domain Templates** — SaaS, e-commerce, education with realistic distributions
-- **Timeline Generation** — Datasets spanning months with growth curves
-- **Scenario Injection** — Payment failures, churn spikes, fraud patterns
-- **Reality Packs** — Portable, shareable environment packages
-- **Deterministic** — Same seed = same data, every time
-
-## Templates
-
-```bash
-realitydb seed --template saas --records 1000 --seed 42
-realitydb seed --template ecommerce --records 1000 --seed 42
-realitydb seed --template education --records 1000 --seed 42
+Before:
+```
+=# SELECT count(*) FROM users;
+ 0
+=# SELECT count(*) FROM subscriptions;
+ 0
 ```
 
-## Timeline & Scenarios
+After `realitydb seed --template saas --records 500 --seed 42`:
+```
+  plans:          500 rows (12ms)
+  users:          500 rows (15ms)
+  subscriptions:  500 rows (18ms)
+  payments:       500 rows (20ms)
+
+Seed complete. 2000 rows inserted in 0.1s
+```
+
+65% of subscriptions are active, 12% trialing, 10% canceled -- matching real SaaS distributions.
+
+## Domain Templates
+
+| Template | Description | Tables |
+|----------|-------------|--------|
+| `saas` | Subscription business | users, plans, subscriptions, payments |
+| `ecommerce` | Online store | customers, products, orders, order_items |
+| `education` | School system | teachers, classes, students, enrollments, grades, attendance |
+| `fintech` | Financial services | accounts, transactions, fraud_alerts, settlements, chargebacks |
+| `healthcare` | Medical system | patients, providers, encounters, diagnoses, billing |
+
+```bash
+realitydb seed --template fintech --records 200 --seed 42
+realitydb seed --template healthcare --records 200 --seed 42
+```
+
+Each template includes weighted distributions matching real-world data. Fintech accounts are 35% checking, 25% savings. Healthcare encounters are 35% office visits, 15% telehealth.
+
+## Timeline Generation
+
+Generate data that spans months with realistic growth curves:
 
 ```bash
 realitydb seed --template saas --timeline 12-months --seed 42
+```
+
+Supports S-curve, linear, and exponential growth models. Timestamps are spread across the timeline so your dashboards and reports look real.
+
+## Scenario Injection
+
+Inject controlled anomalies to test edge cases:
+
+```bash
 realitydb seed --template saas --scenario payment-failures --scenario-intensity high
 ```
 
-## Reality Packs
+| Scenario | What it does |
+|----------|-------------|
+| `payment-failures` | Failed/declined payment patterns |
+| `churn-spike` | Subscription cancellation surge |
+| `fraud-spike` | Suspicious transaction patterns |
+| `data-quality` | Nulls, duplicates, encoding issues |
 
-```bash
-realitydb pack export --template saas --name my-saas-env --seed 42
-realitydb pack import ./my-saas-env.databox-pack.json --confirm
-```
+Intensity levels: `low`, `medium`, `high`.
 
 ## Environment Reproduction
 
-Capture and share database environments for debugging:
+Capture a live database and share it with teammates:
 
 ```bash
-# Capture current database state
+# Developer A hits a bug
 realitydb capture --name bug-4821
 
-# Share with teammate
-# (send the .realitydb-pack.json file)
+# Send the .realitydb-pack.json file to Developer B
 
-# Teammate loads the environment
+# Developer B reproduces instantly
 realitydb load bug-4821.realitydb-pack.json --confirm
 ```
 
 Capture specific tables:
+
 ```bash
 realitydb capture --name user-issue --tables users,subscriptions
 ```
 
+Captured packs include schema DDL so the receiver can create tables from scratch.
+
 ## CI/CD Integration
 
-RealityDB works seamlessly in CI pipelines:
-
 ```bash
-# GitHub Actions / any CI
 npx realitydb seed --ci --template saas --records 500 --seed 42
 ```
 
-CI mode outputs JSON and uses proper exit codes:
-```bash
-# Parse CI output
-RESULT=$(npx realitydb seed --ci --template saas --seed 42)
-echo $RESULT | jq '.data.totalRows'
+The `--ci` flag outputs structured JSON, skips interactive prompts, and uses proper exit codes (0/1). See [examples/github-actions](./examples/github-actions) for a complete GitHub Actions workflow.
+
+```yaml
+# .github/workflows/test.yml
+- name: Seed test data
+  run: npx realitydb seed --ci --template saas --records 500 --seed 42 --config realitydb.ci.json
 ```
 
-The `--ci` flag:
-- Outputs structured JSON (machine-readable)
-- Skips interactive prompts
-- Uses proper exit codes (0 = success, 1 = failure)
-- No decorative formatting
+## Reality Packs
 
-See [examples/github-actions](./examples/github-actions) for a complete workflow.
+Export generated environments as portable JSON files:
+
+```bash
+realitydb pack export --template saas --name staging-env --seed 42
+realitydb pack import ./staging-env.databox-pack.json --confirm
+```
+
+Packs are self-contained: schema, generation plan, and dataset in one file.
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `realitydb scan` | Inspect database schema |
+| `realitydb seed` | Generate and insert realistic data |
+| `realitydb reset` | Clear seeded data |
+| `realitydb export` | Export data to JSON/CSV/SQL files |
+| `realitydb capture` | Snapshot live database into a Reality Pack |
+| `realitydb load` | Load a Reality Pack into the database |
+| `realitydb share` | Display Reality Pack info for sharing |
+| `realitydb pack export` | Generate and export as Reality Pack |
+| `realitydb pack import` | Import a Reality Pack |
+| `realitydb templates` | List available domain templates |
+| `realitydb scenarios` | List available scenarios |
+
+All commands support `--ci` for JSON output.
 
 ## Configuration
 
-Create `realitydb.config.json` (also reads `seedforge.config.json` and `databox.config.json` for backward compatibility):
+Create `realitydb.config.json`:
 
 ```json
 {
@@ -112,7 +162,7 @@ Create `realitydb.config.json` (also reads `seedforge.config.json` and `databox.
     "connectionString": "postgres://user:pass@localhost:5432/mydb"
   },
   "seed": {
-    "defaultRecords": 5000,
+    "defaultRecords": 1000,
     "batchSize": 1000,
     "randomSeed": 42
   },
@@ -120,26 +170,10 @@ Create `realitydb.config.json` (also reads `seedforge.config.json` and `databox.
 }
 ```
 
-## Prerequisites
+## Requirements
 
 - Node.js 20+
-- PostgreSQL database
-
-## Commands
-
-| Command | Description |
-|---------|-------------|
-| `realitydb scan` | Scan and display database schema |
-| `realitydb seed` | Generate and insert realistic data |
-| `realitydb reset` | Clear seeded data |
-| `realitydb export` | Export dataset to JSON/CSV/SQL files |
-| `realitydb templates` | List available domain templates |
-| `realitydb scenarios` | List available scenarios |
-| `realitydb capture` | Capture live database state into a Reality Pack |
-| `realitydb share` | Share a Reality Pack file |
-| `realitydb load` | Load a Reality Pack into the database |
-| `realitydb pack export` | Export environment as Reality Pack |
-| `realitydb pack import` | Import Reality Pack into database |
+- PostgreSQL
 
 ## License
 
