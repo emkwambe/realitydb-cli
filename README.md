@@ -57,6 +57,30 @@ realitydb pack export --template saas --name my-saas-env --seed 42
 realitydb pack import ./my-saas-env.databox-pack.json --confirm
 ```
 
+## CI/CD Integration
+
+RealityDB works seamlessly in CI pipelines:
+
+```bash
+# GitHub Actions / any CI
+npx realitydb seed --ci --template saas --records 500 --seed 42
+```
+
+CI mode outputs JSON and uses proper exit codes:
+```bash
+# Parse CI output
+RESULT=$(npx realitydb seed --ci --template saas --seed 42)
+echo $RESULT | jq '.data.totalRows'
+```
+
+The `--ci` flag:
+- Outputs structured JSON (machine-readable)
+- Skips interactive prompts
+- Uses proper exit codes (0 = success, 1 = failure)
+- No decorative formatting
+
+See [examples/github-actions](./examples/github-actions) for a complete workflow.
+
 ## Configuration
 
 Create `realitydb.config.json` (also reads `seedforge.config.json` and `databox.config.json` for backward compatibility):

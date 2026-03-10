@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.2.0 (2026-03-10)
+
+### Features
+
+- CI mode with `--ci` flag for all commands
+- JSON output for machine-readable pipeline integration
+- CI-safe reset (no --confirm needed with --ci)
+- GitHub Actions example workflow
+- Docker Compose example
+
 ## v0.1.2 (2026-03-10)
 
 ### Fix
