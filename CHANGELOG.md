@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.4.0 (2026-03-10)
+
+### Features
+
+- Fintech domain template (accounts, transactions, fraud alerts, settlements, chargebacks)
+- Healthcare domain template (patients, providers, encounters, diagnoses, billing)
+- 5 domain templates total
+
 ## v0.3.0 (2026-03-10)
 
 ### Features
