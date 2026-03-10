@@ -150,3 +150,9 @@ databox.config.json
 .realitydb/
 .seedforge/
 .databox/
+
+# Sprint artifacts
+*.databox-pack.json
+*.realitydb-pack.json
+.databox-run*/
+.databox-debug/
