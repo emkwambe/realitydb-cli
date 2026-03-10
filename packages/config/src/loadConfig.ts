@@ -1,20 +1,48 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, access } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import type { DataboxConfig } from './types.js';
 import { DEFAULT_CONFIG } from './defaults.js';
 
+const CONFIG_FILES = ['seedforge.config.json', 'databox.config.json'];
+
+async function findConfigFile(basePath: string): Promise<string | null> {
+  for (const name of CONFIG_FILES) {
+    const fullPath = resolve(basePath, name);
+    try {
+      await access(fullPath);
+      return fullPath;
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
 export async function loadConfig(
-  filePath: string = './databox.config.json',
+  filePath?: string,
 ): Promise<DataboxConfig> {
-  const resolvedPath = resolve(filePath);
+  let resolvedPath: string;
+
+  if (filePath) {
+    resolvedPath = resolve(filePath);
+  } else {
+    const found = await findConfigFile('.');
+    if (!found) {
+      throw new Error(
+        `[seedforge] Config file not found.\n` +
+          'Create a seedforge.config.json or specify a path with --config.',
+      );
+    }
+    resolvedPath = found;
+  }
 
   let raw: string;
   try {
     raw = await readFile(resolvedPath, 'utf-8');
   } catch {
     throw new Error(
-      `[databox] Config file not found: ${resolvedPath}\n` +
-        'Create a databox.config.json or specify a path with --config.',
+      `[seedforge] Config file not found: ${resolvedPath}\n` +
+        'Create a seedforge.config.json or specify a path with --config.',
     );
   }
 
@@ -23,7 +51,7 @@ export async function loadConfig(
     parsed = JSON.parse(raw);
   } catch {
     throw new Error(
-      `[databox] Invalid JSON in config file: ${resolvedPath}`,
+      `[seedforge] Invalid JSON in config file: ${resolvedPath}`,
     );
   }
 
@@ -34,7 +62,7 @@ export async function loadConfig(
     | undefined;
   if (!database || typeof database['connectionString'] !== 'string') {
     throw new Error(
-      '[databox] Config validation failed: database.connectionString is required.',
+      '[seedforge] Config validation failed: database.connectionString is required.',
     );
   }
 

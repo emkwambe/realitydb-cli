@@ -17,7 +17,7 @@ export async function resetCommand(options: {
     const masked = maskConnectionString(config.database.connectionString);
 
     console.log('');
-    console.log('DataBox Reset');
+    console.log('SeedForge Reset');
     console.log('═══════════════════════════════════════');
     console.log(`Database: ${masked}`);
     console.log('');
@@ -35,13 +35,13 @@ export async function resetCommand(options: {
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     if (message.includes('Config file not found')) {
-      console.error(`[databox] ${message}`);
-      console.error('Hint: Copy databox.config.example.json to databox.config.json');
+      console.error(`[seedforge] ${message}`);
+      console.error('Hint: Copy seedforge.config.json to seedforge.config.json');
     } else if (message.includes('connection') || message.includes('ECONNREFUSED')) {
-      console.error(`[databox] Reset failed: ${message}`);
+      console.error(`[seedforge] Reset failed: ${message}`);
       console.error('Hint: Check that your database is running (e.g. Docker)');
     } else {
-      console.error(`[databox] Reset failed: ${message}`);
+      console.error(`[seedforge] Reset failed: ${message}`);
     }
     process.exit(1);
   }

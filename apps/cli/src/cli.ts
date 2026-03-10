@@ -11,10 +11,10 @@ export function run(argv: string[]): void {
   const program = new Command();
 
   program
-    .name('databox')
-    .description('DataBox — Developer Reality Platform')
+    .name('seedforge')
+    .description('SeedForge — Developer Reality Platform')
     .version('0.1.0')
-    .option('--config <path>', 'Path to config file', './databox.config.json')
+    .option('--config <path>', 'Path to config file')
     .option('--verbose', 'Enable verbose output', false);
 
   program
@@ -43,7 +43,7 @@ export function run(argv: string[]): void {
     .command('export')
     .description('Export generated data')
     .option('--format <format>', 'Output format (json|csv|sql)', 'json')
-    .option('--output <dir>', 'Output directory', './.databox')
+    .option('--output <dir>', 'Output directory', './.seedforge')
     .option('--records <count>', 'Number of records per table')
     .option('--seed <number>', 'Random seed for reproducibility')
     .option('--template <name>', 'Template to use')
@@ -89,8 +89,8 @@ export function run(argv: string[]): void {
   // Print version banner when no command is given
   program.action(() => {
     console.log('');
-    console.log('DataBox v0.1.0 — Developer Reality Platform');
-    console.log('Run `databox --help` for available commands.');
+    console.log('SeedForge v0.1.0 — Developer Reality Platform');
+    console.log('Run `seedforge --help` for available commands.');
     console.log('');
   });
 

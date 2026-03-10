@@ -1,28 +1,59 @@
 {
-  "name": "@databox/cli",
+  "name": "seedforge",
   "version": "0.1.0",
-  "private": true,
-  "type": "module",
+  "description": "Developer Reality Platform — realistic database environments from your schema",
+  "license": "MIT",
+  "keywords": [
+    "database",
+    "seed",
+    "testing",
+    "synthetic-data",
+    "developer-tools",
+    "postgres",
+    "fake-data",
+    "test-data",
+    "reality-engine",
+    "schema",
+    "seedforge"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/emkwambe/databox.git"
+  },
+  "author": "Eddy Mkwambe",
+  "homepage": "https://github.com/emkwambe/databox",
+  "bugs": {
+    "url": "https://github.com/emkwambe/databox/issues"
+  },
   "bin": {
-    "databox": "./dist/index.js"
+    "seedforge": "./dist/index.js"
   },
   "files": [
-    "dist/"
+    "dist/",
+    "README.md",
+    "LICENSE"
   ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
-    "build": "tsc",
+    "build": "tsup",
+    "build:tsc": "tsc",
     "clean": "rm -rf dist *.tsbuildinfo",
     "start": "node dist/index.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build && node dist/index.js --version"
   },
   "devDependencies": {
-    "typescript": "^5.4.0"
-  },
-  "dependencies": {
     "@databox/config": "workspace:^",
     "@databox/core": "workspace:^",
     "@databox/schema": "workspace:^",
     "@databox/templates": "workspace:^",
-    "commander": "^14.0.3"
+    "commander": "^14.0.3",
+    "tsup": "^8.5.1",
+    "typescript": "^5.4.0"
+  },
+  "dependencies": {
+    "pg": "^8.20.0"
   }
 }
