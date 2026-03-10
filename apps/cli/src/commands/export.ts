@@ -4,7 +4,7 @@ import { getDefaultRegistry } from '@databox/templates';
 import { formatCIOutput } from '@databox/shared';
 import { maskConnectionString } from '../utils.js';
 
-const VERSION = '0.3.0';
+const VERSION = '0.4.0';
 
 export async function exportCommand(options: {
   format?: string;
