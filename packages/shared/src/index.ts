@@ -25,3 +25,13 @@ export type {
   ScenarioConfig,
   ScenarioResult,
 } from './scenarioTypes.js';
+export type {
+  RealityPack,
+  PackMetadata,
+  PackSchema,
+  PackTableSchema,
+  PackColumnSchema,
+  PackForeignKey,
+  PackDataset,
+  PackTableData,
+} from './realityPackTypes.js';

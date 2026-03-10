@@ -34,5 +34,11 @@ export type { ResetResult } from './resetPipeline.js';
 export { exportDataset } from './exportPipeline.js';
 export type { ExportResult, ExportOptions } from './exportPipeline.js';
 
-export { getDefaultScenarioRegistry } from '@databox/generators';
+export { exportPack } from './packExportPipeline.js';
+export type { PackExportOptions, PackExportResult } from './packExportPipeline.js';
+
+export { importPack } from './packImportPipeline.js';
+export type { PackImportResult } from './packImportPipeline.js';
+
+export { getDefaultScenarioRegistry, loadRealityPack } from '@databox/generators';
 export type { ScenarioDefinition } from '@databox/generators';

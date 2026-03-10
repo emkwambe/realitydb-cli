@@ -1,6 +1,7 @@
 import type { DomainTemplate, TableTemplateConfig } from './types.js';
 import { saasTemplate } from './domains/saas.js';
 import { ecommerceTemplate } from './domains/ecommerce.js';
+import { educationTemplate } from './domains/education.js';
 
 export class TemplateRegistry {
   private templates: Map<string, DomainTemplate> = new Map();
@@ -86,5 +87,6 @@ export function getDefaultRegistry(): TemplateRegistry {
   const registry = new TemplateRegistry();
   registry.register(saasTemplate);
   registry.register(ecommerceTemplate);
+  registry.register(educationTemplate);
   return registry;
 }
