@@ -3,7 +3,7 @@ import { resetDatabase } from '@databox/core';
 import { formatCIOutput } from '@databox/shared';
 import { maskConnectionString } from '../utils.js';
 
-const VERSION = '0.4.0';
+const VERSION = '0.4.1';
 
 export async function resetCommand(options: {
   confirm?: boolean;

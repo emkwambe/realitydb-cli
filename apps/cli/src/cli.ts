@@ -10,7 +10,7 @@ import { captureCommand } from './commands/capture.js';
 import { shareCommand } from './commands/share.js';
 import { loadCommand } from './commands/load.js';
 
-const VERSION = '0.4.0';
+const VERSION = '0.4.1';
 
 export function run(argv: string[]): void {
   const program = new Command();

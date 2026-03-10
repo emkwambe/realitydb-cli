@@ -128,7 +128,7 @@ Export generated environments as portable JSON files:
 
 ```bash
 realitydb pack export --template saas --name staging-env --seed 42
-realitydb pack import ./staging-env.databox-pack.json --confirm
+realitydb pack import ./staging-env.realitydb-pack.json --confirm
 ```
 
 Packs are self-contained: schema, generation plan, and dataset in one file.

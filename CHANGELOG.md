@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.4.1 (2026-03-10)
+
+### Fix
+
+- Rename pack file extension from `.databox-pack.json` to `.realitydb-pack.json`
+- Clean up remaining `databox` references in user-facing output
+- Backward compatible: existing `.databox-pack.json` files still load correctly
+
 ## v0.4.0 (2026-03-10)
 
 ### Features

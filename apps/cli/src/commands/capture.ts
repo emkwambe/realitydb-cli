@@ -4,7 +4,7 @@ import { formatCIOutput } from '@databox/shared';
 import { maskConnectionString } from '../utils.js';
 import { stat } from 'node:fs/promises';
 
-const VERSION = '0.4.0';
+const VERSION = '0.4.1';
 
 export async function captureCommand(options: {
   name: string;

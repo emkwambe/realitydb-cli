@@ -4,7 +4,7 @@
  */
 
 export interface RealityPack {
-  format: 'databox-reality-pack';
+  format: 'realitydb-pack' | 'databox-reality-pack';
   version: '1.0';
   metadata: PackMetadata;
   schema: PackSchema;
