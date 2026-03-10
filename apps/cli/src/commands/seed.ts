@@ -27,7 +27,7 @@ export async function seedCommand(options: {
       const template = registry.get(templateName);
       if (!template) {
         const available = registry.list();
-        console.error(`[databox] Template "${templateName}" not found.`);
+        console.error(`[realitydb] Template "${templateName}" not found.`);
         console.error('');
         if (available.length > 0) {
           console.error('Available templates:');
@@ -48,7 +48,7 @@ export async function seedCommand(options: {
       for (const name of scenarioNames) {
         if (!scenarioRegistry.get(name)) {
           const available = scenarioRegistry.list();
-          console.error(`[databox] Scenario "${name}" not found.`);
+          console.error(`[realitydb] Scenario "${name}" not found.`);
           console.error('');
           console.error('Available scenarios:');
           for (const s of available) {
@@ -64,7 +64,7 @@ export async function seedCommand(options: {
     const masked = maskConnectionString(config.database.connectionString);
 
     console.log('');
-    console.log('DataBox Seed');
+    console.log('RealityDB Seed');
     console.log('═══════════════════════════════════════');
     console.log(`Database: ${masked}`);
     if (templateName) {
@@ -122,15 +122,15 @@ export async function seedCommand(options: {
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     if (message.includes('Config file not found')) {
-      console.error(`[databox] ${message}`);
-      console.error('Hint: Copy databox.config.example.json to databox.config.json');
+      console.error(`[realitydb] ${message}`);
+      console.error('Hint: Copy realitydb.config.json to realitydb.config.json');
     } else if (message.includes('Invalid timeline format')) {
-      console.error(`[databox] ${message}`);
+      console.error(`[realitydb] ${message}`);
     } else if (message.includes('connection') || message.includes('ECONNREFUSED')) {
-      console.error(`[databox] Seed failed: ${message}`);
+      console.error(`[realitydb] Seed failed: ${message}`);
       console.error('Hint: Check that your database is running (e.g. Docker)');
     } else {
-      console.error(`[databox] Seed failed: ${message}`);
+      console.error(`[realitydb] Seed failed: ${message}`);
       console.error('Database was not modified (transaction rolled back).');
     }
     process.exit(1);

@@ -12,7 +12,7 @@ export async function scanCommand(): Promise<void> {
     const masked = maskConnectionString(config.database.connectionString);
 
     console.log('');
-    console.log('DataBox Schema Scan');
+    console.log('RealityDB Schema Scan');
     console.log('═══════════════════════════════════════');
     console.log(`Database: ${masked}`);
     console.log(`Tables: ${schema.tableCount}`);
@@ -57,7 +57,7 @@ export async function scanCommand(): Promise<void> {
     console.log('');
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error(`[databox] Scan failed: ${message}`);
+    console.error(`[realitydb] Scan failed: ${message}`);
     process.exit(1);
   }
 }
