@@ -159,3 +159,21 @@ export type {
   ColumnAnalysisEntry,
   AnalysisReport,
 } from './analyze/index.js';
+
+// Data masking
+export {
+  detectPII,
+  detectTablePII,
+  maskTableRows,
+  buildAuditLog,
+  formatAuditLog,
+  serializeAuditLog,
+} from './mask/index.js';
+export type {
+  PIICategory,
+  PIIDetection,
+  ComplianceMode,
+  MaskStrategy,
+  MaskTableResult,
+  MaskAuditLog,
+} from './mask/index.js';

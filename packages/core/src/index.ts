@@ -80,3 +80,8 @@ export { analyzeDatabase } from './analyzePipeline.js';
 export type { AnalyzeOptions, AnalyzeResult } from './analyzePipeline.js';
 export { formatAnalysisReport, formatAnalysisReportCI } from '@databox/generators';
 export type { AnalysisReport } from '@databox/generators';
+
+export { maskDatabase } from './maskPipeline.js';
+export type { MaskOptions, MaskResult } from './maskPipeline.js';
+export { formatAuditLog, serializeAuditLog } from '@databox/generators';
+export type { MaskAuditLog, PIIDetection, ComplianceMode, MaskStrategy } from '@databox/generators';

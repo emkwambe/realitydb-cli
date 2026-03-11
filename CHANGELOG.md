@@ -1,5 +1,22 @@
 # Changelog
 
+## v1.1.0 (2026-03-11)
+
+### Features
+
+- `realitydb mask` — enterprise-grade PII detection and data masking
+- Three compliance modes: `gdpr` (default), `hipaa` (medical data), `strict` (maximum coverage)
+- Automatic PII detection: names, emails, phones, addresses, SSNs, IPs, usernames, URLs, dates of birth, financial identifiers, medical records, quasi-identifiers, free text
+- Primary keys and foreign keys are never masked — preserves referential integrity
+- 12 masking strategies: synthetic names/emails/phones/addresses, date shifting (preserves day-of-week), numeric generalization (±10% noise), text replacement, redaction
+- `--dry-run` previews PII detection without modifying data
+- `--output <dir>` exports masked data to JSON/CSV/SQL files
+- `--confirm` writes masked data back to the database
+- `--audit-log <file>` generates compliance-proof audit trail (JSON)
+- `--seed <number>` for deterministic masking
+- Topological ordering: tables are truncated in reverse dependency order and reinserted in FK order
+- CI mode JSON output for `realitydb mask`
+
 ## v1.0.0 (2026-03-11)
 
 ### Features

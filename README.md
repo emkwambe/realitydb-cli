@@ -65,6 +65,24 @@ The generated template is ready to use immediately:
 realitydb seed --template ./my-template.json --seed 42
 ```
 
+## Data Masking
+
+Detect and mask PII in your database for compliance (GDPR, HIPAA):
+
+```bash
+realitydb mask --dry-run                          # Preview PII detection
+realitydb mask --output ./masked --mode gdpr      # Export masked data to files
+realitydb mask --confirm --mode hipaa             # Mask in-place (database)
+realitydb mask --confirm --audit-log audit.json   # Write with compliance audit trail
+```
+
+Compliance modes:
+- **gdpr** (default) — masks names, emails, phones, addresses, free text fields
+- **hipaa** — adds medical records, diagnoses, prescriptions
+- **strict** — maximum coverage including quasi-identifiers (age, gender, salary)
+
+Primary keys and foreign keys are never masked. Tables are processed in dependency order to preserve referential integrity. Deterministic masking with `--seed` ensures reproducible results.
+
 ## Domain Templates
 
 | Template | Description | Tables |
@@ -262,6 +280,7 @@ Packs are self-contained: schema, generation plan, and dataset in one file.
 
 | Command | Description |
 |---------|-------------|
+| `realitydb mask` | Detect and mask PII for compliance |
 | `realitydb analyze` | Analyze schema and auto-detect column strategies |
 | `realitydb scan` | Inspect database schema |
 | `realitydb seed` | Generate and insert realistic data |

@@ -12,8 +12,9 @@ import { loadCommand } from './commands/load.js';
 import { packsListCommand } from './commands/packs.js';
 import { generateCommand } from './commands/generate.js';
 import { analyzeCommand } from './commands/analyze.js';
+import { maskCommand } from './commands/mask.js';
 
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
 
 export function run(argv: string[]): void {
   const program = new Command();
@@ -137,6 +138,21 @@ export function run(argv: string[]): void {
     .description('Scaffold a custom scenario JSON file')
     .action((name: string) => {
       scenariosCreateCommand(name);
+    });
+
+  program
+    .command('mask')
+    .description('Detect and mask PII in your database')
+    .option('--mode <mode>', 'Compliance mode (hipaa|gdpr|strict)', 'gdpr')
+    .option('--seed <number>', 'Random seed for deterministic masking')
+    .option('--dry-run', 'Preview PII detection without modifying data')
+    .option('--output <dir>', 'Export masked data to files instead of writing to DB')
+    .option('--output-format <format>', 'Output format (json|csv|sql)', 'json')
+    .option('--audit-log <file>', 'Write audit log to file')
+    .option('--confirm', 'Confirm writing masked data back to database')
+    .action(async (cmdOpts) => {
+      const opts = program.opts();
+      await maskCommand({ ...cmdOpts, ci: opts.ci });
     });
 
   program
