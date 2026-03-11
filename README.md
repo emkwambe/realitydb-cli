@@ -128,9 +128,17 @@ Capture a live database and share it with teammates:
 # Developer A hits a bug
 realitydb capture --name bug-4821
 
-# Send the .realitydb-pack.json file to Developer B
+# Share via GitHub Gist (one command)
+realitydb share bug-4821.realitydb-pack.json --gist
 
-# Developer B reproduces instantly
+# Developer B loads from URL — reproduces instantly
+realitydb load https://gist.github.com/user/abc123 --confirm
+```
+
+Or share the file directly:
+
+```bash
+# Send the .realitydb-pack.json file to Developer B
 realitydb load bug-4821.realitydb-pack.json --confirm
 ```
 
@@ -177,7 +185,8 @@ Packs are self-contained: schema, generation plan, and dataset in one file.
 | `realitydb export` | Export data to JSON/CSV/SQL files |
 | `realitydb capture` | Snapshot live database into a Reality Pack |
 | `realitydb load` | Load a Reality Pack into the database |
-| `realitydb share` | Display Reality Pack info for sharing |
+| `realitydb share` | Share a Reality Pack (file info or Gist upload) |
+| `realitydb packs list` | List available demo packs |
 | `realitydb pack export` | Generate and export as Reality Pack |
 | `realitydb pack import` | Import a Reality Pack |
 | `realitydb templates` | List available domain templates |

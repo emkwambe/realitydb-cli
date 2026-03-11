@@ -1,9 +1,16 @@
 import { loadConfig } from '@databox/config';
-import { importPack, loadRealityPack } from '@databox/core';
+import { importPack, loadRealityPack, downloadPack } from '@databox/core';
 import { formatCIOutput } from '@databox/shared';
+import { writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { maskConnectionString } from '../utils.js';
 
-const VERSION = '0.5.0';
+const VERSION = '0.8.0';
+
+function isUrl(input: string): boolean {
+  return input.startsWith('http://') || input.startsWith('https://');
+}
 
 export async function loadCommand(
   filePath: string,
@@ -12,7 +19,7 @@ export async function loadCommand(
   const start = performance.now();
   try {
     if (!filePath) {
-      const msg = 'Missing file path argument.';
+      const msg = 'Missing file path or URL argument.';
       if (options.ci) {
         console.log(formatCIOutput({
           success: false,
@@ -25,12 +32,29 @@ export async function loadCommand(
         process.exit(1);
       }
       console.error(`[realitydb] ${msg}`);
-      console.error('Usage: realitydb load <file> --confirm');
+      console.error('Usage: realitydb load <file|url> --confirm');
       process.exit(1);
     }
 
+    let localPath = filePath;
+
+    // Download from URL if needed
+    if (isUrl(filePath)) {
+      if (!options.ci) {
+        console.log('');
+        console.log(`Downloading pack from ${filePath}...`);
+      }
+      const content = await downloadPack(filePath);
+      const tempPath = join(tmpdir(), `realitydb-download-${Date.now()}.realitydb-pack.json`);
+      await writeFile(tempPath, content, 'utf-8');
+      localPath = tempPath;
+      if (!options.ci) {
+        console.log('Download complete.');
+      }
+    }
+
     // Load and validate the pack for display
-    const pack = await loadRealityPack(filePath);
+    const pack = await loadRealityPack(localPath);
 
     // --show-ddl: just print the DDL and exit
     if (options.showDdl) {
@@ -78,6 +102,9 @@ export async function loadCommand(
       }
       console.log(`Tables: ${pack.metadata.tableCount}`);
       console.log(`Total rows: ${pack.metadata.totalRows}`);
+      if (isUrl(filePath)) {
+        console.log(`Source: ${filePath}`);
+      }
 
       const ddl = (pack.metadata as Record<string, unknown>).ddl as string | undefined;
       if (ddl) {
@@ -99,7 +126,7 @@ export async function loadCommand(
       console.log('Loading...');
     }
 
-    const result = await importPack(config, filePath);
+    const result = await importPack(config, localPath);
     const durationMs = Math.round(performance.now() - start);
 
     if (options.ci) {
@@ -113,6 +140,7 @@ export async function loadCommand(
           database: masked,
           packName: pack.metadata.name,
           totalRows: result.totalRows,
+          source: isUrl(filePath) ? filePath : undefined,
           tables: result.insertResult.tables.map((t) => ({
             name: t.tableName,
             rowsInserted: t.rowsInserted,

@@ -7,7 +7,7 @@ import {
 } from '@databox/templates';
 import { formatCIOutput } from '@databox/shared';
 
-const VERSION = '0.5.0';
+const VERSION = '0.8.0';
 
 export function templatesCommand(): void {
   const registry = getDefaultRegistry();

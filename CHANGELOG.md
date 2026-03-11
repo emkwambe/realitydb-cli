@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.8.0 (2026-03-11)
+
+### Features
+
+- `realitydb share <file> --gist` uploads Reality Pack to GitHub Gist and returns shareable URL
+- `realitydb load <url> --confirm` downloads and imports a pack from any URL (Gist, direct JSON)
+- `realitydb packs list` shows available demo packs with template, persona, and row counts
+- Pack compression via gzip for sharing (5-10x size reduction)
+- Gist upload requires GITHUB_TOKEN; graceful error message with setup instructions when missing
+- URL download resolves GitHub Gist URLs to raw content automatically
+- Pack validation on download — rejects non-Reality-Pack content before importing
+
 ## v0.5.0 (2026-03-11)
 
 ### Features

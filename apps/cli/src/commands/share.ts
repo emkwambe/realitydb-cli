@@ -1,11 +1,11 @@
 import { shareRealityPack } from '@databox/core';
 import { formatCIOutput } from '@databox/shared';
 
-const VERSION = '0.5.0';
+const VERSION = '0.8.0';
 
 export async function shareCommand(
   filePath: string,
-  options: { ci?: boolean },
+  options: { ci?: boolean; gist?: boolean; description?: string },
 ): Promise<void> {
   const start = performance.now();
   try {
@@ -23,11 +23,15 @@ export async function shareCommand(
         process.exit(1);
       }
       console.error(`[realitydb] ${msg}`);
-      console.error('Usage: realitydb share <file>');
+      console.error('Usage: realitydb share <file> [--gist]');
       process.exit(1);
     }
 
-    const result = await shareRealityPack(filePath);
+    const method = options.gist ? 'gist' : 'file';
+    const result = await shareRealityPack(filePath, {
+      method,
+      description: options.description,
+    });
     const durationMs = Math.round(performance.now() - start);
 
     if (options.ci) {
@@ -42,8 +46,11 @@ export async function shareCommand(
           location: result.location,
           packName: result.packName,
           size: result.size,
+          compressedSize: result.compressedSize,
           tableCount: result.tableCount,
           totalRows: result.totalRows,
+          gistUrl: result.gistUrl,
+          gistId: result.gistId,
         },
       }));
       return;
@@ -54,15 +61,29 @@ export async function shareCommand(
     console.log('\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550');
     console.log(`Pack: ${result.packName} (${result.tableCount} tables, ${result.totalRows} rows, ${result.size})`);
     console.log('');
-    console.log('Share this file:');
-    console.log(`  File: ${result.location}`);
-    console.log(`  Size: ${result.size}`);
-    console.log('');
-    console.log('The receiver can load it with:');
-    console.log(`  realitydb load ${result.location} --confirm`);
-    console.log('');
-    console.log('Tip: To create the schema first, the receiver can run:');
-    console.log(`  realitydb load ${result.location} --show-ddl`);
+
+    if (result.method === 'gist' && result.gistUrl) {
+      console.log('Uploaded to GitHub Gist.');
+      console.log('');
+      console.log('Share this URL:');
+      console.log(`  ${result.gistUrl}`);
+      console.log('');
+      console.log('The receiver can load it with:');
+      console.log(`  realitydb load ${result.gistUrl} --confirm`);
+    } else {
+      console.log('Share this file:');
+      console.log(`  File: ${result.location}`);
+      console.log(`  Size: ${result.size}`);
+      console.log('');
+      console.log('The receiver can load it with:');
+      console.log(`  realitydb load ${result.location} --confirm`);
+      console.log('');
+      console.log('Tip: To create the schema first, the receiver can run:');
+      console.log(`  realitydb load ${result.location} --show-ddl`);
+      console.log('');
+      console.log('To share via GitHub Gist:');
+      console.log(`  realitydb share ${filePath} --gist`);
+    }
     console.log('');
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);

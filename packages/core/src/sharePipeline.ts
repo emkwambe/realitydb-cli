@@ -1,5 +1,7 @@
-import { stat } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import { loadRealityPack } from '@databox/generators';
+import { uploadToGist } from './sharing/gistUpload.js';
+import { compressPack } from './sharing/compress.js';
 
 export interface ShareOptions {
   method?: 'gist' | 'file';
@@ -11,8 +13,11 @@ export interface ShareResult {
   location: string;
   packName: string;
   size: string;
+  compressedSize?: string;
   tableCount: number;
   totalRows: number;
+  gistUrl?: string;
+  gistId?: string;
 }
 
 function formatSize(bytes: number): string {
@@ -34,27 +39,29 @@ export async function shareRealityPack(
   const method = options?.method ?? 'file';
 
   if (method === 'gist') {
-    const token = process.env.GITHUB_TOKEN;
-    if (!token) {
-      // Fall back to file method
-      return {
-        method: 'file',
-        location: filePath,
-        packName: pack.metadata.name,
-        size,
-        tableCount: pack.metadata.tableCount,
-        totalRows: pack.metadata.totalRows,
-      };
-    }
-    // Future: implement gist upload
-    // For V1, fall back to file
+    const content = await readFile(filePath, 'utf-8');
+
+    // Calculate compressed size for display
+    const compressed = await compressPack(content);
+    const compressedSize = formatSize(compressed.length);
+
+    const filename = `${pack.metadata.name}.realitydb-pack.json`;
+    const result = await uploadToGist(content, {
+      filename,
+      description: options?.description ?? `RealityDB Reality Pack: ${pack.metadata.name}`,
+      public: true,
+    });
+
     return {
-      method: 'file',
-      location: filePath,
+      method: 'gist',
+      location: result.url,
       packName: pack.metadata.name,
       size,
+      compressedSize,
       tableCount: pack.metadata.tableCount,
       totalRows: pack.metadata.totalRows,
+      gistUrl: result.url,
+      gistId: result.gistId,
     };
   }
 

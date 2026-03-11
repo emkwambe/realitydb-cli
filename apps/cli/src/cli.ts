@@ -9,8 +9,9 @@ import { packExportCommand, packImportCommand } from './commands/pack.js';
 import { captureCommand } from './commands/capture.js';
 import { shareCommand } from './commands/share.js';
 import { loadCommand } from './commands/load.js';
+import { packsListCommand } from './commands/packs.js';
 
-const VERSION = '0.5.0';
+const VERSION = '0.8.0';
 
 export function run(argv: string[]): void {
   const program = new Command();
@@ -112,14 +113,16 @@ export function run(argv: string[]): void {
   program
     .command('share <file>')
     .description('Share a Reality Pack file')
-    .action(async (filePath) => {
+    .option('--gist', 'Upload to GitHub Gist')
+    .option('--description <desc>', 'Gist description')
+    .action(async (filePath, cmdOpts) => {
       const opts = program.opts();
-      await shareCommand(filePath, { ci: opts.ci });
+      await shareCommand(filePath, { ...cmdOpts, ci: opts.ci });
     });
 
   program
     .command('load <file>')
-    .description('Load a Reality Pack into the database')
+    .description('Load a Reality Pack into the database (file path or URL)')
     .option('--confirm', 'Confirm import operation')
     .option('--show-ddl', 'Show schema DDL without importing')
     .action(async (filePath, cmdOpts) => {
@@ -150,6 +153,18 @@ export function run(argv: string[]): void {
     .description('Import Reality Pack into database')
     .option('--confirm', 'Confirm import operation')
     .action(packImportCommand);
+
+  const packs = program
+    .command('packs')
+    .description('Browse available Reality Packs');
+
+  packs
+    .command('list', { isDefault: true })
+    .description('List available demo packs')
+    .action(() => {
+      const opts = program.opts();
+      packsListCommand({ ci: opts.ci });
+    });
 
   // Print version banner when no command is given
   program.action(() => {

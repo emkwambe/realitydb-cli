@@ -48,3 +48,10 @@ export type { CaptureOptions, CaptureResult } from './capturePipeline.js';
 
 export { shareRealityPack } from './sharePipeline.js';
 export type { ShareOptions, ShareResult } from './sharePipeline.js';
+
+export { uploadToGist } from './sharing/gistUpload.js';
+export type { GistOptions, GistResult } from './sharing/gistUpload.js';
+
+export { downloadPack } from './sharing/urlDownload.js';
+
+export { compressPack, decompressPack } from './sharing/compress.js';
