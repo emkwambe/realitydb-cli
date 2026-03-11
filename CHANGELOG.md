@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.5.0 (2026-03-11)
+
+### Features
+
+- Custom Template API: create domain templates as JSON files without modifying source
+- `realitydb seed --template ./my-template.json` loads custom templates from file
+- `realitydb templates init` scaffolds a new template JSON file
+- `realitydb templates validate <file>` validates custom template structure
+- User template directory: place templates in `~/.realitydb/templates/` for name-based lookup
+- Template resolution: file path > built-in > user directory
+- All 17 column strategy kinds supported in custom templates
+
 ## v0.4.1 (2026-03-10)
 
 ### Fix

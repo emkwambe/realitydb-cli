@@ -1,10 +1,10 @@
 import { loadConfig } from '@databox/config';
 import { seedDatabase, getDefaultScenarioRegistry } from '@databox/core';
-import { getDefaultRegistry } from '@databox/templates';
 import { formatCIOutput } from '@databox/shared';
 import { maskConnectionString } from '../utils.js';
+import { resolveTemplate } from '../resolveTemplate.js';
 
-const VERSION = '0.4.1';
+const VERSION = '0.5.0';
 
 export async function seedCommand(options: {
   records?: string;
@@ -26,12 +26,12 @@ export async function seedCommand(options: {
     const scenario = options.scenario;
     const scenarioIntensity = (options.scenarioIntensity ?? 'medium') as 'low' | 'medium' | 'high';
 
-    // Validate template if specified
+    // Validate template if specified (supports file paths, built-in, and user dir)
     if (templateName) {
-      const registry = getDefaultRegistry();
-      const template = registry.get(templateName);
-      if (!template) {
-        const available = registry.list();
+      try {
+        resolveTemplate(templateName);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
         if (options.ci) {
           console.log(formatCIOutput({
             success: false,
@@ -39,20 +39,11 @@ export async function seedCommand(options: {
             version: VERSION,
             timestamp: new Date().toISOString(),
             durationMs: Math.round(performance.now() - start),
-            error: `Template "${templateName}" not found. Available: ${available.map((t) => t.name).join(', ')}`,
+            error: msg,
           }));
           process.exit(1);
         }
-        console.error(`[realitydb] Template "${templateName}" not found.`);
-        console.error('');
-        if (available.length > 0) {
-          console.error('Available templates:');
-          for (const t of available) {
-            console.error(`  ${t.name} (v${t.version}) — ${t.description}`);
-          }
-        } else {
-          console.error('No templates registered.');
-        }
+        console.error(`[realitydb] ${msg}`);
         process.exit(1);
       }
     }

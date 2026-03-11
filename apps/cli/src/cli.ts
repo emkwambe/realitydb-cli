@@ -3,14 +3,14 @@ import { scanCommand } from './commands/scan.js';
 import { seedCommand } from './commands/seed.js';
 import { resetCommand } from './commands/reset.js';
 import { exportCommand } from './commands/export.js';
-import { templatesCommand } from './commands/templates.js';
+import { templatesCommand, templatesInitCommand, templatesValidateCommand } from './commands/templates.js';
 import { scenariosCommand } from './commands/scenarios.js';
 import { packExportCommand, packImportCommand } from './commands/pack.js';
 import { captureCommand } from './commands/capture.js';
 import { shareCommand } from './commands/share.js';
 import { loadCommand } from './commands/load.js';
 
-const VERSION = '0.4.1';
+const VERSION = '0.5.0';
 
 export function run(argv: string[]): void {
   const program = new Command();
@@ -35,7 +35,7 @@ export function run(argv: string[]): void {
     .command('seed')
     .description('Seed database with generated data')
     .option('--records <count>', 'Number of records per table')
-    .option('--template <name>', 'Template to use')
+    .option('--template <name|path>', 'Template name or path to custom .json file')
     .option('--seed <number>', 'Random seed for reproducibility')
     .option('--timeline <duration>', 'Timeline duration (e.g., "12-months", "1-year")')
     .option('--scenario <names>', 'Scenarios to apply (comma-separated)')
@@ -70,10 +70,27 @@ export function run(argv: string[]): void {
       await exportCommand({ ...cmdOpts, ci: opts.ci });
     });
 
-  program
+  const templates = program
     .command('templates')
+    .description('Template management');
+
+  templates
+    .command('list', { isDefault: true })
     .description('List available domain templates')
     .action(templatesCommand);
+
+  templates
+    .command('init')
+    .description('Scaffold a new custom template JSON file')
+    .action(templatesInitCommand);
+
+  templates
+    .command('validate <file>')
+    .description('Validate a custom template JSON file')
+    .action((filePath: string) => {
+      const opts = program.opts();
+      templatesValidateCommand(filePath, { ci: opts.ci });
+    });
 
   program
     .command('scenarios')

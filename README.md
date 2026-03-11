@@ -59,6 +59,40 @@ realitydb seed --template healthcare --records 200 --seed 42
 
 Each template includes weighted distributions matching real-world data. Fintech accounts are 35% checking, 25% savings. Healthcare encounters are 35% office visits, 15% telehealth.
 
+## Custom Templates
+
+Create your own domain template as a JSON file:
+
+```bash
+realitydb templates init                              # Scaffold a template file
+realitydb templates validate ./realitydb.template.json # Validate it
+realitydb seed --template ./realitydb.template.json    # Use it
+```
+
+Template JSON format:
+
+```json
+{
+  "name": "my-domain",
+  "version": "1.0",
+  "description": "My custom domain template",
+  "tables": {
+    "orders": {
+      "match": ["orders", "*order*"],
+      "columns": {
+        "status": {
+          "strategy": "enum",
+          "options": { "values": ["pending", "shipped", "delivered"], "weights": [0.2, 0.3, 0.5] }
+        },
+        "total": { "strategy": "money", "options": { "min": 500, "max": 50000 } }
+      }
+    }
+  }
+}
+```
+
+Place templates in `~/.realitydb/templates/` for name-based lookup: `realitydb seed --template my-domain`.
+
 ## Timeline Generation
 
 Generate data that spans months with realistic growth curves:
@@ -147,6 +181,8 @@ Packs are self-contained: schema, generation plan, and dataset in one file.
 | `realitydb pack export` | Generate and export as Reality Pack |
 | `realitydb pack import` | Import a Reality Pack |
 | `realitydb templates` | List available domain templates |
+| `realitydb templates init` | Scaffold a custom template JSON file |
+| `realitydb templates validate` | Validate a custom template file |
 | `realitydb scenarios` | List available scenarios |
 
 All commands support `--ci` for JSON output.
