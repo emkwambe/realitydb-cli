@@ -64,7 +64,18 @@ export {
   churnSpikeScenario,
   fraudSpikeScenario,
   dataQualityScenario,
+  seasonalTrafficScenario,
+  dataMigrationScenario,
+  systemOutageScenario,
 } from './scenarios/index.js';
+export { composeScenarios } from './scenarios/compose.js';
+export type { CompositionResult, ScenarioConflict } from './scenarios/compose.js';
+export { parseScheduleString, applyScheduledScenarios } from './scenarios/schedule.js';
+export type { ScheduledScenario } from './scenarios/schedule.js';
+export { loadCustomScenario, scaffoldCustomScenario } from './scenarios/loadScenario.js';
+export type { CustomScenarioJSON, CustomScenarioRule } from './scenarios/loadScenario.js';
+export { buildScenarioReport, formatScenarioReport, formatScenarioReportCI } from './scenarios/report.js';
+export type { ScenarioReport, ScenarioReportEntry } from './scenarios/report.js';
 export {
   exportRealityPack,
   saveRealityPack,

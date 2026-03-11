@@ -139,8 +139,46 @@ realitydb seed --template saas --scenario payment-failures --scenario-intensity 
 | `churn-spike` | Subscription cancellation surge |
 | `fraud-spike` | Suspicious transaction patterns |
 | `data-quality` | Nulls, duplicates, encoding issues |
+| `seasonal-traffic` | Holiday/weekend traffic peaks and troughs |
+| `data-migration` | Encoding artifacts, format changes, null spikes |
+| `system-outage` | Data gap followed by recovery burst |
 
 Intensity levels: `low`, `medium`, `high`.
+
+### Composing Scenarios
+
+Apply multiple scenarios in sequence:
+
+```bash
+realitydb seed --template saas --scenario "fraud-spike,payment-failures" --scenario-intensity high
+```
+
+Conflicts between scenarios targeting the same tables are detected and reported.
+
+### Timeline-Scheduled Scenarios
+
+Schedule scenarios at specific points in your timeline:
+
+```bash
+realitydb seed --template saas --timeline 12-months \
+  --scenario-schedule "fraud-spike:month-6,churn-spike:month-9"
+```
+
+Each scenario only affects rows within its scheduled time window. Use ranges: `fraud-spike:month-3-5`.
+
+### Custom Scenarios
+
+Create your own scenarios as JSON files:
+
+```bash
+realitydb scenarios create my-scenario    # Scaffold a .scenario.json file
+```
+
+Then use it:
+
+```bash
+realitydb seed --template saas --scenario "./my-scenario.scenario.json"
+```
 
 ## Environment Reproduction
 
@@ -215,6 +253,7 @@ Packs are self-contained: schema, generation plan, and dataset in one file.
 | `realitydb templates init` | Scaffold a custom template JSON file |
 | `realitydb templates validate` | Validate a custom template file |
 | `realitydb scenarios` | List available scenarios |
+| `realitydb scenarios create` | Scaffold a custom scenario JSON file |
 
 All commands support `--ci` for JSON output.
 

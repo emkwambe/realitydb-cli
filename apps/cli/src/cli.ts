@@ -4,7 +4,7 @@ import { seedCommand } from './commands/seed.js';
 import { resetCommand } from './commands/reset.js';
 import { exportCommand } from './commands/export.js';
 import { templatesCommand, templatesInitCommand, templatesValidateCommand } from './commands/templates.js';
-import { scenariosCommand } from './commands/scenarios.js';
+import { scenariosCommand, scenariosCreateCommand } from './commands/scenarios.js';
 import { packExportCommand, packImportCommand } from './commands/pack.js';
 import { captureCommand } from './commands/capture.js';
 import { shareCommand } from './commands/share.js';
@@ -12,7 +12,7 @@ import { loadCommand } from './commands/load.js';
 import { packsListCommand } from './commands/packs.js';
 import { generateCommand } from './commands/generate.js';
 
-const VERSION = '0.10.0';
+const VERSION = '0.11.0';
 
 export function run(argv: string[]): void {
   const program = new Command();
@@ -42,6 +42,7 @@ export function run(argv: string[]): void {
     .option('--timeline <duration>', 'Timeline duration (e.g., "12-months", "1-year")')
     .option('--scenario <names>', 'Scenarios to apply (comma-separated)')
     .option('--scenario-intensity <level>', 'Scenario intensity (low|medium|high)', 'medium')
+    .option('--scenario-schedule <schedule>', 'Timeline-scheduled scenarios (e.g., "fraud-spike:month-6,churn-spike:month-9")')
     .option('--lifecycle', 'Enable lifecycle simulation for causally-connected data')
     .action(async (cmdOpts) => {
       const opts = program.opts();
@@ -68,6 +69,7 @@ export function run(argv: string[]): void {
     .option('--timeline <duration>', 'Timeline duration (e.g., "12-months", "1-year")')
     .option('--scenario <names>', 'Scenarios to apply (comma-separated)')
     .option('--scenario-intensity <level>', 'Scenario intensity (low|medium|high)', 'medium')
+    .option('--scenario-schedule <schedule>', 'Timeline-scheduled scenarios (e.g., "fraud-spike:month-6,churn-spike:month-9")')
     .action(async (cmdOpts) => {
       const opts = program.opts();
       await exportCommand({ ...cmdOpts, ci: opts.ci });
@@ -110,10 +112,21 @@ export function run(argv: string[]): void {
       templatesValidateCommand(filePath, { ci: opts.ci });
     });
 
-  program
+  const scenarios = program
     .command('scenarios')
+    .description('Scenario management');
+
+  scenarios
+    .command('list', { isDefault: true })
     .description('List available scenarios')
     .action(scenariosCommand);
+
+  scenarios
+    .command('create <name>')
+    .description('Scaffold a custom scenario JSON file')
+    .action((name: string) => {
+      scenariosCreateCommand(name);
+    });
 
   program
     .command('capture')
@@ -163,6 +176,7 @@ export function run(argv: string[]): void {
     .option('--timeline <duration>', 'Timeline duration (e.g., "12-months", "1-year")')
     .option('--scenario <names>', 'Scenarios to apply (comma-separated)')
     .option('--scenario-intensity <level>', 'Scenario intensity (low|medium|high)', 'medium')
+    .option('--scenario-schedule <schedule>', 'Timeline-scheduled scenarios (e.g., "fraud-spike:month-6,churn-spike:month-9")')
     .action(packExportCommand);
 
   pack

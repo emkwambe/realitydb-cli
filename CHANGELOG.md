@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.11.0 (2026-03-11)
+
+### Features
+
+- Advanced scenario composition: apply multiple scenarios in sequence with conflict detection
+- Timeline-scheduled scenarios: `--scenario-schedule "fraud-spike:month-6,churn-spike:month-9"`
+- Custom scenarios as JSON files: `realitydb scenarios create my-scenario` scaffolds a template
+- `realitydb scenarios create <name>` command to scaffold custom scenario files
+- Scenario result reporter: detailed per-scenario injection reports in both interactive and CI modes
+- 3 new built-in scenarios:
+  - `seasonal-traffic` — holiday/weekend traffic peaks and troughs
+  - `data-migration` — encoding artifacts, format changes, null spikes
+  - `system-outage` — data gap followed by recovery burst
+- 7 total built-in scenarios available
+- `--scenario-schedule` flag for seed, export, and pack export commands
+
 ## v0.10.0 (2026-03-11)
 
 ### Features

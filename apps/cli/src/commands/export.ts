@@ -4,7 +4,7 @@ import { formatCIOutput } from '@databox/shared';
 import { maskConnectionString } from '../utils.js';
 import { resolveTemplate } from '../resolveTemplate.js';
 
-const VERSION = '0.10.0';
+const VERSION = '0.11.0';
 
 export async function exportCommand(options: {
   format?: string;
@@ -15,6 +15,7 @@ export async function exportCommand(options: {
   timeline?: string;
   scenario?: string;
   scenarioIntensity?: string;
+  scenarioSchedule?: string;
   ci?: boolean;
 }): Promise<void> {
   const start = performance.now();
@@ -116,6 +117,7 @@ export async function exportCommand(options: {
       timeline,
       scenarios: scenario,
       scenarioIntensity,
+      scenarioSchedule: options.scenarioSchedule,
     });
 
     const durationMs = Math.round(performance.now() - start);

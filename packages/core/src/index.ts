@@ -42,6 +42,23 @@ export type { PackImportResult } from './packImportPipeline.js';
 
 export { getDefaultScenarioRegistry, loadRealityPack } from '@databox/generators';
 export type { ScenarioDefinition } from '@databox/generators';
+export {
+  composeScenarios,
+  parseScheduleString,
+  applyScheduledScenarios,
+  loadCustomScenario,
+  scaffoldCustomScenario,
+  buildScenarioReport,
+  formatScenarioReport,
+  formatScenarioReportCI,
+} from '@databox/generators';
+export type {
+  CompositionResult,
+  ScenarioConflict,
+  ScheduledScenario,
+  CustomScenarioJSON,
+  ScenarioReport,
+} from '@databox/generators';
 
 export { captureDatabase } from './capturePipeline.js';
 export type { CaptureOptions, CaptureResult } from './capturePipeline.js';
