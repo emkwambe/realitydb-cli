@@ -1,5 +1,22 @@
 # Changelog
 
+## v1.2.0 (2026-03-11)
+
+### Features
+
+- `realitydb classroom` — education and classroom mode for SQL learning
+- 3 built-in courses: `sql-101` (10 exercises), `analytics-intro` (8 exercises), `data-modeling` (6 exercises)
+- Progressive difficulty: beginner → intermediate → advanced exercises
+- Student progress tracking via `~/.realitydb/progress.json`
+- `classroom start <course>` creates tables and inserts seed data
+- `classroom status` shows completion progress with visual progress bars
+- `classroom complete <course> <exercise>` marks exercises done
+- `classroom reset <course>` clears progress
+- `classroom create <name>` scaffolds custom course JSON files
+- Custom course support: load any `.course.json` file as a course
+- Course validation for instructor-created content
+- CI mode JSON output for all classroom subcommands
+
 ## v1.1.0 (2026-03-11)
 
 ### Features

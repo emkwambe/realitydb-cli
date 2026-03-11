@@ -85,3 +85,22 @@ export { maskDatabase } from './maskPipeline.js';
 export type { MaskOptions, MaskResult } from './maskPipeline.js';
 export { formatAuditLog, serializeAuditLog } from '@databox/generators';
 export type { MaskAuditLog, PIIDetection, ComplianceMode, MaskStrategy } from '@databox/generators';
+
+export {
+  getDefaultCourseRegistry,
+  classroomList,
+  classroomStart,
+  classroomStatus,
+  classroomComplete,
+  classroomReset,
+  classroomCreate,
+  classroomExercises,
+} from './classroomPipeline.js';
+export type { ClassroomStartResult, ClassroomStatusResult } from './classroomPipeline.js';
+export type {
+  CourseDefinition,
+  CourseDifficulty,
+  Exercise,
+  ExercisePack,
+  CourseStatusSummary,
+} from '@databox/generators';

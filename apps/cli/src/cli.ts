@@ -13,8 +13,16 @@ import { packsListCommand } from './commands/packs.js';
 import { generateCommand } from './commands/generate.js';
 import { analyzeCommand } from './commands/analyze.js';
 import { maskCommand } from './commands/mask.js';
+import {
+  classroomListCommand,
+  classroomStartCommand,
+  classroomStatusCommand,
+  classroomCompleteCommand,
+  classroomResetCommand,
+  classroomCreateCommand,
+} from './commands/classroom.js';
 
-const VERSION = '1.1.0';
+const VERSION = '1.2.0';
 
 export function run(argv: string[]): void {
   const program = new Command();
@@ -153,6 +161,58 @@ export function run(argv: string[]): void {
     .action(async (cmdOpts) => {
       const opts = program.opts();
       await maskCommand({ ...cmdOpts, ci: opts.ci });
+    });
+
+  const classroom = program
+    .command('classroom')
+    .description('Education and classroom mode');
+
+  classroom
+    .command('list', { isDefault: true })
+    .description('List available courses')
+    .action(async () => {
+      const opts = program.opts();
+      await classroomListCommand({ ci: opts.ci });
+    });
+
+  classroom
+    .command('start <course>')
+    .description('Load a course into your database')
+    .action(async (course: string) => {
+      const opts = program.opts();
+      await classroomStartCommand(course, { ci: opts.ci });
+    });
+
+  classroom
+    .command('status [course]')
+    .description('Show progress for all courses or a specific course')
+    .action(async (course?: string) => {
+      const opts = program.opts();
+      await classroomStatusCommand(course, { ci: opts.ci });
+    });
+
+  classroom
+    .command('complete <course> <exercise>')
+    .description('Mark an exercise as completed')
+    .action(async (course: string, exercise: string) => {
+      const opts = program.opts();
+      await classroomCompleteCommand(course, exercise, { ci: opts.ci });
+    });
+
+  classroom
+    .command('reset <course>')
+    .description('Reset progress for a course')
+    .action(async (course: string) => {
+      const opts = program.opts();
+      await classroomResetCommand(course, { ci: opts.ci });
+    });
+
+  classroom
+    .command('create <name>')
+    .description('Scaffold a custom course JSON file')
+    .action(async (name: string) => {
+      const opts = program.opts();
+      await classroomCreateCommand(name, { ci: opts.ci });
     });
 
   program

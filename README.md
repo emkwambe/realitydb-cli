@@ -83,6 +83,31 @@ Compliance modes:
 
 Primary keys and foreign keys are never masked. Tables are processed in dependency order to preserve referential integrity. Deterministic masking with `--seed` ensures reproducible results.
 
+## Education & Classroom Mode
+
+Curated datasets and exercises for SQL courses and analytics bootcamps:
+
+```bash
+realitydb classroom                          # List available courses
+realitydb classroom start sql-101            # Load course into your database
+realitydb classroom status                   # Show progress across all courses
+realitydb classroom complete sql-101 ex-3    # Mark exercise as completed
+realitydb classroom reset sql-101            # Reset course progress
+realitydb classroom create my-course         # Scaffold a custom course
+```
+
+Built-in courses:
+
+| Course | Level | Exercises | Description |
+|--------|-------|-----------|-------------|
+| `sql-101` | Beginner | 10 | SELECT, WHERE, JOIN, GROUP BY, subqueries |
+| `analytics-intro` | Intermediate | 8 | Aggregation, window functions, CTEs |
+| `data-modeling` | Intermediate | 6 | Normalization, relationships, constraints |
+
+Each course creates its own tables (prefixed with `classroom_`), inserts realistic seed data, and provides exercises with progressive difficulty. Track your completion with `classroom status`.
+
+Create custom courses as JSON files with `classroom create`, add your own schema, seed data, and exercises.
+
 ## Domain Templates
 
 | Template | Description | Tables |
@@ -281,6 +306,11 @@ Packs are self-contained: schema, generation plan, and dataset in one file.
 | Command | Description |
 |---------|-------------|
 | `realitydb mask` | Detect and mask PII for compliance |
+| `realitydb classroom` | Education mode with courses and exercises |
+| `realitydb classroom start` | Load a course into your database |
+| `realitydb classroom status` | Show exercise completion progress |
+| `realitydb classroom complete` | Mark an exercise as completed |
+| `realitydb classroom create` | Scaffold a custom course JSON file |
 | `realitydb analyze` | Analyze schema and auto-detect column strategies |
 | `realitydb scan` | Inspect database schema |
 | `realitydb seed` | Generate and insert realistic data |

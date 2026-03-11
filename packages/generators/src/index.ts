@@ -177,3 +177,34 @@ export type {
   MaskTableResult,
   MaskAuditLog,
 } from './mask/index.js';
+
+// Classroom / Education
+export {
+  CourseRegistry,
+  buildExercisePack,
+  filterByDifficulty,
+  groupByDifficulty,
+  loadProgress,
+  saveProgress,
+  startCourse,
+  completeExercise,
+  resetCourseProgress,
+  getCourseStatus,
+  scaffoldCustomCourse,
+  validateCustomCourse,
+  parseCustomCourse,
+  sql101Course,
+  analyticsIntroCourse,
+  dataModelingCourse,
+} from './classroom/index.js';
+export type {
+  CourseDifficulty,
+  Exercise,
+  CourseDefinition,
+  ExercisePack,
+  ExerciseProgress,
+  CourseProgress,
+  ProgressData,
+  CourseStatusSummary,
+  CustomCourseJSON,
+} from './classroom/index.js';
