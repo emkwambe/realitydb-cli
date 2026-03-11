@@ -55,3 +55,6 @@ export type { GistOptions, GistResult } from './sharing/gistUpload.js';
 export { downloadPack } from './sharing/urlDownload.js';
 
 export { compressPack, decompressPack } from './sharing/compress.js';
+
+export { simulateLifecycles, applyCorrelations } from '@databox/generators';
+export { saasLifecycle, fintechLifecycle } from '@databox/templates';

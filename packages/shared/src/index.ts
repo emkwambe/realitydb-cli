@@ -37,3 +37,13 @@ export type {
 } from './realityPackTypes.js';
 export type { CIOutput } from './output.js';
 export { formatCIOutput } from './output.js';
+export type {
+  LifecycleDefinition,
+  LifecycleState,
+  LifecycleTransition,
+  SideEffect,
+  CrossTableCorrelation,
+  CorrelationCondition,
+  CorrelationEffect,
+  SimulationResult,
+} from './lifecycleTypes.js';

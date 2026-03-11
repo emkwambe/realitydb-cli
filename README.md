@@ -93,6 +93,28 @@ Template JSON format:
 
 Place templates in `~/.realitydb/templates/` for name-based lookup: `realitydb seed --template my-domain`.
 
+## Lifecycle Simulation
+
+Generate causally-connected data where entity states are consistent across tables:
+
+```bash
+realitydb seed --template saas --lifecycle --seed 42
+```
+
+With `--lifecycle`, a "canceled" user always has:
+- `canceled_at` timestamp set
+- A failed payment record
+- Subscription status = "canceled"
+
+An "active" user always has:
+- Valid subscription with `status = "active"`
+- Successful payment history
+- No `canceled_at`
+
+Enterprise plan users automatically get 2x more payment records (longer tenure).
+
+Available lifecycles: `saas` (user signup → trial → active → churn), `fintech` (account opened → active → frozen/closed).
+
 ## Timeline Generation
 
 Generate data that spans months with realistic growth curves:

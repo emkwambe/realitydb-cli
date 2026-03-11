@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.9.0 (2026-03-11)
+
+### Features
+
+- Lifecycle simulation engine for causally-connected data generation
+- `realitydb seed --template saas --lifecycle` generates coherent entity stories
+- State machine walks entities through lifecycle: signup → trial → active → churned
+- Cross-table correlations: enterprise users get 2x payments, churned users always have failed payment
+- SaaS lifecycle: 5 states (trial 12%, active 65%, churned 10%, past_due 8%, paused 5%)
+- Fintech lifecycle: 4 states (active 82%, frozen 5%, closed 8%, pending_review 5%)
+- Frozen accounts always have fraud alerts; closed accounts always have settlements
+- `--lifecycle` flag is opt-in — existing generation behavior unchanged without it
+- Deterministic lifecycle simulation with seed support
+
 ## v0.8.0 (2026-03-11)
 
 ### Features

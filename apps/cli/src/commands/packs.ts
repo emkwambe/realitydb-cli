@@ -1,7 +1,7 @@
 import { getDefaultRegistry } from '@databox/templates';
 import { formatCIOutput } from '@databox/shared';
 
-const VERSION = '0.8.0';
+const VERSION = '0.9.0';
 
 interface DemoPack {
   name: string;

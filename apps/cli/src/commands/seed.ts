@@ -4,7 +4,7 @@ import { formatCIOutput } from '@databox/shared';
 import { maskConnectionString } from '../utils.js';
 import { resolveTemplate } from '../resolveTemplate.js';
 
-const VERSION = '0.8.0';
+const VERSION = '0.9.0';
 
 export async function seedCommand(options: {
   records?: string;
@@ -13,6 +13,7 @@ export async function seedCommand(options: {
   timeline?: string;
   scenario?: string;
   scenarioIntensity?: string;
+  lifecycle?: boolean;
   ci?: boolean;
 }): Promise<void> {
   const start = performance.now();
@@ -25,6 +26,7 @@ export async function seedCommand(options: {
     const timeline = options.timeline;
     const scenario = options.scenario;
     const scenarioIntensity = (options.scenarioIntensity ?? 'medium') as 'low' | 'medium' | 'high';
+    const lifecycle = options.lifecycle ?? false;
 
     // Validate template if specified (supports file paths, built-in, and user dir)
     if (templateName) {
@@ -95,6 +97,9 @@ export async function seedCommand(options: {
       }
       console.log(`Seed: ${effectiveSeed}`);
       console.log(`Records per table: ${effectiveRecords}`);
+      if (lifecycle) {
+        console.log('Lifecycle: enabled');
+      }
       if (scenario) {
         const scenarioNames = scenario.split(',').map((s) => s.trim());
         const scenarioDisplay = scenarioNames.map((s) => `${s} (${scenarioIntensity})`).join(', ');
@@ -102,7 +107,9 @@ export async function seedCommand(options: {
       }
       console.log('');
 
-      if (timeline) {
+      if (lifecycle) {
+        console.log('Simulating lifecycles...');
+      } else if (timeline) {
         console.log('Generating with timeline...');
       } else {
         console.log('Seeding...');
@@ -116,6 +123,7 @@ export async function seedCommand(options: {
       timeline,
       scenarios: scenario,
       scenarioIntensity,
+      lifecycle,
     });
 
     const durationMs = Math.round(performance.now() - start);
@@ -140,6 +148,7 @@ export async function seedCommand(options: {
             durationMs: t.durationMs,
           })),
           timelineUsed: !!timeline,
+          lifecycleUsed: !!lifecycle,
           scenariosApplied: result.scenariosApplied ?? [],
         },
       }));

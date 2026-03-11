@@ -29,3 +29,5 @@ export { ecommerceTemplate } from './domains/ecommerce.js';
 export { educationTemplate } from './domains/education.js';
 export { fintechTemplate } from './domains/fintech.js';
 export { healthcareTemplate } from './domains/healthcare.js';
+export { saasLifecycle } from './lifecycles/saas.js';
+export { fintechLifecycle } from './lifecycles/fintech.js';

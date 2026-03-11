@@ -11,7 +11,7 @@ import { shareCommand } from './commands/share.js';
 import { loadCommand } from './commands/load.js';
 import { packsListCommand } from './commands/packs.js';
 
-const VERSION = '0.8.0';
+const VERSION = '0.9.0';
 
 export function run(argv: string[]): void {
   const program = new Command();
@@ -41,6 +41,7 @@ export function run(argv: string[]): void {
     .option('--timeline <duration>', 'Timeline duration (e.g., "12-months", "1-year")')
     .option('--scenario <names>', 'Scenarios to apply (comma-separated)')
     .option('--scenario-intensity <level>', 'Scenario intensity (low|medium|high)', 'medium')
+    .option('--lifecycle', 'Enable lifecycle simulation for causally-connected data')
     .action(async (cmdOpts) => {
       const opts = program.opts();
       await seedCommand({ ...cmdOpts, ci: opts.ci });

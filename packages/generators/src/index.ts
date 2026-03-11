@@ -70,3 +70,13 @@ export {
   saveRealityPack,
   loadRealityPack,
 } from './packExporter.js';
+export {
+  createEntity,
+  selectFinalState,
+  advanceEntity,
+  generateEntityRows,
+  findStatePath,
+  simulateLifecycles,
+  applyCorrelations,
+} from './lifecycle/index.js';
+export type { SimulatedEntity } from './lifecycle/index.js';

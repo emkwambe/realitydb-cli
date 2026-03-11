@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { maskConnectionString } from '../utils.js';
 
-const VERSION = '0.8.0';
+const VERSION = '0.9.0';
 
 function isUrl(input: string): boolean {
   return input.startsWith('http://') || input.startsWith('https://');

@@ -3,7 +3,7 @@ import { scanDatabase } from '@databox/core';
 import { formatCIOutput } from '@databox/shared';
 import { maskConnectionString } from '../utils.js';
 
-const VERSION = '0.8.0';
+const VERSION = '0.9.0';
 
 export async function scanCommand(options: {
   ci?: boolean;
