@@ -42,6 +42,29 @@ Seed complete. 2000 rows inserted in 0.1s
 
 65% of subscriptions are active, 12% trialing, 10% canceled -- matching real SaaS distributions.
 
+## Schema Analysis
+
+Auto-detect column semantics and generate a custom template from your schema:
+
+```bash
+realitydb analyze                              # Analyze schema and print report
+realitydb analyze --output my-template.json    # Generate a template file
+```
+
+The analyzer reads your schema, samples existing data (up to 1000 rows per table), and detects:
+- Column types: emails, phones, URLs, IP addresses, slugs, usernames
+- Enum-like columns with real value distributions from your data
+- Numeric ranges (min/max/mean) from actual values
+- Status columns with weighted distributions
+- Country, currency, rating, and percentage columns
+- Null rates and boolean distributions
+
+The generated template is ready to use immediately:
+
+```bash
+realitydb seed --template ./my-template.json --seed 42
+```
+
 ## Domain Templates
 
 | Template | Description | Tables |
@@ -239,6 +262,7 @@ Packs are self-contained: schema, generation plan, and dataset in one file.
 
 | Command | Description |
 |---------|-------------|
+| `realitydb analyze` | Analyze schema and auto-detect column strategies |
 | `realitydb scan` | Inspect database schema |
 | `realitydb seed` | Generate and insert realistic data |
 | `realitydb reset` | Clear seeded data |

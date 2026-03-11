@@ -75,3 +75,8 @@ export { compressPack, decompressPack } from './sharing/compress.js';
 
 export { simulateLifecycles, applyCorrelations } from '@databox/generators';
 export { saasLifecycle, fintechLifecycle } from '@databox/templates';
+
+export { analyzeDatabase } from './analyzePipeline.js';
+export type { AnalyzeOptions, AnalyzeResult } from './analyzePipeline.js';
+export { formatAnalysisReport, formatAnalysisReportCI } from '@databox/generators';
+export type { AnalysisReport } from '@databox/generators';

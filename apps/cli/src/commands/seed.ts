@@ -4,7 +4,7 @@ import { formatCIOutput } from '@databox/shared';
 import { maskConnectionString } from '../utils.js';
 import { resolveTemplate } from '../resolveTemplate.js';
 
-const VERSION = '0.11.0';
+const VERSION = '1.0.0';
 
 export async function seedCommand(options: {
   records?: string;

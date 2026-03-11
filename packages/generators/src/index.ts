@@ -138,3 +138,24 @@ export {
   appendJsonBatch,
   writeJsonArray,
 } from './writers/index.js';
+
+// Schema analysis
+export {
+  detectColumn,
+  detectTableColumns,
+  analyzeTableSample,
+  refineDetection,
+  generateTemplate,
+  serializeTemplate,
+  buildAnalysisReport,
+  formatAnalysisReport,
+  formatAnalysisReportCI,
+} from './analyze/index.js';
+export type {
+  ColumnDetection,
+  ColumnSampleStats,
+  TableSampleAnalysis,
+  TableAnalysis,
+  ColumnAnalysisEntry,
+  AnalysisReport,
+} from './analyze/index.js';

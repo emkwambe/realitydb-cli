@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.0.0 (2026-03-11)
+
+### Features
+
+- `realitydb analyze` — intelligent schema analysis with auto-detection of column semantics
+- Column pattern detector: emails, phones, URLs, IP addresses, slugs, usernames, countries, currencies, ratings, percentages, statuses, enums
+- Sample data analyzer: reads existing rows to learn real distributions (value frequencies, numeric ranges, null rates, boolean ratios)
+- Auto-generated templates: `--output my-template.json` creates a ready-to-use template from analysis
+- `--sample-size <N>` controls how many rows to sample per table (default 1000)
+- Confidence-scored analysis report showing detection quality per column
+- CI mode JSON output for `realitydb analyze`
+
 ## v0.11.0 (2026-03-11)
 
 ### Features

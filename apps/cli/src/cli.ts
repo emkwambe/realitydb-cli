@@ -11,8 +11,9 @@ import { shareCommand } from './commands/share.js';
 import { loadCommand } from './commands/load.js';
 import { packsListCommand } from './commands/packs.js';
 import { generateCommand } from './commands/generate.js';
+import { analyzeCommand } from './commands/analyze.js';
 
-const VERSION = '0.11.0';
+const VERSION = '1.0.0';
 
 export function run(argv: string[]): void {
   const program = new Command();
@@ -31,6 +32,16 @@ export function run(argv: string[]): void {
     .action(async () => {
       const opts = program.opts();
       await scanCommand({ ci: opts.ci });
+    });
+
+  program
+    .command('analyze')
+    .description('Analyze database schema and suggest column strategies')
+    .option('--output <file>', 'Generate a template JSON file from analysis')
+    .option('--sample-size <count>', 'Number of rows to sample per table', '1000')
+    .action(async (cmdOpts) => {
+      const opts = program.opts();
+      await analyzeCommand({ ...cmdOpts, ci: opts.ci });
     });
 
   program
