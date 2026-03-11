@@ -22,3 +22,5 @@ export {
 } from './introspection/index.js';
 
 export { generateCreateTableDDL } from './generateDDL.js';
+
+export { parseSQLSchema } from './parseSQLSchema.js';

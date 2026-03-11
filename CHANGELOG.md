@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.10.0 (2026-03-11)
+
+### Features
+
+- `realitydb generate` — pure data generation without database connection
+- Data science mode: generate million-row datasets for ML training and analytics testing
+- SQL schema parser: `--schema schema.sql` defines tables from DDL without a live database
+- JSON schema support: `--schema schema.json` for inline column definitions with distributions
+- Statistical distribution controls: normal, uniform, zipf, exponential, log-normal
+- Cross-column correlations: `--correlations` enables statistical relationships (e.g., age correlates with income)
+- Output formats: JSON, CSV, Parquet (NDJSON)
+- Streaming generation with constant memory — 1M rows in under 60 seconds
+- Default demo schema (users + transactions) when no schema file is provided
+- Configurable per-column distributions with mean, stddev, lambda, exponent, min/max bounds
+- Distribution config via template overrides in schema JSON
+
 ## v0.9.0 (2026-03-11)
 
 ### Features

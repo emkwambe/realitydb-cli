@@ -80,3 +80,50 @@ export {
   applyCorrelations,
 } from './lifecycle/index.js';
 export type { SimulatedEntity } from './lifecycle/index.js';
+
+// Data Science distributions
+export {
+  normalDistribution,
+  boundedNormalDistribution,
+  uniformDistribution,
+  uniformIntDistribution,
+  zipfDistribution,
+  zipfInRange,
+  exponentialDistribution,
+  boundedExponentialDistribution,
+  logNormalDistribution,
+  boundedLogNormalDistribution,
+  sampleDistribution,
+} from './distributions/index.js';
+export type { DistributionType, DistributionConfig } from './distributions/index.js';
+
+// Streaming generator
+export {
+  streamingGenerate,
+  generateInMemory,
+  databaseSchemaToGenerateSchema,
+} from './streaming.js';
+export type {
+  GenerateSchema,
+  GenerateTableDef,
+  GenerateColumnDef,
+  ColumnCorrelation,
+  GenerateOptions,
+} from './streaming.js';
+
+// Cross-column correlations
+export {
+  applyColumnCorrelations,
+  pearsonCorrelation,
+} from './correlations.js';
+
+// Streaming writers
+export {
+  writeParquet,
+  appendParquetBatch,
+  writeCsvHeader,
+  appendCsvBatch,
+  writeJsonHeader,
+  appendJsonBatch,
+  writeJsonArray,
+} from './writers/index.js';

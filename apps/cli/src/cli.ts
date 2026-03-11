@@ -10,8 +10,9 @@ import { captureCommand } from './commands/capture.js';
 import { shareCommand } from './commands/share.js';
 import { loadCommand } from './commands/load.js';
 import { packsListCommand } from './commands/packs.js';
+import { generateCommand } from './commands/generate.js';
 
-const VERSION = '0.9.0';
+const VERSION = '0.10.0';
 
 export function run(argv: string[]): void {
   const program = new Command();
@@ -70,6 +71,21 @@ export function run(argv: string[]): void {
     .action(async (cmdOpts) => {
       const opts = program.opts();
       await exportCommand({ ...cmdOpts, ci: opts.ci });
+    });
+
+  program
+    .command('generate')
+    .description('Generate large-scale datasets for data science (no database required)')
+    .option('--records <count>', 'Number of records to generate', '1000')
+    .option('--schema <file>', 'Schema definition file (.sql or .json)')
+    .option('--format <format>', 'Output format (json|csv|parquet)', 'json')
+    .option('--output <dir>', 'Output directory', './.realitydb/generated')
+    .option('--seed <number>', 'Random seed for reproducibility')
+    .option('--table <name>', 'Generate only a specific table')
+    .option('--correlations', 'Enable cross-column correlations from schema')
+    .action(async (cmdOpts) => {
+      const opts = program.opts();
+      await generateCommand({ ...cmdOpts, ci: opts.ci });
     });
 
   const templates = program

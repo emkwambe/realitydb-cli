@@ -33,6 +33,9 @@ importers:
       '@databox/core':
         specifier: workspace:^
         version: link:../../packages/core
+      '@databox/generators':
+        specifier: workspace:^
+        version: link:../../packages/generators
       '@databox/schema':
         specifier: workspace:^
         version: link:../../packages/schema

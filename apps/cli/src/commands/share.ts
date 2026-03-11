@@ -1,7 +1,7 @@
 import { shareRealityPack } from '@databox/core';
 import { formatCIOutput } from '@databox/shared';
 
-const VERSION = '0.9.0';
+const VERSION = '0.10.0';
 
 export async function shareCommand(
   filePath: string,
