@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.4.0 (2026-03-13)
+
+### Template Enrichment
+
+- SaaS: added organizations, invoices tables; enriched users with role/status, plans with tiers/trial_days, payments with methods/failure_reason
+- E-commerce: added categories, reviews tables; enriched customers with geography (country/city/lifetime_value), products with brands/ratings/review_count
+- Healthcare: added medications, vitals tables; enriched patients with blood type, encounters with notes/checked_in_at/discharged_at
+- Fintech: enriched transactions with categories/fees/counterparty, accounts with routing_number/phone, fraud_alerts/settlements/chargebacks with timestamps
+- Education: enriched students with demographics (date_of_birth/gender), teachers with phone, grades with assignment_type
+- All templates bumped to v2.0 with rowCountMultiplier on every table config
+- Updated all test fixture SQL schemas to match enriched templates
+
 ## v1.3.1 (2026-03-13)
 
 ### Fixes

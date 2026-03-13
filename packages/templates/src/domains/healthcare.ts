@@ -2,13 +2,14 @@ import type { DomainTemplate } from '../types.js';
 
 export const healthcareTemplate: DomainTemplate = {
   name: 'healthcare',
-  version: '1.0',
-  description: 'Healthcare system with patients, providers, encounters, diagnoses, and billing',
-  targetTables: ['patients', 'providers', 'encounters', 'diagnoses', 'billing'],
+  version: '2.0',
+  description: 'Healthcare system with patients, providers, encounters, diagnoses, billing, medications, and vitals',
+  targetTables: ['patients', 'providers', 'encounters', 'diagnoses', 'billing', 'medications', 'vitals'],
   tableConfigs: new Map([
     ['patients', {
       tableName: 'patients',
       matchPattern: ['patients', '*patient*'],
+      rowCountMultiplier: 1.0,
       columnOverrides: [
         {
           columnName: 'first_name',
@@ -33,6 +34,16 @@ export const healthcareTemplate: DomainTemplate = {
             options: {
               values: ['Male', 'Female', 'Non-binary', 'Other', 'Prefer not to say'],
               weights: [0.48, 0.48, 0.02, 0.01, 0.01],
+            },
+          },
+        },
+        {
+          columnName: 'blood_type',
+          strategy: {
+            kind: 'enum',
+            options: {
+              values: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'],
+              weights: [0.34, 0.06, 0.09, 0.02, 0.03, 0.01, 0.38, 0.07],
             },
           },
         },
@@ -63,6 +74,7 @@ export const healthcareTemplate: DomainTemplate = {
     ['providers', {
       tableName: 'providers',
       matchPattern: ['providers', 'doctors', 'physicians', '*provider*'],
+      rowCountMultiplier: 0.2,
       columnOverrides: [
         {
           columnName: 'first_name',
@@ -109,6 +121,7 @@ export const healthcareTemplate: DomainTemplate = {
     ['encounters', {
       tableName: 'encounters',
       matchPattern: ['encounters', 'visits', 'appointments', '*encounter*', '*visit*'],
+      rowCountMultiplier: 2.0,
       columnOverrides: [
         {
           columnName: 'encounter_type',
@@ -141,14 +154,29 @@ export const healthcareTemplate: DomainTemplate = {
           },
         },
         {
+          columnName: 'notes',
+          strategy: { kind: 'text', options: { mode: 'medium' } },
+        },
+        {
           columnName: 'scheduled_at',
           strategy: { kind: 'timestamp', options: { mode: 'past' } },
+        },
+        {
+          columnName: 'checked_in_at',
+          strategy: { kind: 'timestamp', options: { mode: 'past' } },
+          description: 'Nullable — null for scheduled/canceled encounters',
+        },
+        {
+          columnName: 'discharged_at',
+          strategy: { kind: 'timestamp', options: { mode: 'past' } },
+          description: 'Nullable — null for non-completed encounters',
         },
       ],
     }],
     ['diagnoses', {
       tableName: 'diagnoses',
       matchPattern: ['diagnoses', '*diagnosis*', '*diagnos*'],
+      rowCountMultiplier: 2.5,
       columnOverrides: [
         {
           columnName: 'icd_code',
@@ -188,7 +216,8 @@ export const healthcareTemplate: DomainTemplate = {
     }],
     ['billing', {
       tableName: 'billing',
-      matchPattern: ['billing', 'claims', 'charges', '*bill*', '*claim*'],
+      matchPattern: ['billing', 'claims', '*claim*'],
+      rowCountMultiplier: 2.0,
       columnOverrides: [
         {
           columnName: 'cpt_code',
@@ -234,6 +263,111 @@ export const healthcareTemplate: DomainTemplate = {
         },
         {
           columnName: 'billed_at',
+          strategy: { kind: 'timestamp', options: { mode: 'past' } },
+        },
+        {
+          columnName: 'paid_at',
+          strategy: { kind: 'timestamp', options: { mode: 'past' } },
+          description: 'Nullable — null for unpaid bills',
+        },
+      ],
+    }],
+    ['medications', {
+      tableName: 'medications',
+      matchPattern: ['medications', '*medic*', '*prescription*', '*rx*'],
+      rowCountMultiplier: 2.5,
+      columnOverrides: [
+        {
+          columnName: 'medication_name',
+          strategy: {
+            kind: 'enum',
+            options: {
+              values: ['Lisinopril', 'Metformin', 'Amlodipine', 'Omeprazole', 'Atorvastatin', 'Levothyroxine', 'Metoprolol', 'Albuterol', 'Gabapentin', 'Sertraline', 'Amoxicillin', 'Ibuprofen'],
+              weights: [0.10, 0.10, 0.09, 0.09, 0.10, 0.08, 0.08, 0.08, 0.07, 0.07, 0.07, 0.07],
+            },
+          },
+        },
+        {
+          columnName: 'dosage',
+          strategy: {
+            kind: 'enum',
+            options: {
+              values: ['5mg', '10mg', '20mg', '25mg', '40mg', '50mg', '100mg', '250mg', '500mg'],
+            },
+          },
+        },
+        {
+          columnName: 'frequency',
+          strategy: {
+            kind: 'enum',
+            options: {
+              values: ['once daily', 'twice daily', 'three times daily', 'as needed', 'every 6 hours', 'at bedtime'],
+              weights: [0.35, 0.25, 0.10, 0.15, 0.05, 0.10],
+            },
+          },
+        },
+        {
+          columnName: 'route',
+          strategy: {
+            kind: 'enum',
+            options: {
+              values: ['oral', 'topical', 'injection', 'inhaled', 'sublingual'],
+              weights: [0.75, 0.08, 0.07, 0.06, 0.04],
+            },
+          },
+        },
+        {
+          columnName: 'prescribed_at',
+          strategy: { kind: 'timestamp', options: { mode: 'past' } },
+        },
+        {
+          columnName: 'end_date',
+          strategy: { kind: 'timestamp', options: { mode: 'past' } },
+          description: 'Nullable — null for ongoing medications',
+        },
+        {
+          columnName: 'status',
+          strategy: {
+            kind: 'enum',
+            options: {
+              values: ['active', 'discontinued', 'completed'],
+              weights: [0.65, 0.20, 0.15],
+            },
+          },
+        },
+      ],
+    }],
+    ['vitals', {
+      tableName: 'vitals',
+      matchPattern: ['vitals', '*vital*', '*measurement*'],
+      rowCountMultiplier: 3.0,
+      columnOverrides: [
+        {
+          columnName: 'systolic_bp',
+          strategy: { kind: 'integer', options: { min: 90, max: 180 } },
+        },
+        {
+          columnName: 'diastolic_bp',
+          strategy: { kind: 'integer', options: { min: 55, max: 110 } },
+        },
+        {
+          columnName: 'heart_rate',
+          strategy: { kind: 'integer', options: { min: 50, max: 120 } },
+        },
+        {
+          columnName: 'temperature_f',
+          strategy: { kind: 'float', options: { min: 96.0, max: 103.0 } },
+        },
+        {
+          columnName: 'weight_lbs',
+          strategy: { kind: 'float', options: { min: 100, max: 350 } },
+        },
+        {
+          columnName: 'height_inches',
+          strategy: { kind: 'integer', options: { min: 55, max: 78 } },
+        },
+        {
+          columnName: 'recorded_at',
           strategy: { kind: 'timestamp', options: { mode: 'past' } },
         },
       ],

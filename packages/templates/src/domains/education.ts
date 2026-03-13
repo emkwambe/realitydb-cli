@@ -2,17 +2,19 @@ import type { DomainTemplate } from '../types.js';
 
 export const educationTemplate: DomainTemplate = {
   name: 'education',
-  version: '1.0',
-  description: 'K-12 school system with teachers, classes, students, and grades',
+  version: '2.0',
+  description: 'K-12 school system with teachers, classes, students, grades, and attendance',
   targetTables: ['teachers', 'classes', 'students', 'enrollments', 'grades', 'attendance'],
   tableConfigs: new Map([
     ['teachers', {
       tableName: 'teachers',
       matchPattern: ['teachers', 'instructors', 'faculty', '*teacher*', '*instructor*', '*faculty*'],
+      rowCountMultiplier: 0.2,
       columnOverrides: [
         { columnName: 'email', strategy: { kind: 'email' } },
         { columnName: 'first_name', strategy: { kind: 'first_name' } },
         { columnName: 'last_name', strategy: { kind: 'last_name' } },
+        { columnName: 'phone', strategy: { kind: 'phone' } },
         {
           columnName: 'department',
           strategy: {
@@ -23,11 +25,16 @@ export const educationTemplate: DomainTemplate = {
             },
           },
         },
+        {
+          columnName: 'hire_date',
+          strategy: { kind: 'timestamp', options: { mode: 'past' } },
+        },
       ],
     }],
     ['classes', {
       tableName: 'classes',
       matchPattern: ['classes', 'courses', 'sections', '*class*', '*course*', '*section*'],
+      rowCountMultiplier: 0.5,
       columnOverrides: [
         {
           columnName: 'name',
@@ -44,13 +51,13 @@ export const educationTemplate: DomainTemplate = {
                 'Intro to CS', 'AP Computer Science',
               ],
               weights: [
+                0.06, 0.05, 0.06, 0.04,
                 0.06, 0.05, 0.05, 0.04,
-                0.06, 0.05, 0.05, 0.04,
-                0.06, 0.05, 0.04, 0.03,
+                0.06, 0.05, 0.05, 0.03,
                 0.05, 0.05, 0.04,
                 0.04, 0.03,
                 0.05, 0.04,
-                0.04, 0.04,
+                0.04, 0.06,
               ],
             },
           },
@@ -88,6 +95,7 @@ export const educationTemplate: DomainTemplate = {
     ['students', {
       tableName: 'students',
       matchPattern: ['students', 'pupils', 'learners', '*student*', '*pupil*', '*learner*'],
+      rowCountMultiplier: 1.0,
       columnOverrides: [
         { columnName: 'email', strategy: { kind: 'email' } },
         { columnName: 'first_name', strategy: { kind: 'first_name' } },
@@ -96,11 +104,30 @@ export const educationTemplate: DomainTemplate = {
           columnName: 'grade_level',
           strategy: { kind: 'integer', options: { min: 6, max: 12 } },
         },
+        {
+          columnName: 'date_of_birth',
+          strategy: { kind: 'timestamp', options: { mode: 'past' } },
+        },
+        {
+          columnName: 'gender',
+          strategy: {
+            kind: 'enum',
+            options: {
+              values: ['Male', 'Female', 'Non-binary'],
+              weights: [0.49, 0.49, 0.02],
+            },
+          },
+        },
+        {
+          columnName: 'enrolled_at',
+          strategy: { kind: 'timestamp', options: { mode: 'past' } },
+        },
       ],
     }],
     ['enrollments', {
       tableName: 'enrollments',
       matchPattern: ['enrollments', 'registrations', '*enrollment*', '*registration*'],
+      rowCountMultiplier: 3.0,
       columnOverrides: [
         {
           columnName: 'status',
@@ -112,11 +139,16 @@ export const educationTemplate: DomainTemplate = {
             },
           },
         },
+        {
+          columnName: 'enrolled_at',
+          strategy: { kind: 'timestamp', options: { mode: 'past' } },
+        },
       ],
     }],
     ['grades', {
       tableName: 'grades',
       matchPattern: ['grades', 'scores', 'assessments', 'marks', '*grade*', '*score*', '*assessment*', '*mark*'],
+      rowCountMultiplier: 5.0,
       columnOverrides: [
         {
           columnName: 'assignment_name',
@@ -138,6 +170,16 @@ export const educationTemplate: DomainTemplate = {
           },
         },
         {
+          columnName: 'assignment_type',
+          strategy: {
+            kind: 'enum',
+            options: {
+              values: ['homework', 'quiz', 'test', 'project', 'participation', 'final_exam'],
+              weights: [0.25, 0.20, 0.20, 0.15, 0.10, 0.10],
+            },
+          },
+        },
+        {
           columnName: 'score',
           strategy: { kind: 'float', options: { min: 40, max: 100 } },
         },
@@ -151,11 +193,16 @@ export const educationTemplate: DomainTemplate = {
             },
           },
         },
+        {
+          columnName: 'graded_at',
+          strategy: { kind: 'timestamp', options: { mode: 'past' } },
+        },
       ],
     }],
     ['attendance', {
       tableName: 'attendance',
       matchPattern: ['attendance', '*attendance*'],
+      rowCountMultiplier: 8.0,
       columnOverrides: [
         {
           columnName: 'status',
