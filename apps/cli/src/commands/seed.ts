@@ -1,3 +1,4 @@
+import { resolve } from 'node:path';
 import { loadConfig } from '@databox/config';
 import { seedDatabase, getDefaultScenarioRegistry } from '@databox/core';
 import { formatCIOutput } from '@databox/shared';
@@ -23,7 +24,13 @@ export async function seedCommand(options: {
 
     const records = options.records ? parseInt(options.records, 10) : undefined;
     const seed = options.seed ? parseInt(options.seed, 10) : undefined;
-    const templateName = options.template ?? config.template;
+    const rawTemplateName = options.template ?? config.template;
+    // Resolve file paths to absolute paths so downstream code can find the file
+    // regardless of working directory changes. Detect file paths by looking for
+    // path separators or .json extension.
+    const templateName = rawTemplateName && (rawTemplateName.includes('/') || rawTemplateName.includes('\\') || rawTemplateName.endsWith('.json'))
+      ? resolve(rawTemplateName)
+      : rawTemplateName;
     const timeline = options.timeline;
     const scenario = options.scenario;
     const scenarioIntensity = (options.scenarioIntensity ?? 'medium') as 'low' | 'medium' | 'high';

@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import type { DomainTemplate, TableTemplateConfig, ColumnTemplateOverride } from './types.js';
 import type { TemplateJSON, TemplateColumnJSON } from './templateSchema.js';
 import { assertValidTemplate } from './validateTemplate.js';
@@ -8,19 +9,20 @@ import { assertValidTemplate } from './validateTemplate.js';
  * Reads the file, validates structure, and converts to DomainTemplate.
  */
 export function loadTemplateFromJSON(filePath: string): DomainTemplate {
+  const resolvedPath = resolve(filePath);
   let raw: string;
   try {
-    raw = readFileSync(filePath, 'utf-8');
+    raw = readFileSync(resolvedPath, 'utf-8');
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    throw new Error(`Cannot read template file "${filePath}": ${msg}`);
+    throw new Error(`Cannot read template file "${resolvedPath}": ${msg}`);
   }
 
   let json: unknown;
   try {
     json = JSON.parse(raw);
   } catch {
-    throw new Error(`Template file "${filePath}" is not valid JSON`);
+    throw new Error(`Template file "${resolvedPath}" is not valid JSON`);
   }
 
   const template = assertValidTemplate(json);
