@@ -21,8 +21,13 @@ import {
   classroomResetCommand,
   classroomCreateCommand,
 } from './commands/classroom.js';
+import {
+  simulateRunCommand,
+  simulateProfilesCommand,
+  simulateWebhooksCommand,
+} from './commands/simulate.js';
 
-const VERSION = '1.2.0';
+const VERSION = '1.3.0';
 
 export function run(argv: string[]): void {
   const program = new Command();
@@ -213,6 +218,45 @@ export function run(argv: string[]): void {
     .action(async (name: string) => {
       const opts = program.opts();
       await classroomCreateCommand(name, { ci: opts.ci });
+    });
+
+  const simulate = program
+    .command('simulate')
+    .description('System behavior simulation');
+
+  simulate
+    .command('run', { isDefault: true })
+    .description('Run a simulation with a profile')
+    .option('--profile <name>', 'Simulation profile (saas-startup|ecommerce-peak|api-service)', 'saas-startup')
+    .option('--duration <duration>', 'Override profile duration (e.g., 1-hour, 1-day, 1-week)')
+    .option('--events <count>', 'Number of events to generate', '1000')
+    .option('--seed <number>', 'Random seed for reproducibility')
+    .option('--output <file>', 'Output file path')
+    .option('--format <format>', 'Output format (json|ndjson)', 'json')
+    .action(async (cmdOpts) => {
+      const opts = program.opts();
+      await simulateRunCommand({ ...cmdOpts, ci: opts.ci });
+    });
+
+  simulate
+    .command('profiles')
+    .description('List available simulation profiles')
+    .action(async () => {
+      const opts = program.opts();
+      await simulateProfilesCommand({ ci: opts.ci });
+    });
+
+  simulate
+    .command('webhooks')
+    .description('Generate webhook events from a specific source')
+    .option('--source <source>', 'Webhook source (stripe|github)', 'stripe')
+    .option('--events <count>', 'Number of events to generate', '100')
+    .option('--seed <number>', 'Random seed for reproducibility')
+    .option('--output <file>', 'Output file path')
+    .option('--format <format>', 'Output format (json|ndjson)', 'json')
+    .action(async (cmdOpts) => {
+      const opts = program.opts();
+      await simulateWebhooksCommand({ ...cmdOpts, ci: opts.ci });
     });
 
   program

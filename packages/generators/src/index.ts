@@ -208,3 +208,36 @@ export type {
   CourseStatusSummary,
   CustomCourseJSON,
 } from './classroom/index.js';
+
+// System behavior simulation
+export {
+  generateEventStream,
+  generateStripeWebhooks,
+  generateGitHubWebhooks,
+  generateGenericWebhooks,
+  generateApiTraffic,
+  applyCorrelations as applyEventCorrelations,
+  buildSimulationReport,
+  formatSimulationReport,
+  formatSimulationReportCI,
+  SIMULATION_PROFILES,
+  getSimulationProfile,
+  EVENT_CATALOG,
+  parseDuration,
+  randomHex,
+} from './simulate/index.js';
+export type {
+  SimulationEvent,
+  TrafficPattern,
+  EventSourceConfig,
+  EventTypeConfig,
+  SimulationProfile,
+  CorrelationRule,
+  GenerateEventsOptions,
+  StripeEventType,
+  GitHubEventType,
+  GenericWebhookConfig,
+  ApiEndpoint,
+  GenerateApiTrafficOptions,
+  SimulationReport,
+} from './simulate/index.js';

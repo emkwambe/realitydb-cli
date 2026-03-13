@@ -108,6 +108,34 @@ Each course creates its own tables (prefixed with `classroom_`), inserts realist
 
 Create custom courses as JSON files with `classroom create`, add your own schema, seed data, and exercises.
 
+## System Behavior Simulation
+
+Generate realistic event streams, webhook payloads, and API traffic patterns:
+
+```bash
+realitydb simulate run --profile saas-startup --events 5000 --output events.json
+realitydb simulate run --profile ecommerce-peak --format ndjson --output stream.ndjson
+realitydb simulate profiles                     # List available profiles
+realitydb simulate webhooks --source stripe --events 200 --output stripe.json
+realitydb simulate webhooks --source github --events 100 --output github.json
+```
+
+Built-in profiles:
+
+| Profile | Description | Traffic Pattern |
+|---------|-------------|-----------------|
+| `saas-startup` | Signups, logins, page views, purchases, API calls | Diurnal |
+| `ecommerce-peak` | Peak sale with purchase surges and payment processing | Spike |
+| `api-service` | HTTP request traffic with latency and error rates | Diurnal |
+
+Features:
+- **Event streams** with configurable traffic patterns: steady, spike, ramp, burst, diurnal
+- **Stripe webhooks**: payment intents, subscriptions, invoices, refunds
+- **GitHub webhooks**: pushes, pull requests, issues, releases
+- **Multi-system correlation**: purchase → payment → notification → analytics chains
+- **Output formats**: JSON (array) or NDJSON (streaming)
+- Deterministic with `--seed` for reproducible simulations
+
 ## Domain Templates
 
 | Template | Description | Tables |
@@ -305,6 +333,9 @@ Packs are self-contained: schema, generation plan, and dataset in one file.
 
 | Command | Description |
 |---------|-------------|
+| `realitydb simulate run` | Run a system behavior simulation |
+| `realitydb simulate profiles` | List available simulation profiles |
+| `realitydb simulate webhooks` | Generate webhook events (Stripe/GitHub) |
 | `realitydb mask` | Detect and mask PII for compliance |
 | `realitydb classroom` | Education mode with courses and exercises |
 | `realitydb classroom start` | Load a course into your database |

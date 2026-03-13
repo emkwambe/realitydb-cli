@@ -104,3 +104,26 @@ export type {
   ExercisePack,
   CourseStatusSummary,
 } from '@databox/generators';
+
+export {
+  simulateRun,
+  simulateWebhooks,
+  simulateProfiles,
+} from './simulatePipeline.js';
+export type {
+  SimulateRunOptions,
+  SimulateRunResult,
+  SimulateWebhooksOptions,
+  SimulateWebhooksResult,
+} from './simulatePipeline.js';
+export {
+  formatSimulationReport,
+  formatSimulationReportCI,
+  getSimulationProfile,
+  SIMULATION_PROFILES,
+} from '@databox/generators';
+export type {
+  SimulationEvent,
+  SimulationProfile,
+  SimulationReport,
+} from '@databox/generators';

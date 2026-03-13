@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.3.0 (2026-03-13)
+
+### Features
+
+- `realitydb simulate` — system behavior simulation engine
+- Event stream generator with configurable traffic patterns (steady, spike, ramp, burst, diurnal)
+- Built-in event catalog: user_signup, login, logout, page_view, purchase, subscription_change, api_call, error
+- Stripe webhook simulation: payment_intent.succeeded/failed, subscription CRUD, invoice.paid, charge.refunded
+- GitHub webhook simulation: push, pull_request.opened/merged/closed, issues.opened/closed, release.published
+- Generic webhook builder for custom event sources
+- API traffic pattern generator with realistic latency distributions and error rates
+- Multi-system event correlation: trigger → sequence chains with configurable delays and probabilities
+- 3 simulation profiles: `saas-startup`, `ecommerce-peak`, `api-service`
+- Output formats: JSON (array) and NDJSON (streaming)
+- Simulation report with event counts, timeline coverage, source breakdown, correlation chains
+- `simulate run`, `simulate profiles`, `simulate webhooks` CLI subcommands
+- CI mode JSON output for all simulate subcommands
+
 ## v1.2.0 (2026-03-11)
 
 ### Features
