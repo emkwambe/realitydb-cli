@@ -3,12 +3,14 @@ import type { DatabaseSchema } from './types.js';
 export interface ValidationResult {
   valid: boolean;
   warnings: string[];
+  verboseWarnings: string[];
   errors: string[];
 }
 
 export function validateSchema(schema: DatabaseSchema): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
+  const verboseWarnings: string[] = [];
 
   const tableNames = schema.tables.map((t) => t.name);
   const tableSet = new Set<string>();
@@ -72,12 +74,12 @@ export function validateSchema(schema: DatabaseSchema): ValidationResult {
       }
     }
 
-    // Warn on nullable FK columns
-    if (tableSet.has(fk.sourceTable)) {
-      const table = schema.tables.find((t) => t.name === fk.sourceTable);
-      const col = table?.columns.find((c) => c.name === fk.sourceColumn);
-      if (col && col.isNullable) {
-        warnings.push(
+    // Nullable FK columns — informational, shown only with --verbose
+    const sourceTable = schema.tables.find((t) => t.name === fk.sourceTable);
+    if (sourceTable) {
+      const sourceCol = sourceTable.columns.find((c) => c.name === fk.sourceColumn);
+      if (sourceCol && sourceCol.isNullable) {
+        verboseWarnings.push(
           `FK "${fk.constraintName}": source column "${fk.sourceTable}.${fk.sourceColumn}" is nullable`,
         );
       }
@@ -87,6 +89,7 @@ export function validateSchema(schema: DatabaseSchema): ValidationResult {
   return {
     valid: errors.length === 0,
     warnings,
+    verboseWarnings,
     errors,
   };
 }

@@ -17,7 +17,7 @@ import type { DomainTemplate } from '@databox/templates';
  */
 export function resolveTemplate(nameOrPath: string): DomainTemplate {
   // 1. File path (contains / or ends with .json)
-  if (nameOrPath.includes('/') || nameOrPath.endsWith('.json')) {
+  if (nameOrPath.includes('/') || nameOrPath.includes('\\') || nameOrPath.endsWith('.json')) {
     return loadTemplateFromJSON(nameOrPath);
   }
 

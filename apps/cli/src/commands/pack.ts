@@ -1,7 +1,8 @@
+import { resolve } from 'node:path';
 import { loadConfig } from '@databox/config';
 import { exportPack, importPack, loadRealityPack, getDefaultScenarioRegistry } from '@databox/core';
-import { getDefaultRegistry } from '@databox/templates';
 import { maskConnectionString } from '../utils.js';
+import { resolveTemplate } from '../resolveTemplate.js';
 import { stat } from 'node:fs/promises';
 
 export async function packExportCommand(options: {
@@ -20,24 +21,21 @@ export async function packExportCommand(options: {
 
     const records = options.records ? parseInt(options.records, 10) : undefined;
     const seed = options.seed ? parseInt(options.seed, 10) : undefined;
-    const templateName = options.template ?? config.template;
+    const rawTemplateName = options.template ?? config.template;
+    // Resolve file paths to absolute paths so downstream code can find the file
+    const templateName = rawTemplateName && (rawTemplateName.includes('/') || rawTemplateName.includes('\\') || rawTemplateName.endsWith('.json'))
+      ? resolve(rawTemplateName)
+      : rawTemplateName;
     const outputDir = options.output ?? '.';
     const scenarioIntensity = (options.scenarioIntensity ?? 'medium') as 'low' | 'medium' | 'high';
 
-    // Validate template if specified
+    // Validate template if specified (supports file paths, built-in, and user dir)
     if (templateName) {
-      const registry = getDefaultRegistry();
-      const template = registry.get(templateName);
-      if (!template) {
-        const available = registry.list();
-        console.error(`[realitydb] Template "${templateName}" not found.`);
-        console.error('');
-        if (available.length > 0) {
-          console.error('Available templates:');
-          for (const t of available) {
-            console.error(`  ${t.name} (v${t.version}) — ${t.description}`);
-          }
-        }
+      try {
+        resolveTemplate(templateName);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(`[realitydb] ${msg}`);
         process.exit(1);
       }
     }

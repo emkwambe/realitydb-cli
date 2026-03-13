@@ -93,16 +93,36 @@ export async function seedDatabase(
         const correlatedResult = applyCorrelations(simResult, lifecycle.correlations, random);
 
         // Convert SimulationResult → GeneratedDataset
+        // Filter out columns that don't exist in the actual schema
+        const schemaColumnLookup = new Map<string, Set<string>>();
+        for (const table of schema.tables) {
+          schemaColumnLookup.set(table.name, new Set(table.columns.map((c) => c.name)));
+        }
+
         const tables = new Map<string, GeneratedTable>();
         let totalRows = 0;
         for (const [tableName, rows] of correlatedResult.tables) {
+          const validColumns = schemaColumnLookup.get(tableName);
+          const filteredRows = validColumns
+            ? rows.map((row) => {
+                const filtered: Record<string, unknown> = {};
+                for (const [col, val] of Object.entries(row)) {
+                  if (validColumns.has(col)) {
+                    filtered[col] = val;
+                  } else {
+                    console.warn(`[lifecycle] Skipping column '${col}' on table '${tableName}' — column does not exist`);
+                  }
+                }
+                return filtered;
+              })
+            : rows;
           tables.set(tableName, {
             tableName,
-            columns: rows.length > 0 ? Object.keys(rows[0]) : [],
-            rows,
-            rowCount: rows.length,
+            columns: filteredRows.length > 0 ? Object.keys(filteredRows[0]) : [],
+            rows: filteredRows,
+            rowCount: filteredRows.length,
           });
-          totalRows += rows.length;
+          totalRows += filteredRows.length;
         }
 
         dataset = {

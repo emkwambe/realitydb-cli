@@ -7,9 +7,14 @@ import { getPrimaryKeys } from './introspection/getPrimaryKeys.js';
 import { normalizeSchema } from './normalizer.js';
 import { validateSchema } from './validator.js';
 
+export interface IntrospectOptions {
+  verbose?: boolean;
+}
+
 export async function introspectDatabase(
   pool: pg.Pool,
   schemaName: string = 'public',
+  options?: IntrospectOptions,
 ): Promise<DatabaseSchema> {
   const [tables, columns, foreignKeys, primaryKeys] = await Promise.all([
     getTables(pool, schemaName),
@@ -24,6 +29,12 @@ export async function introspectDatabase(
 
   for (const warning of validation.warnings) {
     console.warn(`[databox] Schema warning: ${warning}`);
+  }
+
+  if (options?.verbose) {
+    for (const vw of validation.verboseWarnings) {
+      console.warn(`[databox] Schema warning: ${vw}`);
+    }
   }
 
   for (const error of validation.errors) {
