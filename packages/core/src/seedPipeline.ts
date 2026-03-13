@@ -5,9 +5,12 @@ import type { DatasetInsertResult } from '@databox/db';
 import { createPostgresClient, testConnection, closeConnection, withTransaction, batchInsertDataset } from '@databox/db';
 import { createSeededRandom } from '@databox/shared';
 import { introspectDatabase } from '@databox/schema';
-import { generateDataset, generateTimelineDataset, applyScenarios } from '@databox/generators';
+import { generateDataset, generateTimelineDataset, simulateLifecycles, applyCorrelations } from '@databox/generators';
+import { composeScenarios, parseScheduleString, applyScheduledScenarios, buildScenarioReport, formatScenarioReportCI } from '@databox/generators';
+import type { GeneratedDataset, GeneratedTable } from '@databox/generators';
 import { buildGenerationPlan, validateGenerationPlan } from './planning/index.js';
 import { parseTimelineString } from './planning/parseTimeline.js';
+import { resolveLifecycle } from './resolveLifecycle.js';
 
 export interface SeedOptions {
   records?: number;
@@ -16,6 +19,8 @@ export interface SeedOptions {
   timeline?: string;
   scenarios?: string;
   scenarioIntensity?: 'low' | 'medium' | 'high';
+  scenarioSchedule?: string;
+  lifecycle?: boolean;
 }
 
 export interface SeedResult {
@@ -25,7 +30,9 @@ export interface SeedResult {
   totalRows: number;
   durationMs: number;
   timelineUsed?: boolean;
+  lifecycleUsed?: boolean;
   scenariosApplied?: ScenarioResult[];
+  scenarioReport?: Record<string, unknown>;
 }
 
 export async function seedDatabase(
@@ -73,22 +80,78 @@ export async function seedDatabase(
       );
     }
 
-    // Generate dataset — use timeline engine if timeline provided
-    let dataset = timelineConfig
-      ? generateTimelineDataset(plan, timelineConfig)
-      : generateDataset(plan);
+    // Generate dataset — lifecycle, timeline, or standard
+    let dataset: GeneratedDataset;
+    const lifecycleUsed = !!options?.lifecycle;
 
-    // Apply scenarios if provided
+    if (options?.lifecycle && options?.template) {
+      const lifecycle = resolveLifecycle(options.template);
+      if (lifecycle) {
+        const random = createSeededRandom(plan.reproducibility.randomSeed);
+        const entityCount = effectiveConfig.seed.defaultRecords;
+        const simResult = simulateLifecycles(lifecycle, entityCount, random);
+        const correlatedResult = applyCorrelations(simResult, lifecycle.correlations, random);
+
+        // Convert SimulationResult → GeneratedDataset
+        const tables = new Map<string, GeneratedTable>();
+        let totalRows = 0;
+        for (const [tableName, rows] of correlatedResult.tables) {
+          tables.set(tableName, {
+            tableName,
+            columns: rows.length > 0 ? Object.keys(rows[0]) : [],
+            rows,
+            rowCount: rows.length,
+          });
+          totalRows += rows.length;
+        }
+
+        dataset = {
+          tables,
+          generatedAt: new Date().toISOString(),
+          seed: plan.reproducibility.randomSeed,
+          totalRows,
+        };
+      } else {
+        // No lifecycle for this template — fall back to standard generation
+        dataset = timelineConfig
+          ? generateTimelineDataset(plan, timelineConfig)
+          : generateDataset(plan);
+      }
+    } else {
+      dataset = timelineConfig
+        ? generateTimelineDataset(plan, timelineConfig)
+        : generateDataset(plan);
+    }
+
+    // Apply scenarios: scheduled or composed
     let scenariosApplied: ScenarioResult[] | undefined;
-    if (options?.scenarios) {
+    let scenarioReportData: Record<string, unknown> | undefined;
+
+    if (options?.scenarioSchedule && timelineConfig) {
+      // Timeline-scheduled scenarios
+      const intensity = options.scenarioIntensity ?? 'medium';
+      const scheduled = parseScheduleString(options.scenarioSchedule, intensity);
+      const random = createSeededRandom(plan.reproducibility.randomSeed);
+      const totalMonths = computeTotalMonths(timelineConfig);
+      const result = applyScheduledScenarios(dataset, scheduled, random, totalMonths);
+      dataset = result.dataset;
+      scenariosApplied = result.results;
+
+      const report = buildScenarioReport(result.results, [], true);
+      scenarioReportData = formatScenarioReportCI(report);
+    } else if (options?.scenarios) {
+      // Composed scenarios (sequential application with conflict detection)
       const scenarioConfigs = parseScenarioString(
         options.scenarios,
         options.scenarioIntensity ?? 'medium',
       );
       const random = createSeededRandom(plan.reproducibility.randomSeed);
-      const result = applyScenarios(dataset, scenarioConfigs, random);
+      const result = composeScenarios(dataset, scenarioConfigs, random);
       dataset = result.dataset;
       scenariosApplied = result.results;
+
+      const report = buildScenarioReport(result.results, result.conflicts, false);
+      scenarioReportData = formatScenarioReportCI(report);
     }
 
     const insertResult = await withTransaction(pool, async (client) => {
@@ -104,11 +167,20 @@ export async function seedDatabase(
       totalRows: insertResult.totalRows,
       durationMs,
       timelineUsed: !!timelineConfig,
+      lifecycleUsed,
       scenariosApplied,
+      scenarioReport: scenarioReportData,
     };
   } finally {
     await closeConnection(pool);
   }
+}
+
+function computeTotalMonths(tc: { startDate: string; endDate: string }): number {
+  const start = new Date(tc.startDate);
+  const end = new Date(tc.endDate);
+  const months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+  return Math.max(months, 1);
 }
 
 function parseScenarioString(

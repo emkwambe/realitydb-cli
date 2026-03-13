@@ -3,14 +3,31 @@ import { scanCommand } from './commands/scan.js';
 import { seedCommand } from './commands/seed.js';
 import { resetCommand } from './commands/reset.js';
 import { exportCommand } from './commands/export.js';
-import { templatesCommand } from './commands/templates.js';
-import { scenariosCommand } from './commands/scenarios.js';
+import { templatesCommand, templatesInitCommand, templatesValidateCommand } from './commands/templates.js';
+import { scenariosCommand, scenariosCreateCommand } from './commands/scenarios.js';
 import { packExportCommand, packImportCommand } from './commands/pack.js';
 import { captureCommand } from './commands/capture.js';
 import { shareCommand } from './commands/share.js';
 import { loadCommand } from './commands/load.js';
+import { packsListCommand } from './commands/packs.js';
+import { generateCommand } from './commands/generate.js';
+import { analyzeCommand } from './commands/analyze.js';
+import { maskCommand } from './commands/mask.js';
+import {
+  classroomListCommand,
+  classroomStartCommand,
+  classroomStatusCommand,
+  classroomCompleteCommand,
+  classroomResetCommand,
+  classroomCreateCommand,
+} from './commands/classroom.js';
+import {
+  simulateRunCommand,
+  simulateProfilesCommand,
+  simulateWebhooksCommand,
+} from './commands/simulate.js';
 
-const VERSION = '0.4.0';
+const VERSION = '1.3.0';
 
 export function run(argv: string[]): void {
   const program = new Command();
@@ -32,14 +49,26 @@ export function run(argv: string[]): void {
     });
 
   program
+    .command('analyze')
+    .description('Analyze database schema and suggest column strategies')
+    .option('--output <file>', 'Generate a template JSON file from analysis')
+    .option('--sample-size <count>', 'Number of rows to sample per table', '1000')
+    .action(async (cmdOpts) => {
+      const opts = program.opts();
+      await analyzeCommand({ ...cmdOpts, ci: opts.ci });
+    });
+
+  program
     .command('seed')
     .description('Seed database with generated data')
     .option('--records <count>', 'Number of records per table')
-    .option('--template <name>', 'Template to use')
+    .option('--template <name|path>', 'Template name or path to custom .json file')
     .option('--seed <number>', 'Random seed for reproducibility')
     .option('--timeline <duration>', 'Timeline duration (e.g., "12-months", "1-year")')
     .option('--scenario <names>', 'Scenarios to apply (comma-separated)')
     .option('--scenario-intensity <level>', 'Scenario intensity (low|medium|high)', 'medium')
+    .option('--scenario-schedule <schedule>', 'Timeline-scheduled scenarios (e.g., "fraud-spike:month-6,churn-spike:month-9")')
+    .option('--lifecycle', 'Enable lifecycle simulation for causally-connected data')
     .action(async (cmdOpts) => {
       const opts = program.opts();
       await seedCommand({ ...cmdOpts, ci: opts.ci });
@@ -65,20 +94,170 @@ export function run(argv: string[]): void {
     .option('--timeline <duration>', 'Timeline duration (e.g., "12-months", "1-year")')
     .option('--scenario <names>', 'Scenarios to apply (comma-separated)')
     .option('--scenario-intensity <level>', 'Scenario intensity (low|medium|high)', 'medium')
+    .option('--scenario-schedule <schedule>', 'Timeline-scheduled scenarios (e.g., "fraud-spike:month-6,churn-spike:month-9")')
     .action(async (cmdOpts) => {
       const opts = program.opts();
       await exportCommand({ ...cmdOpts, ci: opts.ci });
     });
 
   program
+    .command('generate')
+    .description('Generate large-scale datasets for data science (no database required)')
+    .option('--records <count>', 'Number of records to generate', '1000')
+    .option('--schema <file>', 'Schema definition file (.sql or .json)')
+    .option('--format <format>', 'Output format (json|csv|parquet)', 'json')
+    .option('--output <dir>', 'Output directory', './.realitydb/generated')
+    .option('--seed <number>', 'Random seed for reproducibility')
+    .option('--table <name>', 'Generate only a specific table')
+    .option('--correlations', 'Enable cross-column correlations from schema')
+    .action(async (cmdOpts) => {
+      const opts = program.opts();
+      await generateCommand({ ...cmdOpts, ci: opts.ci });
+    });
+
+  const templates = program
     .command('templates')
+    .description('Template management');
+
+  templates
+    .command('list', { isDefault: true })
     .description('List available domain templates')
     .action(templatesCommand);
 
-  program
+  templates
+    .command('init')
+    .description('Scaffold a new custom template JSON file')
+    .action(templatesInitCommand);
+
+  templates
+    .command('validate <file>')
+    .description('Validate a custom template JSON file')
+    .action((filePath: string) => {
+      const opts = program.opts();
+      templatesValidateCommand(filePath, { ci: opts.ci });
+    });
+
+  const scenarios = program
     .command('scenarios')
+    .description('Scenario management');
+
+  scenarios
+    .command('list', { isDefault: true })
     .description('List available scenarios')
     .action(scenariosCommand);
+
+  scenarios
+    .command('create <name>')
+    .description('Scaffold a custom scenario JSON file')
+    .action((name: string) => {
+      scenariosCreateCommand(name);
+    });
+
+  program
+    .command('mask')
+    .description('Detect and mask PII in your database')
+    .option('--mode <mode>', 'Compliance mode (hipaa|gdpr|strict)', 'gdpr')
+    .option('--seed <number>', 'Random seed for deterministic masking')
+    .option('--dry-run', 'Preview PII detection without modifying data')
+    .option('--output <dir>', 'Export masked data to files instead of writing to DB')
+    .option('--output-format <format>', 'Output format (json|csv|sql)', 'json')
+    .option('--audit-log <file>', 'Write audit log to file')
+    .option('--confirm', 'Confirm writing masked data back to database')
+    .action(async (cmdOpts) => {
+      const opts = program.opts();
+      await maskCommand({ ...cmdOpts, ci: opts.ci });
+    });
+
+  const classroom = program
+    .command('classroom')
+    .description('Education and classroom mode');
+
+  classroom
+    .command('list', { isDefault: true })
+    .description('List available courses')
+    .action(async () => {
+      const opts = program.opts();
+      await classroomListCommand({ ci: opts.ci });
+    });
+
+  classroom
+    .command('start <course>')
+    .description('Load a course into your database')
+    .action(async (course: string) => {
+      const opts = program.opts();
+      await classroomStartCommand(course, { ci: opts.ci });
+    });
+
+  classroom
+    .command('status [course]')
+    .description('Show progress for all courses or a specific course')
+    .action(async (course?: string) => {
+      const opts = program.opts();
+      await classroomStatusCommand(course, { ci: opts.ci });
+    });
+
+  classroom
+    .command('complete <course> <exercise>')
+    .description('Mark an exercise as completed')
+    .action(async (course: string, exercise: string) => {
+      const opts = program.opts();
+      await classroomCompleteCommand(course, exercise, { ci: opts.ci });
+    });
+
+  classroom
+    .command('reset <course>')
+    .description('Reset progress for a course')
+    .action(async (course: string) => {
+      const opts = program.opts();
+      await classroomResetCommand(course, { ci: opts.ci });
+    });
+
+  classroom
+    .command('create <name>')
+    .description('Scaffold a custom course JSON file')
+    .action(async (name: string) => {
+      const opts = program.opts();
+      await classroomCreateCommand(name, { ci: opts.ci });
+    });
+
+  const simulate = program
+    .command('simulate')
+    .description('System behavior simulation');
+
+  simulate
+    .command('run', { isDefault: true })
+    .description('Run a simulation with a profile')
+    .option('--profile <name>', 'Simulation profile (saas-startup|ecommerce-peak|api-service)', 'saas-startup')
+    .option('--duration <duration>', 'Override profile duration (e.g., 1-hour, 1-day, 1-week)')
+    .option('--events <count>', 'Number of events to generate', '1000')
+    .option('--seed <number>', 'Random seed for reproducibility')
+    .option('--output <file>', 'Output file path')
+    .option('--format <format>', 'Output format (json|ndjson)', 'json')
+    .action(async (cmdOpts) => {
+      const opts = program.opts();
+      await simulateRunCommand({ ...cmdOpts, ci: opts.ci });
+    });
+
+  simulate
+    .command('profiles')
+    .description('List available simulation profiles')
+    .action(async () => {
+      const opts = program.opts();
+      await simulateProfilesCommand({ ci: opts.ci });
+    });
+
+  simulate
+    .command('webhooks')
+    .description('Generate webhook events from a specific source')
+    .option('--source <source>', 'Webhook source (stripe|github)', 'stripe')
+    .option('--events <count>', 'Number of events to generate', '100')
+    .option('--seed <number>', 'Random seed for reproducibility')
+    .option('--output <file>', 'Output file path')
+    .option('--format <format>', 'Output format (json|ndjson)', 'json')
+    .action(async (cmdOpts) => {
+      const opts = program.opts();
+      await simulateWebhooksCommand({ ...cmdOpts, ci: opts.ci });
+    });
 
   program
     .command('capture')
@@ -95,14 +274,16 @@ export function run(argv: string[]): void {
   program
     .command('share <file>')
     .description('Share a Reality Pack file')
-    .action(async (filePath) => {
+    .option('--gist', 'Upload to GitHub Gist')
+    .option('--description <desc>', 'Gist description')
+    .action(async (filePath, cmdOpts) => {
       const opts = program.opts();
-      await shareCommand(filePath, { ci: opts.ci });
+      await shareCommand(filePath, { ...cmdOpts, ci: opts.ci });
     });
 
   program
     .command('load <file>')
-    .description('Load a Reality Pack into the database')
+    .description('Load a Reality Pack into the database (file path or URL)')
     .option('--confirm', 'Confirm import operation')
     .option('--show-ddl', 'Show schema DDL without importing')
     .action(async (filePath, cmdOpts) => {
@@ -126,6 +307,7 @@ export function run(argv: string[]): void {
     .option('--timeline <duration>', 'Timeline duration (e.g., "12-months", "1-year")')
     .option('--scenario <names>', 'Scenarios to apply (comma-separated)')
     .option('--scenario-intensity <level>', 'Scenario intensity (low|medium|high)', 'medium')
+    .option('--scenario-schedule <schedule>', 'Timeline-scheduled scenarios (e.g., "fraud-spike:month-6,churn-spike:month-9")')
     .action(packExportCommand);
 
   pack
@@ -133,6 +315,18 @@ export function run(argv: string[]): void {
     .description('Import Reality Pack into database')
     .option('--confirm', 'Confirm import operation')
     .action(packImportCommand);
+
+  const packs = program
+    .command('packs')
+    .description('Browse available Reality Packs');
+
+  packs
+    .command('list', { isDefault: true })
+    .description('List available demo packs')
+    .action(() => {
+      const opts = program.opts();
+      packsListCommand({ ci: opts.ci });
+    });
 
   // Print version banner when no command is given
   program.action(() => {

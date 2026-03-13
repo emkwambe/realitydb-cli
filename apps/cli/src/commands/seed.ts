@@ -1,10 +1,10 @@
 import { loadConfig } from '@databox/config';
 import { seedDatabase, getDefaultScenarioRegistry } from '@databox/core';
-import { getDefaultRegistry } from '@databox/templates';
 import { formatCIOutput } from '@databox/shared';
 import { maskConnectionString } from '../utils.js';
+import { resolveTemplate } from '../resolveTemplate.js';
 
-const VERSION = '0.4.0';
+const VERSION = '1.3.0';
 
 export async function seedCommand(options: {
   records?: string;
@@ -13,6 +13,8 @@ export async function seedCommand(options: {
   timeline?: string;
   scenario?: string;
   scenarioIntensity?: string;
+  scenarioSchedule?: string;
+  lifecycle?: boolean;
   ci?: boolean;
 }): Promise<void> {
   const start = performance.now();
@@ -25,13 +27,33 @@ export async function seedCommand(options: {
     const timeline = options.timeline;
     const scenario = options.scenario;
     const scenarioIntensity = (options.scenarioIntensity ?? 'medium') as 'low' | 'medium' | 'high';
+    const scenarioSchedule = options.scenarioSchedule;
+    const lifecycle = options.lifecycle ?? false;
 
-    // Validate template if specified
+    // Validate: --scenario-schedule requires --timeline
+    if (scenarioSchedule && !timeline) {
+      const msg = '--scenario-schedule requires --timeline to be set';
+      if (options.ci) {
+        console.log(formatCIOutput({
+          success: false,
+          command: 'seed',
+          version: VERSION,
+          timestamp: new Date().toISOString(),
+          durationMs: Math.round(performance.now() - start),
+          error: msg,
+        }));
+        process.exit(1);
+      }
+      console.error(`[realitydb] ${msg}`);
+      process.exit(1);
+    }
+
+    // Validate template if specified (supports file paths, built-in, and user dir)
     if (templateName) {
-      const registry = getDefaultRegistry();
-      const template = registry.get(templateName);
-      if (!template) {
-        const available = registry.list();
+      try {
+        resolveTemplate(templateName);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
         if (options.ci) {
           console.log(formatCIOutput({
             success: false,
@@ -39,20 +61,11 @@ export async function seedCommand(options: {
             version: VERSION,
             timestamp: new Date().toISOString(),
             durationMs: Math.round(performance.now() - start),
-            error: `Template "${templateName}" not found. Available: ${available.map((t) => t.name).join(', ')}`,
+            error: msg,
           }));
           process.exit(1);
         }
-        console.error(`[realitydb] Template "${templateName}" not found.`);
-        console.error('');
-        if (available.length > 0) {
-          console.error('Available templates:');
-          for (const t of available) {
-            console.error(`  ${t.name} (v${t.version}) — ${t.description}`);
-          }
-        } else {
-          console.error('No templates registered.');
-        }
+        console.error(`[realitydb] ${msg}`);
         process.exit(1);
       }
     }
@@ -104,14 +117,22 @@ export async function seedCommand(options: {
       }
       console.log(`Seed: ${effectiveSeed}`);
       console.log(`Records per table: ${effectiveRecords}`);
+      if (lifecycle) {
+        console.log('Lifecycle: enabled');
+      }
       if (scenario) {
         const scenarioNames = scenario.split(',').map((s) => s.trim());
         const scenarioDisplay = scenarioNames.map((s) => `${s} (${scenarioIntensity})`).join(', ');
         console.log(`Scenarios: ${scenarioDisplay}`);
       }
+      if (scenarioSchedule) {
+        console.log(`Scenario schedule: ${scenarioSchedule}`);
+      }
       console.log('');
 
-      if (timeline) {
+      if (lifecycle) {
+        console.log('Simulating lifecycles...');
+      } else if (timeline) {
         console.log('Generating with timeline...');
       } else {
         console.log('Seeding...');
@@ -125,6 +146,8 @@ export async function seedCommand(options: {
       timeline,
       scenarios: scenario,
       scenarioIntensity,
+      scenarioSchedule,
+      lifecycle,
     });
 
     const durationMs = Math.round(performance.now() - start);
@@ -149,7 +172,9 @@ export async function seedCommand(options: {
             durationMs: t.durationMs,
           })),
           timelineUsed: !!timeline,
+          lifecycleUsed: !!lifecycle,
           scenariosApplied: result.scenariosApplied ?? [],
+          scenarioReport: result.scenarioReport ?? null,
         },
       }));
       return;
@@ -158,9 +183,13 @@ export async function seedCommand(options: {
     // Print scenario results if any
     if (result.scenariosApplied && result.scenariosApplied.length > 0) {
       console.log('');
-      console.log('Applying scenarios...');
+      console.log('Scenario Report');
+      console.log('───────────────────────────────────────');
       for (const sr of result.scenariosApplied) {
         console.log(`  ${sr.scenarioName}: ${sr.rowsAffected} rows affected`);
+        for (const mod of sr.modifications) {
+          console.log(`    ${mod}`);
+        }
       }
     }
 

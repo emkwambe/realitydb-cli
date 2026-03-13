@@ -4,6 +4,9 @@ import { paymentFailuresScenario } from './scenarios/paymentFailures.js';
 import { churnSpikeScenario } from './scenarios/churnSpike.js';
 import { fraudSpikeScenario } from './scenarios/fraudSpike.js';
 import { dataQualityScenario } from './scenarios/dataQuality.js';
+import { seasonalTrafficScenario } from './scenarios/seasonalTraffic.js';
+import { dataMigrationScenario } from './scenarios/dataMigration.js';
+import { systemOutageScenario } from './scenarios/systemOutage.js';
 
 /**
  * Function that applies a scenario to a generated dataset.
@@ -61,6 +64,9 @@ export function getDefaultScenarioRegistry(): ScenarioRegistry {
   registry.register(churnSpikeScenario);
   registry.register(fraudSpikeScenario);
   registry.register(dataQualityScenario);
+  registry.register(seasonalTrafficScenario);
+  registry.register(dataMigrationScenario);
+  registry.register(systemOutageScenario);
   return registry;
 }
 

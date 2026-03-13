@@ -3,7 +3,8 @@ import type { ScenarioConfig, ScenarioResult } from '@databox/shared';
 import { createPostgresClient, testConnection, closeConnection } from '@databox/db';
 import { createSeededRandom } from '@databox/shared';
 import { introspectDatabase } from '@databox/schema';
-import { generateDataset, generateTimelineDataset, exportToJson, exportToCsv, exportToSql, applyScenarios } from '@databox/generators';
+import { generateDataset, generateTimelineDataset, exportToJson, exportToCsv, exportToSql } from '@databox/generators';
+import { composeScenarios, parseScheduleString, applyScheduledScenarios, buildScenarioReport, formatScenarioReportCI } from '@databox/generators';
 import { buildGenerationPlan } from './planning/index.js';
 import { parseTimelineString } from './planning/parseTimeline.js';
 
@@ -16,6 +17,7 @@ export interface ExportOptions {
   timeline?: string;
   scenarios?: string;
   scenarioIntensity?: 'low' | 'medium' | 'high';
+  scenarioSchedule?: string;
 }
 
 export interface ExportResult {
@@ -25,6 +27,7 @@ export interface ExportResult {
   outputDir: string;
   timelineUsed?: boolean;
   scenariosApplied?: ScenarioResult[];
+  scenarioReport?: Record<string, unknown>;
 }
 
 export async function exportDataset(
@@ -71,17 +74,33 @@ export async function exportDataset(
       ? generateTimelineDataset(plan, timelineConfig)
       : generateDataset(plan);
 
-    // Apply scenarios if provided
+    // Apply scenarios: scheduled or composed
     let scenariosApplied: ScenarioResult[] | undefined;
-    if (options?.scenarios) {
+    let scenarioReportData: Record<string, unknown> | undefined;
+
+    if (options?.scenarioSchedule && timelineConfig) {
+      const intensity = options.scenarioIntensity ?? 'medium';
+      const scheduled = parseScheduleString(options.scenarioSchedule, intensity);
+      const random = createSeededRandom(plan.reproducibility.randomSeed);
+      const totalMonths = computeTotalMonths(timelineConfig);
+      const result = applyScheduledScenarios(dataset, scheduled, random, totalMonths);
+      dataset = result.dataset;
+      scenariosApplied = result.results;
+
+      const report = buildScenarioReport(result.results, [], true);
+      scenarioReportData = formatScenarioReportCI(report);
+    } else if (options?.scenarios) {
       const scenarioConfigs = parseScenarioString(
         options.scenarios,
         options.scenarioIntensity ?? 'medium',
       );
       const random = createSeededRandom(plan.reproducibility.randomSeed);
-      const result = applyScenarios(dataset, scenarioConfigs, random);
+      const result = composeScenarios(dataset, scenarioConfigs, random);
       dataset = result.dataset;
       scenariosApplied = result.results;
+
+      const report = buildScenarioReport(result.results, result.conflicts, false);
+      scenarioReportData = formatScenarioReportCI(report);
     }
 
     let files: string[];
@@ -107,10 +126,18 @@ export async function exportDataset(
       outputDir,
       timelineUsed: !!timelineConfig,
       scenariosApplied,
+      scenarioReport: scenarioReportData,
     };
   } finally {
     await closeConnection(pool);
   }
+}
+
+function computeTotalMonths(tc: { startDate: string; endDate: string }): number {
+  const start = new Date(tc.startDate);
+  const end = new Date(tc.endDate);
+  const months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+  return Math.max(months, 1);
 }
 
 function parseScenarioString(

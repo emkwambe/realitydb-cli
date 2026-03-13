@@ -168,7 +168,7 @@ export async function captureDatabase(
     const masked = maskConnection(config.database.connectionString);
 
     const pack: RealityPack = {
-      format: 'databox-reality-pack',
+      format: 'realitydb-pack',
       version: '1.0',
       metadata: {
         name: options.name,

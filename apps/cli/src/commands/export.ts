@@ -1,10 +1,10 @@
 import { loadConfig } from '@databox/config';
 import { exportDataset, getDefaultScenarioRegistry } from '@databox/core';
-import { getDefaultRegistry } from '@databox/templates';
 import { formatCIOutput } from '@databox/shared';
 import { maskConnectionString } from '../utils.js';
+import { resolveTemplate } from '../resolveTemplate.js';
 
-const VERSION = '0.4.0';
+const VERSION = '1.3.0';
 
 export async function exportCommand(options: {
   format?: string;
@@ -15,6 +15,7 @@ export async function exportCommand(options: {
   timeline?: string;
   scenario?: string;
   scenarioIntensity?: string;
+  scenarioSchedule?: string;
   ci?: boolean;
 }): Promise<void> {
   const start = performance.now();
@@ -32,12 +33,12 @@ export async function exportCommand(options: {
     const effectiveRecords = records ?? config.seed.defaultRecords;
     const masked = maskConnectionString(config.database.connectionString);
 
-    // Validate template if specified
+    // Validate template if specified (supports file paths, built-in, and user dir)
     if (templateName) {
-      const registry = getDefaultRegistry();
-      const template = registry.get(templateName);
-      if (!template) {
-        const available = registry.list();
+      try {
+        resolveTemplate(templateName);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
         if (options.ci) {
           console.log(formatCIOutput({
             success: false,
@@ -45,20 +46,11 @@ export async function exportCommand(options: {
             version: VERSION,
             timestamp: new Date().toISOString(),
             durationMs: Math.round(performance.now() - start),
-            error: `Template "${templateName}" not found. Available: ${available.map((t) => t.name).join(', ')}`,
+            error: msg,
           }));
           process.exit(1);
         }
-        console.error(`[realitydb] Template "${templateName}" not found.`);
-        console.error('');
-        if (available.length > 0) {
-          console.error('Available templates:');
-          for (const t of available) {
-            console.error(`  ${t.name} (v${t.version}) — ${t.description}`);
-          }
-        } else {
-          console.error('No templates registered.');
-        }
+        console.error(`[realitydb] ${msg}`);
         process.exit(1);
       }
     }
@@ -125,6 +117,7 @@ export async function exportCommand(options: {
       timeline,
       scenarios: scenario,
       scenarioIntensity,
+      scenarioSchedule: options.scenarioSchedule,
     });
 
     const durationMs = Math.round(performance.now() - start);

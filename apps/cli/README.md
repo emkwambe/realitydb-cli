@@ -47,6 +47,51 @@ realitydb load bug-4821.realitydb-pack.json --confirm
 npx realitydb seed --ci --template saas --records 500 --seed 42
 ```
 
+## Data Science Mode
+
+Generate large-scale datasets for ML training, analytics testing, and data pipelines — no database required.
+
+```bash
+# Generate 1M rows with default demo schema
+realitydb generate --records 1000000 --format csv
+
+# Generate from your SQL schema
+realitydb generate --schema schema.sql --records 100000 --format parquet
+
+# Generate from JSON schema with distribution controls
+realitydb generate --schema custom.json --records 500000 --correlations --seed 42
+```
+
+### Statistical Distributions
+
+Define per-column distributions in your JSON schema:
+
+```json
+{
+  "tables": [{
+    "name": "users",
+    "columns": [
+      { "name": "age", "type": "integer", "distribution": { "type": "normal", "mean": 35, "stddev": 12, "min": 18, "max": 85 } },
+      { "name": "income", "type": "numeric", "distribution": { "type": "log-normal", "mu": 10.5, "sigma": 0.8, "min": 15000, "max": 500000 } },
+      { "name": "login_count", "type": "integer", "distribution": { "type": "zipf", "exponent": 1.2, "min": 1, "max": 1000 } }
+    ]
+  }],
+  "correlations": [
+    { "source": "age", "target": "income", "coefficient": 0.6 }
+  ]
+}
+```
+
+Supported distributions: `normal`, `uniform`, `zipf`, `exponential`, `log-normal`.
+
+### Output Formats
+
+| Format | Flag | Description |
+|--------|------|-------------|
+| JSON | `--format json` | NDJSON (newline-delimited JSON), one object per line |
+| CSV | `--format csv` | Standard CSV with headers |
+| Parquet | `--format parquet` | NDJSON with `.parquet.ndjson` extension (convert via DuckDB/pyarrow) |
+
 ## Commands
 
 | Command | Description |
@@ -55,6 +100,7 @@ npx realitydb seed --ci --template saas --records 500 --seed 42
 | `realitydb seed` | Generate and insert realistic data |
 | `realitydb reset` | Clear seeded data |
 | `realitydb export` | Export data to JSON/CSV/SQL files |
+| `realitydb generate` | Generate large-scale datasets (no DB required) |
 | `realitydb capture` | Snapshot live database into a Reality Pack |
 | `realitydb load` | Load a Reality Pack into the database |
 | `realitydb share` | Display Reality Pack info for sharing |

@@ -14,7 +14,7 @@ export function exportRealityPack(
   schema: DatabaseSchema,
   options?: { name?: string; description?: string },
 ): RealityPack {
-  const name = options?.name ?? plan.config.templateName ?? 'databox-pack';
+  const name = options?.name ?? plan.config.templateName ?? 'realitydb-pack';
 
   const packSchema: PackSchema = {
     tables: schema.tables.map((t) => ({
@@ -45,7 +45,7 @@ export function exportRealityPack(
   }
 
   return {
-    format: 'databox-reality-pack',
+    format: 'realitydb-pack',
     version: '1.0',
     metadata: {
       name,
@@ -67,9 +67,9 @@ export function exportRealityPack(
  * Returns the file path written.
  */
 export async function saveRealityPack(pack: RealityPack, outputPath: string): Promise<string> {
-  const filePath = outputPath.endsWith('.databox-pack.json')
+  const filePath = outputPath.endsWith('.realitydb-pack.json') || outputPath.endsWith('.databox-pack.json')
     ? outputPath
-    : `${outputPath}/${pack.metadata.name}.databox-pack.json`;
+    : `${outputPath}/${pack.metadata.name}.realitydb-pack.json`;
 
   await mkdir(dirname(filePath), { recursive: true });
   await writeFile(filePath, JSON.stringify(pack, null, 2), 'utf-8');
@@ -98,9 +98,9 @@ export async function loadRealityPack(filePath: string): Promise<RealityPack> {
 
   const pack = parsed as Record<string, unknown>;
 
-  if (pack.format !== 'databox-reality-pack') {
+  if (pack.format !== 'realitydb-pack' && pack.format !== 'databox-reality-pack') {
     throw new Error(
-      `Invalid Reality Pack: expected format "databox-reality-pack", got "${String(pack.format)}"`,
+      `Invalid Reality Pack: expected format "realitydb-pack", got "${String(pack.format)}"`,
     );
   }
 

@@ -42,9 +42,88 @@ export type { PackImportResult } from './packImportPipeline.js';
 
 export { getDefaultScenarioRegistry, loadRealityPack } from '@databox/generators';
 export type { ScenarioDefinition } from '@databox/generators';
+export {
+  composeScenarios,
+  parseScheduleString,
+  applyScheduledScenarios,
+  loadCustomScenario,
+  scaffoldCustomScenario,
+  buildScenarioReport,
+  formatScenarioReport,
+  formatScenarioReportCI,
+} from '@databox/generators';
+export type {
+  CompositionResult,
+  ScenarioConflict,
+  ScheduledScenario,
+  CustomScenarioJSON,
+  ScenarioReport,
+} from '@databox/generators';
 
 export { captureDatabase } from './capturePipeline.js';
 export type { CaptureOptions, CaptureResult } from './capturePipeline.js';
 
 export { shareRealityPack } from './sharePipeline.js';
 export type { ShareOptions, ShareResult } from './sharePipeline.js';
+
+export { uploadToGist } from './sharing/gistUpload.js';
+export type { GistOptions, GistResult } from './sharing/gistUpload.js';
+
+export { downloadPack } from './sharing/urlDownload.js';
+
+export { compressPack, decompressPack } from './sharing/compress.js';
+
+export { simulateLifecycles, applyCorrelations } from '@databox/generators';
+export { saasLifecycle, fintechLifecycle } from '@databox/templates';
+
+export { analyzeDatabase } from './analyzePipeline.js';
+export type { AnalyzeOptions, AnalyzeResult } from './analyzePipeline.js';
+export { formatAnalysisReport, formatAnalysisReportCI } from '@databox/generators';
+export type { AnalysisReport } from '@databox/generators';
+
+export { maskDatabase } from './maskPipeline.js';
+export type { MaskOptions, MaskResult } from './maskPipeline.js';
+export { formatAuditLog, serializeAuditLog } from '@databox/generators';
+export type { MaskAuditLog, PIIDetection, ComplianceMode, MaskStrategy } from '@databox/generators';
+
+export {
+  getDefaultCourseRegistry,
+  classroomList,
+  classroomStart,
+  classroomStatus,
+  classroomComplete,
+  classroomReset,
+  classroomCreate,
+  classroomExercises,
+} from './classroomPipeline.js';
+export type { ClassroomStartResult, ClassroomStatusResult } from './classroomPipeline.js';
+export type {
+  CourseDefinition,
+  CourseDifficulty,
+  Exercise,
+  ExercisePack,
+  CourseStatusSummary,
+} from '@databox/generators';
+
+export {
+  simulateRun,
+  simulateWebhooks,
+  simulateProfiles,
+} from './simulatePipeline.js';
+export type {
+  SimulateRunOptions,
+  SimulateRunResult,
+  SimulateWebhooksOptions,
+  SimulateWebhooksResult,
+} from './simulatePipeline.js';
+export {
+  formatSimulationReport,
+  formatSimulationReportCI,
+  getSimulationProfile,
+  SIMULATION_PROFILES,
+} from '@databox/generators';
+export type {
+  SimulationEvent,
+  SimulationProfile,
+  SimulationReport,
+} from '@databox/generators';
