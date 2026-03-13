@@ -21,42 +21,27 @@ export const saasLifecycle: LifecycleDefinition = {
     {
       name: 'trial',
       weight: 0.12,
-      columnValues: {
-        status: 'trialing',
-        canceled_at: null,
-      },
+      columnValues: {},
     },
     {
       name: 'active',
       weight: 0.65,
-      columnValues: {
-        status: 'active',
-        canceled_at: null,
-      },
+      columnValues: {},
     },
     {
       name: 'churned',
       weight: 0.10,
-      columnValues: {
-        status: 'canceled',
-        canceled_at: new Date(Date.now() - Math.random() * 90 * 86400000).toISOString(),
-      },
+      columnValues: {},
     },
     {
       name: 'past_due',
       weight: 0.08,
-      columnValues: {
-        status: 'past_due',
-        canceled_at: null,
-      },
+      columnValues: {},
     },
     {
       name: 'paused',
       weight: 0.05,
-      columnValues: {
-        status: 'paused',
-        canceled_at: null,
-      },
+      columnValues: {},
     },
   ],
   transitions: [
@@ -188,7 +173,7 @@ export const saasLifecycle: LifecycleDefinition = {
     {
       description: 'Churned users always have a failed payment before cancel',
       condition: {
-        table: 'users',
+        table: 'subscriptions',
         column: 'status',
         operator: 'eq',
         value: 'canceled',

@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.3.1 (2026-03-13)
+
+### Fixes
+
+- fix: lifecycle engine skips columns that don't exist in schema
+- fix: custom template file path resolution in seed command
+- fix: suppress nullable FK warnings unless --verbose enabled
+
 ## v1.3.0 (2026-03-13)
 
 ### Features

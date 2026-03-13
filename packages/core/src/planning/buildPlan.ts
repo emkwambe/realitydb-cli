@@ -2,7 +2,7 @@ import type { DatabaseSchema, ForeignKeySchema } from '@databox/schema';
 import type { DataboxConfig } from '@databox/config';
 import type { TimelineConfig } from '@databox/shared';
 import { inferColumnStrategy, resolveTemporalConstraints } from '@databox/generators';
-import { getDefaultRegistry, resolveColumnOverride } from '@databox/templates';
+import { getDefaultRegistry, resolveColumnOverride, loadTemplateFromJSON, createTemplateRegistry } from '@databox/templates';
 import { buildDependencyGraph } from './dependencyGraph.js';
 import { topologicalSort } from './topologicalSort.js';
 import type {
@@ -23,8 +23,24 @@ export function buildGenerationPlan(
   const randomSeed = config.seed.randomSeed ?? 42;
 
   // Load template if specified
-  const registry = config.template ? getDefaultRegistry() : null;
-  const template = config.template && registry ? registry.get(config.template) : null;
+  const isFilePath = config.template
+    ? config.template.includes('/') || config.template.includes('\\') || config.template.endsWith('.json')
+    : false;
+  let registry: import('@databox/templates').TemplateRegistry | null = null;
+  let template: import('@databox/templates').DomainTemplate | null = null;
+  let templateLookupName: string | undefined = config.template;
+
+  if (config.template) {
+    if (isFilePath) {
+      template = loadTemplateFromJSON(config.template);
+      registry = createTemplateRegistry();
+      registry.register(template);
+      templateLookupName = template.name;
+    } else {
+      registry = getDefaultRegistry();
+      template = registry.get(config.template) ?? null;
+    }
+  }
 
   if (config.template && !template) {
     const available = getDefaultRegistry().list().map(t => t.name).join(', ');
@@ -70,16 +86,16 @@ export function buildGenerationPlan(
     const uniqueDeps = [...new Set(dependencies)];
 
     // Check for template table config
-    const tableConfig = template && registry && config.template
-      ? registry.matchTable(config.template, table.name)
+    const tableConfig = template && registry && templateLookupName
+      ? registry.matchTable(templateLookupName, table.name)
       : null;
 
     const columns: ColumnGenerationPlan[] = table.columns.map((column) => {
       // Try template override first, fall back to inference
       let strategy;
-      if (template && registry && config.template) {
+      if (template && registry && templateLookupName) {
         const override = resolveColumnOverride(
-          config.template,
+          templateLookupName,
           table.name,
           column.name,
           registry,

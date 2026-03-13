@@ -12,7 +12,7 @@ import {
 import { formatCIOutput } from '@databox/shared';
 import { maskConnectionString } from '../utils.js';
 
-const VERSION = '1.3.0';
+const VERSION = '1.3.1';
 
 export async function classroomListCommand(options: {
   ci?: boolean;

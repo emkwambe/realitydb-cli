@@ -13,6 +13,7 @@ export { validateSchema } from './validator.js';
 export type { ValidationResult } from './validator.js';
 
 export { introspectDatabase } from './introspectDatabase.js';
+export type { IntrospectOptions } from './introspectDatabase.js';
 
 export {
   getTables,
