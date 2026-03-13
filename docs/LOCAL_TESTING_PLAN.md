@@ -601,26 +601,67 @@ docker rm realitydb-test
 
 ## Test Summary Checklist
 
-| # | Area | Tests | Pass? |
-|---|------|-------|-------|
-| 1 | Version & Help | 1.1 | |
-| 2 | Scan | 1.2 | |
-| 3 | Seed (5 templates) | 1.3–1.5 | |
-| 4 | Deterministic | 1.4 | |
-| 5 | Export (JSON/CSV/SQL) | 1.6 | |
-| 6 | CI Mode | 1.7 | |
-| 7 | Reset | 1.8 | |
-| 8 | Capture & Load | 2.1–2.3 | |
-| 9 | Custom Templates | 3.1–3.4 | |
-| 10 | Packs | 4.1–4.3 | |
-| 11 | Timeline | 5.1 | |
-| 12 | Scenarios (7 types) | 5.2–5.5 | |
-| 13 | Lifecycle | 6.1 | |
-| 14 | Data Science Generate | 7.1–7.2 | |
-| 15 | Schema Analysis | 8.1–8.3 | |
-| 16 | Data Masking | 9.1–9.6 | |
-| 17 | Classroom | 10.1–10.7 | |
-| 18 | Simulation | 11.1–11.6 | |
-| 19 | Integration | 12.1–12.2 | |
+| # | Area | Tests | Actual Commands | Pass? |
+|---|------|-------|-----------------|-------|
+| 1 | Version & Help | 1.1 | `realitydb` — verify v1.3.0 banner | |
+| 2 | Scan | 1.2 | `realitydb scan` — list tables | |
+| 3 | Seed (saas) | 1.3 | `realitydb seed --template saas --records 50 --seed 42` — 200 rows inserted | |
+| 4 | Deterministic | 1.4 | `realitydb reset --confirm` then re-seed with same seed — identical output | |
+| 5 | Seed (ecommerce) | 1.5a | `realitydb seed --template ecommerce --records 30 --seed 42` | |
+| 6 | Seed (fintech) | 1.5b | `realitydb seed --template fintech --records 30 --seed 42` | |
+| 7 | Seed (healthcare) | 1.5c | `realitydb seed --template healthcare --records 30 --seed 42` | |
+| 8 | Seed (education) | 1.5d | `realitydb seed --template education --records 30 --seed 42` | |
+| 9 | Export JSON | 1.6a | `realitydb export --format json --output ./test-export` — JSON files created | |
+| 10 | Export CSV | 1.6b | `realitydb export --format csv --output ./test-export-csv` — CSV files created | |
+| 11 | Export SQL | 1.6c | `realitydb export --format sql --output ./test-export-sql` — SQL files created | |
+| 12 | CI Mode (scan) | 1.7a | `realitydb scan --ci` — valid JSON output | |
+| 13 | CI Mode (seed) | 1.7b | `realitydb seed --template saas --records 10 --seed 42 --ci` — JSON output | |
+| 14 | Reset | 1.8 | `realitydb reset --confirm` then `scan` — 0 rows in all tables | |
+| 15 | Capture | 2.1 | `realitydb capture --name test-capture` — creates .realitydb-pack.json | |
+| 16 | Load | 2.2 | `realitydb load test-capture.realitydb-pack.json --confirm` — data restored | |
+| 17 | Share Info | 2.3 | `realitydb share test-capture.realitydb-pack.json` — shows pack summary | |
+| 18 | Templates List | 3.1 | `realitydb templates` — lists 5 built-in templates | |
+| 19 | Templates Init | 3.2 | `realitydb templates init` — creates scaffold JSON | |
+| 20 | Templates Validate | 3.3 | `realitydb templates validate realitydb.template.json` — passes validation | |
+| 21 | Seed Custom Template | 3.4 | `realitydb seed --template ./realitydb.template.json --records 20 --seed 42` | |
+| 22 | Packs List | 4.1 | `realitydb packs list` — shows available demo packs | |
+| 23 | Pack Export | 4.2 | `realitydb pack export --name test-pack --template saas --records 20 --seed 42` | |
+| 24 | Pack Import | 4.3 | `realitydb pack import test-pack.realitydb-pack.json --confirm` — data imported | |
+| 25 | Timeline Seed | 5.1 | `realitydb seed --template saas --timeline 6-months --records 100 --seed 42` — timestamps span 6 months | |
+| 26 | Scenarios List | 5.2a | `realitydb scenarios` — lists 7 scenarios | |
+| 27 | Single Scenario | 5.2b | `realitydb seed --template saas --scenario payment-failures --scenario-intensity high --records 100 --seed 42` | |
+| 28 | Multi Scenario | 5.3 | `realitydb seed --template saas --scenario "payment-failures,churn-spike" --records 100 --seed 42` — both applied | |
+| 29 | Scenario Schedule | 5.4 | `realitydb seed --template saas --timeline 12-months --scenario-schedule "fraud-spike:month-6,churn-spike:month-9" --records 200 --seed 42` | |
+| 30 | Scenario Create | 5.5 | `realitydb scenarios create my-test-scenario` — creates .scenario.json scaffold | |
+| 31 | Lifecycle | 6.1 | `realitydb seed --template saas --lifecycle --records 50 --seed 42` — canceled users have canceled_at + failed payments | |
+| 32 | Generate JSON | 7.1 | `realitydb generate --records 500 --format json --output ./test-generated --seed 42` — no DB needed | |
+| 33 | Generate CSV | 7.2 | `realitydb generate --records 500 --format csv --output ./test-generated-csv --seed 42` | |
+| 34 | Analyze | 8.1 | `realitydb analyze` — shows column detection report with confidence scores | |
+| 35 | Analyze + Output | 8.2 | `realitydb analyze --output auto-template.json` — creates template from analysis | |
+| 36 | Roundtrip Template | 8.3 | `realitydb seed --template ./auto-template.json --records 30 --seed 42` — seeds with auto-generated template | |
+| 37 | Mask Dry Run | 9.1 | `realitydb mask --dry-run` — PII report, no data modified | |
+| 38 | Mask GDPR | 9.2a | `realitydb mask --dry-run --mode gdpr` — standard PII detection | |
+| 39 | Mask HIPAA | 9.2b | `realitydb mask --dry-run --mode hipaa` — includes medical fields | |
+| 40 | Mask Strict | 9.2c | `realitydb mask --dry-run --mode strict` — maximum coverage | |
+| 41 | Mask to File | 9.3 | `realitydb mask --output ./masked-data --mode gdpr` — files created, DB unchanged | |
+| 42 | Mask Audit Log | 9.4 | `realitydb mask --output ./masked-audit --audit-log audit.json --mode gdpr` — audit.json created | |
+| 43 | Mask In-Place | 9.5 | `realitydb mask --confirm --mode gdpr --seed 42` — DB data masked | |
+| 44 | Mask Safety | 9.6 | `realitydb mask` (no flags) — error requiring --dry-run/--output/--confirm | |
+| 45 | Classroom List | 10.1 | `realitydb classroom` — lists 3 courses (sql-101, analytics-intro, data-modeling) | |
+| 46 | Classroom Start | 10.2 | `realitydb classroom start sql-101` — creates classroom_* tables | |
+| 47 | Classroom Status | 10.3 | `realitydb classroom status sql-101` — shows 0% progress | |
+| 48 | Classroom Complete | 10.4 | `realitydb classroom complete sql-101 select-basics` — progress updates to 10% | |
+| 49 | Classroom Reset | 10.5 | `realitydb classroom reset sql-101` — progress back to 0% | |
+| 50 | Classroom Create | 10.6 | `realitydb classroom create my-course` — creates .course.json scaffold | |
+| 51 | Classroom SQL | 10.7 | Run `SELECT * FROM classroom_customers WHERE country = 'US'` — returns US customers | |
+| 52 | Simulate Profiles | 11.1 | `realitydb simulate profiles` — lists 3 profiles | |
+| 53 | Simulate Run | 11.2 | `realitydb simulate run --profile saas-startup --events 500 --seed 42 --output events.json` — 500+ events | |
+| 54 | Simulate NDJSON | 11.3 | `realitydb simulate run --profile ecommerce-peak --events 200 --seed 42 --output stream.ndjson --format ndjson` | |
+| 55 | Webhooks Stripe | 11.4a | `realitydb simulate webhooks --source stripe --events 100 --seed 42 --output stripe-hooks.json` | |
+| 56 | Webhooks GitHub | 11.4b | `realitydb simulate webhooks --source github --events 50 --seed 42 --output github-hooks.json` | |
+| 57 | Simulate API | 11.5 | `realitydb simulate run --profile api-service --events 1000 --seed 42 --output api-traffic.json` | |
+| 58 | Simulate Duration | 11.6 | `realitydb simulate run --profile saas-startup --events 200 --duration 1-hour --seed 42 --output hourly.json` | |
+| 59 | Full Pipeline | 12.1 | `seed --timeline --lifecycle --scenario` then `analyze` then `capture` then `export` then `mask --dry-run` — all work together | |
+| 60 | CI Pipeline | 12.2 | Run seed, scan, analyze, mask, simulate, classroom all with `--ci` — all output valid JSON | |
 
-**Total: 45+ test cases across 19 areas**
+**Total: 60 test cases across 19 areas**
