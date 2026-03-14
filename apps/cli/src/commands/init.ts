@@ -12,6 +12,19 @@ const DEFAULT_CONNECTION = 'postgres://postgres:postgres@localhost:5432/myapp_de
 export async function initCommand(): Promise<void> {
   const rl = createInterface({ input: stdin, output: stdout });
 
+  // Handle Ctrl+C gracefully
+  rl.on('close', () => {
+    if (!wizardComplete) {
+      console.log('');
+      console.log('');
+      console.log('Init cancelled.');
+      console.log('');
+      process.exit(0);
+    }
+  });
+
+  let wizardComplete = false;
+
   try {
     // ── Step 1: Welcome ──────────────────────────────────────────────
     console.log('');
@@ -25,6 +38,7 @@ export async function initCommand(): Promise<void> {
     if (existsSync(CONFIG_FILE)) {
       const overwrite = await rl.question(`${CONFIG_FILE} already exists. Overwrite? (y/N) `);
       if (overwrite.toLowerCase() !== 'y') {
+        wizardComplete = true;
         console.log('');
         console.log('Init cancelled. Existing config preserved.');
         console.log('');
@@ -59,6 +73,7 @@ export async function initCommand(): Promise<void> {
       scanResult = await scanDatabase(scanConfig);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
+      wizardComplete = true;
       console.error('');
       console.error(`  Connection failed: ${msg}`);
       console.error('');
@@ -67,7 +82,7 @@ export async function initCommand(): Promise<void> {
       console.error('  - Check host, port, username, password, and database name');
       console.error('  - Ensure the database exists (createdb myapp_dev)');
       console.error('');
-      return;
+      process.exit(1);
     }
 
     const { schema } = scanResult;
@@ -76,6 +91,7 @@ export async function initCommand(): Promise<void> {
 
     // ── Step 5: Schema summary ───────────────────────────────────────
     if (schema.tables.length === 0) {
+      wizardComplete = true;
       console.log('  No tables found in the public schema.');
       console.log('');
       console.log('  Run your migrations first, then try again:');
@@ -83,7 +99,7 @@ export async function initCommand(): Promise<void> {
       console.log('    npx knex migrate:latest');
       console.log('    rails db:migrate');
       console.log('');
-      return;
+      process.exit(1);
     }
 
     console.log('Step 3: Schema');
@@ -197,9 +213,11 @@ export async function initCommand(): Promise<void> {
       }
     }
 
-    // ── Step 10: Summary ─────────────────────────────────────────────
+    // ── Step 10: Success ─────────────────────────────────────────────
+    wizardComplete = true;
+
     console.log('');
-    console.log('Setup Complete');
+    console.log('RealityDB initialized!');
     console.log('═══════════════════════════════════════');
     console.log(`  Config:   ./${CONFIG_FILE}`);
     console.log(`  Database: ${masked}`);
@@ -209,10 +227,11 @@ export async function initCommand(): Promise<void> {
     console.log(`  Records:  ${records} per table`);
     console.log('');
     console.log('Next steps:');
-    console.log('  realitydb seed                 Reseed with current config');
-    console.log('  realitydb seed --records 1000  Seed with more data');
-    console.log('  realitydb scan                 Inspect schema details');
-    console.log('  realitydb reset --confirm      Clear all seeded data');
+    console.log('  realitydb scan      Inspect your schema');
+    console.log('  realitydb seed      Generate data');
+    console.log('  realitydb export    Export without writing to DB');
+    console.log('  realitydb analyze   Generate a custom template');
+    console.log('  realitydb --help    See all commands');
     console.log('');
   } finally {
     rl.close();
