@@ -259,13 +259,15 @@ export async function initCommand(): Promise<void> {
 }
 
 async function promptWithDefault(
-  rl: ReturnType<typeof createInterface>,
-  label: string,
-  defaultValue: string,
-): Promise<string> {
-  const answer = await ask(rl, `  ${label} [${defaultValue}]: `);
-  return answer.trim() || defaultValue;
-}
+    rl: ReturnType<typeof createInterface>,
+    label: string,
+    defaultValue: string,
+  ): Promise<string> {
+    console.log(`  ${label}`);
+    console.log(`  Default: ${defaultValue}`);
+    const answer = await ask(rl, '  > ');
+    return answer.trim() || defaultValue;
+  }
 
 interface TemplateInfo {
   name: string;
