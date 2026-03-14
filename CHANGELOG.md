@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.4.1 (2026-03-14)
+
+### Fixes
+
+- fix: self-referencing FKs (e.g. categories.parent_id) now generate ~30% root rows (NULL) and remaining rows reference already-generated siblings
+- fix: unique constraint columns using text/short strategy now generate sequential identifiers (e.g. MRN-000001) instead of random words that collide
+- Both fixes are generic — work for any table/column, not just categories or mrn
+
 ## v1.4.0 (2026-03-13)
 
 ### Template Enrichment

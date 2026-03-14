@@ -110,6 +110,13 @@ export function generateCompanyName(ctx: GeneratorContext): string {
 }
 
 export function generateText(ctx: GeneratorContext, mode: 'short' | 'medium' | 'long'): string {
+  // For unique columns with short mode, generate a sequential identifier
+  if (ctx.isUnique && mode === 'short') {
+    const prefix = ctx.columnName.toUpperCase().slice(0, 3);
+    const seq = String(ctx.rowIndex + 1).padStart(6, '0');
+    return truncate(`${prefix}-${seq}`, ctx.maxLength);
+  }
+
   const lengthMap = { short: 3, medium: 8, long: 20 };
   const wordCount = lengthMap[mode];
   const words: string[] = [];
@@ -118,6 +125,12 @@ export function generateText(ctx: GeneratorContext, mode: 'short' | 'medium' | '
   }
   let text = words.join(' ');
   text = text.charAt(0).toUpperCase() + text.slice(1);
+
+  // For unique columns, append row index to guarantee uniqueness
+  if (ctx.isUnique) {
+    text = `${text} ${ctx.rowIndex + 1}`;
+  }
+
   return truncate(text, ctx.maxLength);
 }
 
