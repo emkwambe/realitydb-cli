@@ -28,14 +28,15 @@ import {
   simulateWebhooksCommand,
 } from './commands/simulate.js';
 
-const VERSION = '1.6.1';
+declare const __PKG_VERSION__: string;
+const VERSION = __PKG_VERSION__;
 
 export function run(argv: string[]): void {
   const program = new Command();
 
   program
     .name('realitydb')
-    .description('RealityDB ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Developer Reality Platform')
+    .description('RealityDB ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â Developer Reality Platform')
     .version(VERSION)
     .option('--config <path>', 'Path to config file')
     .option('--ci', 'CI mode: JSON output, no prompts, proper exit codes', false)
@@ -43,7 +44,7 @@ export function run(argv: string[]): void {
 
   program
     .command('init')
-    .description('Interactive setup wizard ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â connect, scan, and seed in one step')
+    .description('Interactive setup wizard ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â connect, scan, and seed in one step')
     .action(async () => {
       await initCommand();
     });
@@ -349,7 +350,7 @@ export function run(argv: string[]): void {
       console.log(JSON.stringify({ name: 'realitydb', version: VERSION }));
     } else {
       console.log('');
-      console.log(`RealityDB v${VERSION} ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Developer Reality Platform`);
+      console.log(`RealityDB v${VERSION} ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â Developer Reality Platform`);
       console.log('Run `realitydb --help` for available commands.');
       console.log('');
     }
