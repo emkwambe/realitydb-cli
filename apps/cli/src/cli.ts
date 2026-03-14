@@ -1,4 +1,5 @@
 import { Command } from 'commander';
+import { initCommand } from './commands/init.js';
 import { scanCommand } from './commands/scan.js';
 import { seedCommand } from './commands/seed.js';
 import { resetCommand } from './commands/reset.js';
@@ -39,6 +40,13 @@ export function run(argv: string[]): void {
     .option('--config <path>', 'Path to config file')
     .option('--ci', 'CI mode: JSON output, no prompts, proper exit codes', false)
     .option('--verbose', 'Enable verbose output', false);
+
+  program
+    .command('init')
+    .description('Interactive setup wizard — connect, scan, and seed in one step')
+    .action(async () => {
+      await initCommand();
+    });
 
   program
     .command('scan')
