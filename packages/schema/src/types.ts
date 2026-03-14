@@ -21,6 +21,8 @@ export interface ColumnSchema {
   hasDefault: boolean;
   defaultValue: string | null;
   maxLength: number | null;
+  numericPrecision: number | null;
+  numericScale: number | null;
   isPrimaryKey: boolean;
   isUnique: boolean;
   ordinalPosition: number;

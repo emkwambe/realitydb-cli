@@ -180,7 +180,11 @@ export function detectColumn(
   }
 
   if (['numeric', 'decimal', 'float4', 'float8', 'float', 'real', 'double precision'].includes(dataType)) {
-    return { ...base, detectedKind: 'float', strategy: { kind: 'float', options: { min: 0, max: 10000 } }, confidence: 'medium', reason: 'Float data type (refine range with sample data)' };
+    let max = 10000;
+    if (column.numericPrecision !== null && column.numericScale !== null) {
+      max = Math.pow(10, column.numericPrecision - column.numericScale) - Math.pow(10, -column.numericScale);
+    }
+    return { ...base, detectedKind: 'float', strategy: { kind: 'float', options: { min: 0, max } }, confidence: 'medium', reason: 'Float data type (refine range with sample data)' };
   }
 
   if ((dataType === 'varchar' || dataType === 'text' || dataType === 'char') && column.maxLength !== null && column.maxLength <= 10) {

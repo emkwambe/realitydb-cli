@@ -71,6 +71,8 @@ export function normalizeSchema(raw: RawIntrospectionData): DatabaseSchema {
       hasDefault: col.column_default !== null,
       defaultValue: col.column_default,
       maxLength: col.character_maximum_length,
+      numericPrecision: col.numeric_precision ?? null,
+      numericScale: col.numeric_scale ?? null,
       isPrimaryKey: pk !== null && pk.column_name === col.column_name,
       isUnique: (pk !== null && pk.column_name === col.column_name) || uniqueColumns.has(`${rawTable.table_name}.${col.column_name}`),
       ordinalPosition: col.ordinal_position,

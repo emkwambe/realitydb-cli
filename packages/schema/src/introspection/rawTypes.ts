@@ -12,6 +12,8 @@ export interface RawColumnInfo {
   is_nullable: string;
   column_default: string | null;
   character_maximum_length: number | null;
+  numeric_precision: number | null;
+  numeric_scale: number | null;
   ordinal_position: number;
 }
 

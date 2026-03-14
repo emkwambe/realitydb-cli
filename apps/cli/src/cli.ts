@@ -28,7 +28,7 @@ import {
   simulateWebhooksCommand,
 } from './commands/simulate.js';
 
-const VERSION = '1.5.0';
+const VERSION = '1.5.1';
 
 export function run(argv: string[]): void {
   const program = new Command();

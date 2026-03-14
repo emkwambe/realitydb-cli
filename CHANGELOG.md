@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.5.1 (2026-03-14)
+
+### Fixes
+
+- fix: respect NUMERIC(p,s) precision/scale constraints in strategy inference
+- `realitydb seed` (no template) no longer overflows constrained NUMERIC columns (e.g. `NUMERIC(2,1)`, `NUMERIC(5,2)`)
+- Schema introspection now captures `numeric_precision` and `numeric_scale` from `information_schema.columns`
+- SQL schema parser extracts precision/scale from `NUMERIC(p,s)` and `DECIMAL(p,s)` DDL
+- Strategy inference and column detector clamp generated float ranges to fit within column constraints
+- Money strategy also respects precision constraints on amount/price/cost/total columns
+- fix: use callback-based `readline` for Windows PowerShell compatibility
+- Connection retry loop: on failure, asks "Try a different connection string?" instead of exiting
+
 ## v1.5.0 (2026-03-14)
 
 ### Features
@@ -8,7 +21,7 @@
 - Guided flow: connect to database, scan schema, select template, configure records, write config, seed
 - Auto-detects matching domain template by comparing schema table names against built-in templates
 - Graceful Ctrl+C handling with clean exit message
-- No external dependencies — uses Node.js built-in `readline/promises`
+- No external dependencies — uses Node.js built-in `readline`
 - Creates `realitydb.config.json` with validated connection string, template, and seed settings
 - Optional initial seed run at end of wizard
 - Zero-to-seeded-database in a single command

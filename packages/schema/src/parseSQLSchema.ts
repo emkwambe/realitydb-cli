@@ -128,7 +128,7 @@ function parseColumnDef(
   const constraints = colMatch[3] ?? '';
 
   // Normalize type
-  const { dataType, udtName, maxLength } = normalizeDataType(rawType);
+  const { dataType, udtName, maxLength, numericPrecision, numericScale } = normalizeDataType(rawType);
 
   const isNullable = !/NOT\s+NULL/i.test(constraints);
   const isPrimaryKey = /PRIMARY\s+KEY/i.test(constraints);
@@ -159,6 +159,8 @@ function parseColumnDef(
       hasDefault,
       defaultValue,
       maxLength,
+      numericPrecision,
+      numericScale,
       isPrimaryKey,
       isUnique,
       ordinalPosition: ordinal,
@@ -167,12 +169,17 @@ function parseColumnDef(
   };
 }
 
-function normalizeDataType(raw: string): { dataType: string; udtName: string; maxLength: number | null } {
+function normalizeDataType(raw: string): { dataType: string; udtName: string; maxLength: number | null; numericPrecision: number | null; numericScale: number | null } {
   const lower = raw.toLowerCase().trim();
 
   // Extract length from varchar(N), char(N), etc.
   const lengthMatch = lower.match(/(?:varchar|character varying|char|character)\s*\((\d+)\)/);
   const maxLength = lengthMatch ? parseInt(lengthMatch[1], 10) : null;
+
+  // Extract precision and scale from NUMERIC(p,s) or DECIMAL(p,s)
+  const numericMatch = lower.match(/(?:numeric|decimal)\s*\((\d+)\s*,\s*(\d+)\)/);
+  const numericPrecision = numericMatch ? parseInt(numericMatch[1], 10) : null;
+  const numericScale = numericMatch ? parseInt(numericMatch[2], 10) : null;
 
   // Map common SQL types to PostgreSQL internal types
   const typeMap: Record<string, { dataType: string; udtName: string }> = {
@@ -204,19 +211,19 @@ function normalizeDataType(raw: string): { dataType: string; udtName: string; ma
   const baseLower = lower.replace(/\s*\([^)]*\)/, '').trim();
   const mapped = typeMap[baseLower];
   if (mapped) {
-    return { ...mapped, maxLength };
+    return { ...mapped, maxLength, numericPrecision, numericScale };
   }
 
   // varchar/character varying
   if (baseLower.startsWith('varchar') || baseLower.startsWith('character varying')) {
-    return { dataType: 'character varying', udtName: 'varchar', maxLength };
+    return { dataType: 'character varying', udtName: 'varchar', maxLength, numericPrecision, numericScale };
   }
   if (baseLower.startsWith('char') || baseLower.startsWith('character')) {
-    return { dataType: 'character', udtName: 'bpchar', maxLength };
+    return { dataType: 'character', udtName: 'bpchar', maxLength, numericPrecision, numericScale };
   }
 
   // Fallback
-  return { dataType: lower, udtName: lower, maxLength };
+  return { dataType: lower, udtName: lower, maxLength, numericPrecision, numericScale };
 }
 
 /**
