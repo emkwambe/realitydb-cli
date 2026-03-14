@@ -88,26 +88,40 @@ export function inferColumnStrategy(
     };
   }
 
-  // c. Data type fallbacks
-  const dataType = column.udtName.toLowerCase();
+  // c. MySQL ENUM type: parse allowed values from udtName
+  const udtLower = column.udtName.toLowerCase();
+  if (column.dataType === 'enum' || udtLower.startsWith('enum(')) {
+    const enumValues = parseMySQLEnumValues(column.udtName);
+    if (enumValues.length > 0) {
+      return { kind: 'enum', options: { values: enumValues } };
+    }
+  }
 
-  if (dataType === 'uuid') {
+  // d. Data type fallbacks
+  // Use both udtName and dataType for matching — MySQL's udtName includes length
+  // (e.g. "varchar(255)") while dataType is the base type (e.g. "varchar")
+  const dataType = udtLower;
+  const baseType = column.dataType.toLowerCase();
+
+  if (dataType === 'uuid' || baseType === 'char' && column.maxLength === 36) {
     return { kind: 'uuid' };
   }
 
-  if ((dataType === 'varchar' || dataType === 'text') && column.maxLength !== null && column.maxLength <= 10) {
+  if ((dataType === 'varchar' || dataType === 'text' || baseType === 'varchar' || baseType === 'text') && column.maxLength !== null && column.maxLength <= 10) {
     return { kind: 'text', options: { mode: 'short' } };
   }
 
-  if (dataType === 'varchar' || dataType === 'text') {
+  if (dataType === 'varchar' || dataType === 'text' || baseType === 'varchar' || baseType === 'text') {
     return { kind: 'text', options: { mode: 'medium' } };
   }
 
-  if (dataType === 'int4' || dataType === 'int8' || dataType === 'int2' || dataType === 'integer') {
+  if (dataType === 'int4' || dataType === 'int8' || dataType === 'int2' || dataType === 'integer' || dataType === 'int' ||
+      baseType === 'int' || baseType === 'bigint' || baseType === 'smallint' || baseType === 'mediumint' || baseType === 'tinyint') {
     return { kind: 'integer', options: { min: 0, max: 10000 } };
   }
 
-  if (dataType === 'numeric' || dataType === 'decimal' || dataType === 'float4' || dataType === 'float8' || dataType === 'float') {
+  if (dataType === 'numeric' || dataType === 'decimal' || dataType === 'float4' || dataType === 'float8' || dataType === 'float' ||
+      baseType === 'decimal' || baseType === 'double' || baseType === 'float') {
     let max = 10000;
     if (column.numericPrecision !== null && column.numericScale !== null) {
       max = Math.pow(10, column.numericPrecision - column.numericScale) - Math.pow(10, -column.numericScale);
@@ -115,20 +129,37 @@ export function inferColumnStrategy(
     return { kind: 'float', options: { min: 0, max } };
   }
 
-  if (dataType === 'bool' || dataType === 'boolean') {
+  if (dataType === 'bool' || dataType === 'boolean' || baseType === 'tinyint' && column.maxLength === 1) {
     return { kind: 'boolean', options: { trueWeight: 0.5 } };
   }
 
-  if (dataType === 'timestamp' || dataType === 'timestamptz') {
+  if (dataType === 'timestamp' || dataType === 'timestamptz' || baseType === 'datetime' || baseType === 'timestamp') {
     return { kind: 'timestamp', options: { mode: 'past' } };
   }
 
-  if (dataType === 'date') {
+  if (dataType === 'date' || baseType === 'date') {
     return { kind: 'timestamp', options: { mode: 'past' } };
   }
 
-  // d. Ultimate fallback
+  // e. Ultimate fallback
   return { kind: 'text', options: { mode: 'short' } };
+}
+
+/**
+ * Parse MySQL ENUM values from COLUMN_TYPE like "enum('admin','member','viewer')".
+ */
+export function parseMySQLEnumValues(udtName: string): string[] {
+  const match = udtName.match(/^enum\((.+)\)$/i);
+  if (!match) return [];
+  // Split on commas between quoted values: 'val1','val2'
+  const values: string[] = [];
+  const raw = match[1];
+  const re = /'([^']*)'/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(raw)) !== null) {
+    values.push(m[1]);
+  }
+  return values;
 }
 
 export function inferTableStrategies(

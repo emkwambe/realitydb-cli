@@ -6,7 +6,7 @@ export type {
   GeneratorFunction,
   GeneratorContext,
 } from './types.js';
-export { inferColumnStrategy, inferTableStrategies } from './strategyInference.js';
+export { inferColumnStrategy, inferTableStrategies, parseMySQLEnumValues } from './strategyInference.js';
 export { createGeneratorRegistry } from './registry.js';
 export type { GeneratorRegistry } from './registry.js';
 export {
