@@ -28,14 +28,14 @@ import {
   simulateWebhooksCommand,
 } from './commands/simulate.js';
 
-const VERSION = '1.5.1';
+const VERSION = '1.6.0';
 
 export function run(argv: string[]): void {
   const program = new Command();
 
   program
     .name('realitydb')
-    .description('RealityDB — Developer Reality Platform')
+    .description('RealityDB â€” Developer Reality Platform')
     .version(VERSION)
     .option('--config <path>', 'Path to config file')
     .option('--ci', 'CI mode: JSON output, no prompts, proper exit codes', false)
@@ -43,7 +43,7 @@ export function run(argv: string[]): void {
 
   program
     .command('init')
-    .description('Interactive setup wizard — connect, scan, and seed in one step')
+    .description('Interactive setup wizard â€” connect, scan, and seed in one step')
     .action(async () => {
       await initCommand();
     });
@@ -349,7 +349,7 @@ export function run(argv: string[]): void {
       console.log(JSON.stringify({ name: 'realitydb', version: VERSION }));
     } else {
       console.log('');
-      console.log(`RealityDB v${VERSION} — Developer Reality Platform`);
+      console.log(`RealityDB v${VERSION} â€” Developer Reality Platform`);
       console.log('Run `realitydb --help` for available commands.');
       console.log('');
     }
