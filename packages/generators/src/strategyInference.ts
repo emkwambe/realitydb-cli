@@ -115,6 +115,11 @@ export function inferColumnStrategy(
     return { kind: 'text', options: { mode: 'medium' } };
   }
 
+  // MySQL TINYINT(1) is conventionally boolean — must check before integer
+  if (baseType === 'tinyint' && /tinyint\(1\)/i.test(column.udtName)) {
+    return { kind: 'boolean', options: { trueWeight: 0.5 } };
+  }
+
   if (dataType === 'int4' || dataType === 'int8' || dataType === 'int2' || dataType === 'integer' || dataType === 'int' ||
       baseType === 'int' || baseType === 'bigint' || baseType === 'smallint' || baseType === 'mediumint' || baseType === 'tinyint') {
     return { kind: 'integer', options: { min: 0, max: 10000 } };
@@ -129,7 +134,7 @@ export function inferColumnStrategy(
     return { kind: 'float', options: { min: 0, max } };
   }
 
-  if (dataType === 'bool' || dataType === 'boolean' || baseType === 'tinyint' && column.maxLength === 1) {
+  if (dataType === 'bool' || dataType === 'boolean') {
     return { kind: 'boolean', options: { trueWeight: 0.5 } };
   }
 

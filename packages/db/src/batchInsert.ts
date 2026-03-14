@@ -16,13 +16,15 @@ export interface DatasetInsertResult {
 }
 
 /**
- * Convert ISO 8601 timestamp strings to MySQL DATETIME format.
- * '2024-12-08T23:27:18.063Z' → '2024-12-08 23:27:18'
+ * Adapt a JS value for MySQL insertion:
+ * - Convert ISO 8601 timestamps to 'YYYY-MM-DD HH:MM:SS'
+ * - Convert booleans to 1/0 for TINYINT(1) columns
  */
-function toMySQLTimestamp(value: unknown): unknown {
-  if (typeof value !== 'string') return value;
-  // Match ISO 8601: YYYY-MM-DDTHH:MM:SS with optional ms and Z
-  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)) {
+function toMySQLValue(value: unknown): unknown {
+  if (typeof value === 'boolean') {
+    return value ? 1 : 0;
+  }
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)) {
     return value.replace('T', ' ').replace(/\.\d{3}Z$/, '').replace(/Z$/, '');
   }
   return value;
@@ -65,7 +67,7 @@ export async function batchInsertTable(
         const paramIndex = rowIdx * colCount + colIdx + 1;
         placeholders.push(placeholder(dialect, paramIndex));
         const val = row[columns[colIdx]];
-        values.push(isMySQL ? toMySQLTimestamp(val) : val);
+        values.push(isMySQL ? toMySQLValue(val) : val);
       }
       rowPlaceholders.push(`(${placeholders.join(', ')})`);
     }
