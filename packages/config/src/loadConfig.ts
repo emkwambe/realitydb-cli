@@ -29,7 +29,7 @@ export async function loadConfig(
     const found = await findConfigFile('.');
     if (!found) {
       throw new Error(
-        `[realitydb] Config file not found.\n` +
+        `Config file not found.\n` +
           'Create a realitydb.config.json or specify a path with --config.',
       );
     }
@@ -41,7 +41,7 @@ export async function loadConfig(
     raw = await readFile(resolvedPath, 'utf-8');
   } catch {
     throw new Error(
-      `[realitydb] Config file not found: ${resolvedPath}\n` +
+      `Config file not found: ${resolvedPath}\n` +
         'Create a realitydb.config.json or specify a path with --config.',
     );
   }
@@ -51,7 +51,7 @@ export async function loadConfig(
     parsed = JSON.parse(raw);
   } catch {
     throw new Error(
-      `[realitydb] Invalid JSON in config file: ${resolvedPath}`,
+      `Invalid JSON in config file: ${resolvedPath}`,
     );
   }
 
@@ -62,14 +62,14 @@ export async function loadConfig(
     | undefined;
   if (!database || typeof database['connectionString'] !== 'string') {
     throw new Error(
-      '[realitydb] Config validation failed: database.connectionString is required.',
+      'Config validation failed: database.connectionString is required.',
     );
   }
 
   const client = (database['client'] as string) ?? 'postgres';
   if (client !== 'postgres' && client !== 'mysql') {
     throw new Error(
-      `[realitydb] Config validation failed: database.client must be 'postgres' or 'mysql', got '${client}'.`,
+      `Config validation failed: database.client must be 'postgres' or 'mysql', got '${client}'.`,
     );
   }
 
