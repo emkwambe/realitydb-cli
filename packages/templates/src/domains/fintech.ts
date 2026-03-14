@@ -2,13 +2,14 @@ import type { DomainTemplate } from '../types.js';
 
 export const fintechTemplate: DomainTemplate = {
   name: 'fintech',
-  version: '1.0',
-  description: 'Financial services with accounts, transactions, fraud alerts, and settlements',
+  version: '2.0',
+  description: 'Financial services with accounts, transactions, fraud alerts, settlements, and chargebacks',
   targetTables: ['accounts', 'transactions', 'fraud_alerts', 'settlements', 'chargebacks'],
   tableConfigs: new Map([
     ['accounts', {
       tableName: 'accounts',
       matchPattern: ['accounts', '*account*'],
+      rowCountMultiplier: 1.0,
       columnOverrides: [
         {
           columnName: 'account_type',
@@ -53,18 +54,32 @@ export const fintechTemplate: DomainTemplate = {
           strategy: { kind: 'email' },
         },
         {
+          columnName: 'phone',
+          strategy: { kind: 'phone' },
+        },
+        {
           columnName: 'account_number',
+          strategy: { kind: 'text', options: { mode: 'short' } },
+        },
+        {
+          columnName: 'routing_number',
           strategy: { kind: 'text', options: { mode: 'short' } },
         },
         {
           columnName: 'opened_at',
           strategy: { kind: 'timestamp', options: { mode: 'past' } },
         },
+        {
+          columnName: 'closed_at',
+          strategy: { kind: 'timestamp', options: { mode: 'past' } },
+          description: 'Nullable — null for active accounts',
+        },
       ],
     }],
     ['transactions', {
       tableName: 'transactions',
       matchPattern: ['transactions', '*transaction*', '*transfer*'],
+      rowCountMultiplier: 5.0,
       columnOverrides: [
         {
           columnName: 'transaction_type',
@@ -79,6 +94,10 @@ export const fintechTemplate: DomainTemplate = {
         {
           columnName: 'amount_cents',
           strategy: { kind: 'money', options: { min: 100, max: 500000 } },
+        },
+        {
+          columnName: 'fee_cents',
+          strategy: { kind: 'money', options: { min: 0, max: 5000 } },
         },
         {
           columnName: 'currency',
@@ -105,6 +124,24 @@ export const fintechTemplate: DomainTemplate = {
           strategy: { kind: 'text', options: { mode: 'short' } },
         },
         {
+          columnName: 'counterparty_name',
+          strategy: { kind: 'company_name' },
+        },
+        {
+          columnName: 'category',
+          strategy: {
+            kind: 'enum',
+            options: {
+              values: ['groceries', 'restaurants', 'transportation', 'entertainment', 'utilities', 'healthcare', 'shopping', 'travel', 'education', 'transfer', 'salary', 'investment'],
+              weights: [0.12, 0.10, 0.08, 0.08, 0.07, 0.06, 0.10, 0.05, 0.04, 0.12, 0.10, 0.08],
+            },
+          },
+        },
+        {
+          columnName: 'reference_id',
+          strategy: { kind: 'text', options: { mode: 'short' } },
+        },
+        {
           columnName: 'created_at',
           strategy: { kind: 'timestamp', options: { mode: 'past' } },
         },
@@ -113,6 +150,7 @@ export const fintechTemplate: DomainTemplate = {
     ['fraud_alerts', {
       tableName: 'fraud_alerts',
       matchPattern: ['fraud_alerts', '*fraud*', '*alert*'],
+      rowCountMultiplier: 0.3,
       columnOverrides: [
         {
           columnName: 'alert_type',
@@ -152,11 +190,17 @@ export const fintechTemplate: DomainTemplate = {
           columnName: 'created_at',
           strategy: { kind: 'timestamp', options: { mode: 'past' } },
         },
+        {
+          columnName: 'resolved_at',
+          strategy: { kind: 'timestamp', options: { mode: 'past' } },
+          description: 'Nullable — null for open/investigating alerts',
+        },
       ],
     }],
     ['settlements', {
       tableName: 'settlements',
       matchPattern: ['settlements', '*settlement*'],
+      rowCountMultiplier: 1.5,
       columnOverrides: [
         {
           columnName: 'settlement_type',
@@ -183,6 +227,11 @@ export const fintechTemplate: DomainTemplate = {
           },
         },
         {
+          columnName: 'settled_at',
+          strategy: { kind: 'timestamp', options: { mode: 'past' } },
+          description: 'Nullable — null for pending settlements',
+        },
+        {
           columnName: 'created_at',
           strategy: { kind: 'timestamp', options: { mode: 'past' } },
         },
@@ -191,6 +240,7 @@ export const fintechTemplate: DomainTemplate = {
     ['chargebacks', {
       tableName: 'chargebacks',
       matchPattern: ['chargebacks', '*chargeback*', '*dispute*'],
+      rowCountMultiplier: 0.2,
       columnOverrides: [
         {
           columnName: 'reason',
@@ -219,6 +269,11 @@ export const fintechTemplate: DomainTemplate = {
         {
           columnName: 'filed_at',
           strategy: { kind: 'timestamp', options: { mode: 'past' } },
+        },
+        {
+          columnName: 'resolved_at',
+          strategy: { kind: 'timestamp', options: { mode: 'past' } },
+          description: 'Nullable — null for open/under_review chargebacks',
         },
       ],
     }],

@@ -4,9 +4,11 @@ CREATE TABLE accounts (
   account_type VARCHAR(50) NOT NULL,
   owner_name VARCHAR(255) NOT NULL,
   email VARCHAR(255) NOT NULL,
+  phone VARCHAR(50),
   balance_cents BIGINT NOT NULL DEFAULT 0,
   currency VARCHAR(3) NOT NULL DEFAULT 'USD',
   status VARCHAR(50) NOT NULL DEFAULT 'active',
+  routing_number VARCHAR(20),
   opened_at TIMESTAMP NOT NULL DEFAULT now(),
   closed_at TIMESTAMP
 );
@@ -16,8 +18,11 @@ CREATE TABLE transactions (
   account_id UUID NOT NULL REFERENCES accounts(id),
   transaction_type VARCHAR(50) NOT NULL,
   amount_cents BIGINT NOT NULL,
+  fee_cents INTEGER NOT NULL DEFAULT 0,
   currency VARCHAR(3) NOT NULL DEFAULT 'USD',
   description VARCHAR(255),
+  counterparty_name VARCHAR(255),
+  category VARCHAR(100),
   status VARCHAR(50) NOT NULL DEFAULT 'completed',
   reference_id VARCHAR(100),
   created_at TIMESTAMP NOT NULL DEFAULT now()

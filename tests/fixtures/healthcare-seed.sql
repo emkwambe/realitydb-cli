@@ -5,6 +5,7 @@ CREATE TABLE patients (
   last_name VARCHAR(100) NOT NULL,
   date_of_birth DATE NOT NULL,
   gender VARCHAR(20) NOT NULL,
+  blood_type VARCHAR(5),
   email VARCHAR(255),
   phone VARCHAR(50),
   insurance_provider VARCHAR(255),
@@ -29,6 +30,7 @@ CREATE TABLE encounters (
   encounter_type VARCHAR(50) NOT NULL,
   status VARCHAR(50) NOT NULL DEFAULT 'scheduled',
   chief_complaint TEXT,
+  notes TEXT,
   scheduled_at TIMESTAMP NOT NULL DEFAULT now(),
   checked_in_at TIMESTAMP,
   discharged_at TIMESTAMP
@@ -54,4 +56,28 @@ CREATE TABLE billing (
   status VARCHAR(50) NOT NULL DEFAULT 'pending',
   billed_at TIMESTAMP NOT NULL DEFAULT now(),
   paid_at TIMESTAMP
+);
+
+CREATE TABLE medications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  encounter_id UUID NOT NULL REFERENCES encounters(id),
+  medication_name VARCHAR(255) NOT NULL,
+  dosage VARCHAR(100) NOT NULL,
+  frequency VARCHAR(100) NOT NULL,
+  route VARCHAR(50) NOT NULL DEFAULT 'oral',
+  prescribed_at TIMESTAMP NOT NULL DEFAULT now(),
+  end_date TIMESTAMP,
+  status VARCHAR(50) NOT NULL DEFAULT 'active'
+);
+
+CREATE TABLE vitals (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  encounter_id UUID NOT NULL REFERENCES encounters(id),
+  systolic_bp INTEGER,
+  diastolic_bp INTEGER,
+  heart_rate INTEGER,
+  temperature_f NUMERIC(4,1),
+  weight_lbs NUMERIC(5,1),
+  height_inches INTEGER,
+  recorded_at TIMESTAMP NOT NULL DEFAULT now()
 );

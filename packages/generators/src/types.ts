@@ -25,4 +25,6 @@ export interface GeneratorContext {
   columnName: string;
   allGeneratedTables: Map<string, GeneratedTable>;
   maxLength?: number | null;
+  isUnique?: boolean;
+  currentTableRows?: GeneratedRow[];
 }

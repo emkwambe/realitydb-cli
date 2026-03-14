@@ -32,20 +32,27 @@ export function generateDataset(plan: GenerationPlan): GeneratedDataset {
       columnName: string;
       generator: GeneratorFunction | null;
       isForeignKey: boolean;
+      isSelfReference: boolean;
       foreignKeyRef?: typeof tablePlan.columns[0]['foreignKeyRef'];
       defaultValueMode?: string;
       fixedValue?: string | number | boolean | null;
       maxLength?: number | null;
+      isUnique?: boolean;
+      nullable?: boolean;
     }> = tablePlan.columns.map((colPlan) => {
       if (colPlan.strategy.kind === 'foreign_key' && colPlan.foreignKeyRef) {
+        const isSelfRef = colPlan.foreignKeyRef.referencedTable === tableName;
         return {
           columnName: colPlan.columnName,
           generator: null,
           isForeignKey: true,
+          isSelfReference: isSelfRef,
           foreignKeyRef: colPlan.foreignKeyRef,
           defaultValueMode: colPlan.defaultValueMode,
           fixedValue: colPlan.fixedValue,
           maxLength: colPlan.maxLength,
+          isUnique: colPlan.isUnique,
+          nullable: colPlan.nullable,
         };
       }
 
@@ -53,14 +60,19 @@ export function generateDataset(plan: GenerationPlan): GeneratedDataset {
         columnName: colPlan.columnName,
         generator: registry.getGenerator(colPlan.strategy),
         isForeignKey: false,
+        isSelfReference: false,
         defaultValueMode: colPlan.defaultValueMode,
         fixedValue: colPlan.fixedValue,
         maxLength: colPlan.maxLength,
+        isUnique: colPlan.isUnique,
       };
     });
 
     const columns = tablePlan.columns.map((c) => c.columnName);
     const rows: GeneratedRow[] = [];
+
+    // Fraction of rows that get NULL for self-referencing FKs (root nodes)
+    const selfRefNullFraction = 0.3;
 
     for (let rowIndex = 0; rowIndex < tablePlan.rowCount; rowIndex++) {
       const row: GeneratedRow = {};
@@ -73,6 +85,8 @@ export function generateDataset(plan: GenerationPlan): GeneratedDataset {
           columnName: colGen.columnName,
           allGeneratedTables,
           maxLength: colGen.maxLength,
+          isUnique: colGen.isUnique,
+          currentTableRows: rows,
         };
 
         // Handle fixed/db_default values
@@ -81,7 +95,16 @@ export function generateDataset(plan: GenerationPlan): GeneratedDataset {
           continue;
         }
 
-        if (colGen.isForeignKey && colGen.foreignKeyRef) {
+        if (colGen.isSelfReference && colGen.foreignKeyRef) {
+          // Self-referencing FK: first batch are root nodes (NULL),
+          // remaining rows reference already-generated rows from same table
+          if (rows.length === 0 || rowIndex < tablePlan.rowCount * selfRefNullFraction) {
+            row[colGen.columnName] = null;
+          } else {
+            const parentRow = seed.pick(rows);
+            row[colGen.columnName] = parentRow[colGen.foreignKeyRef.referencedColumn];
+          }
+        } else if (colGen.isForeignKey && colGen.foreignKeyRef) {
           row[colGen.columnName] = resolveForeignKey(ctx, colGen.foreignKeyRef);
         } else if (colGen.generator) {
           row[colGen.columnName] = colGen.generator(ctx);

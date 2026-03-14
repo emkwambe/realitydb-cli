@@ -3,6 +3,7 @@ CREATE TABLE teachers (
   email VARCHAR(255) NOT NULL UNIQUE,
   first_name VARCHAR(100) NOT NULL,
   last_name VARCHAR(100) NOT NULL,
+  phone VARCHAR(50),
   department VARCHAR(100),
   hire_date TIMESTAMP NOT NULL DEFAULT now()
 );
@@ -23,6 +24,8 @@ CREATE TABLE students (
   first_name VARCHAR(100) NOT NULL,
   last_name VARCHAR(100) NOT NULL,
   grade_level INTEGER NOT NULL,
+  date_of_birth DATE,
+  gender VARCHAR(20),
   enrolled_at TIMESTAMP NOT NULL DEFAULT now()
 );
 
@@ -38,6 +41,7 @@ CREATE TABLE grades (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   enrollment_id UUID NOT NULL REFERENCES enrollments(id),
   assignment_name VARCHAR(255) NOT NULL,
+  assignment_type VARCHAR(50) NOT NULL DEFAULT 'homework',
   score NUMERIC(5,2) NOT NULL,
   max_score NUMERIC(5,2) NOT NULL DEFAULT 100,
   graded_at TIMESTAMP NOT NULL DEFAULT now()

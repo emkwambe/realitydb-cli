@@ -113,6 +113,7 @@ export function buildGenerationPlan(
         strategy,
         defaultValueMode: 'generated',
         maxLength: column.maxLength,
+        isUnique: column.isUnique,
       };
 
       // If this column is a FK source, populate foreignKeyRef

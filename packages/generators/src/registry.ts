@@ -19,7 +19,7 @@ import {
 } from './primitives/numeric.js';
 import { generateTimestamp } from './primitives/temporal.js';
 import { generateEnum } from './primitives/enum.js';
-import { generateSku } from './primitives/custom.js';
+import { generateSku, generateSequential } from './primitives/custom.js';
 
 export interface GeneratorRegistry {
   getGenerator(strategy: ColumnStrategy): GeneratorFunction;
@@ -77,6 +77,11 @@ export function createGeneratorRegistry(): GeneratorRegistry {
       const name = strategy.options?.['name'] as string | undefined;
       if (name === 'sku') {
         return (ctx: GeneratorContext) => generateSku(ctx);
+      }
+      if (name === 'sequential') {
+        const prefix = (strategy.options?.['prefix'] as string) ?? '';
+        const padLength = (strategy.options?.['padLength'] as number) ?? 6;
+        return (ctx: GeneratorContext) => generateSequential(ctx, prefix, padLength);
       }
       // Fallback to text generator with warning for unknown custom generators
       console.warn(`[databox] Unknown custom generator "${name}", falling back to text.`);

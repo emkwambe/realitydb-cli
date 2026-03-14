@@ -13,3 +13,12 @@ export function generateSku(ctx: GeneratorContext): string {
   }
   return `SKU-${suffix}`;
 }
+
+/**
+ * Generates a sequential identifier like "MRN-000001", "NPI-000002", etc.
+ * Guaranteed unique within a single generation run.
+ */
+export function generateSequential(ctx: GeneratorContext, prefix: string, padLength: number): string {
+  const seq = String(ctx.rowIndex + 1).padStart(padLength, '0');
+  return `${prefix}${seq}`;
+}

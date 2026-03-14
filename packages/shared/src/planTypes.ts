@@ -38,6 +38,7 @@ export interface ColumnGenerationPlan {
   defaultValueMode?: 'generated' | 'db_default' | 'fixed';
   fixedValue?: string | number | boolean | null;
   maxLength?: number | null;
+  isUnique?: boolean;
 }
 
 export interface TableGenerationPlan {
