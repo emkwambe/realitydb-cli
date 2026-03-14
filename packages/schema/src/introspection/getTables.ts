@@ -7,11 +7,11 @@ export async function getTables(
 ): Promise<RawTableInfo[]> {
   if (pool.dialect === 'mysql') {
     const result = await pool.query<RawTableInfo>(
-      `SELECT table_name, table_schema, table_type
+      `SELECT TABLE_NAME AS table_name, TABLE_SCHEMA AS table_schema, TABLE_TYPE AS table_type
        FROM information_schema.tables
-       WHERE table_schema = ?
-         AND table_type = 'BASE TABLE'
-       ORDER BY table_name`,
+       WHERE TABLE_SCHEMA = ?
+         AND TABLE_TYPE = 'BASE TABLE'
+       ORDER BY TABLE_NAME`,
       [schemaName],
     );
     return result.rows;
