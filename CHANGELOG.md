@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.4.2 (2026-03-14)
+
+### Fixes
+
+- fix: healthcare MRN and NPI now use sequential generator (MRN-000001, NPI-000001) — guaranteed unique
+- fix: live DB introspection now queries UNIQUE constraints from information_schema (was hardcoded to false)
+- fix: normalizer sets isUnique for both PK and UNIQUE constraint columns
+- New `sequential` custom generator: `{ kind: 'custom', options: { name: 'sequential', prefix: 'MRN-', padLength: 6 } }`
+
 ## v1.4.1 (2026-03-14)
 
 ### Fixes

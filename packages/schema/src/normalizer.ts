@@ -6,18 +6,28 @@ import type {
   ForeignKeySchema,
 } from './types.js';
 import type { RawTableInfo, RawColumnInfo, RawForeignKeyInfo, RawPrimaryKeyInfo } from './introspection/rawTypes.js';
+import type { RawUniqueConstraintInfo } from './introspection/getUniqueConstraints.js';
 
 export interface RawIntrospectionData {
   tables: RawTableInfo[];
   columns: RawColumnInfo[];
   foreignKeys: RawForeignKeyInfo[];
   primaryKeys: RawPrimaryKeyInfo[];
+  uniqueConstraints?: RawUniqueConstraintInfo[];
 }
 
 export function normalizeSchema(raw: RawIntrospectionData): DatabaseSchema {
   const primaryKeyMap = new Map<string, RawPrimaryKeyInfo>();
   for (const pk of raw.primaryKeys) {
     primaryKeyMap.set(pk.table_name, pk);
+  }
+
+  // Build a set of unique columns: "table_name.column_name"
+  const uniqueColumns = new Set<string>();
+  if (raw.uniqueConstraints) {
+    for (const uc of raw.uniqueConstraints) {
+      uniqueColumns.add(`${uc.table_name}.${uc.column_name}`);
+    }
   }
 
   const columnsByTable = new Map<string, RawColumnInfo[]>();
@@ -62,7 +72,7 @@ export function normalizeSchema(raw: RawIntrospectionData): DatabaseSchema {
       defaultValue: col.column_default,
       maxLength: col.character_maximum_length,
       isPrimaryKey: pk !== null && pk.column_name === col.column_name,
-      isUnique: false,
+      isUnique: (pk !== null && pk.column_name === col.column_name) || uniqueColumns.has(`${rawTable.table_name}.${col.column_name}`),
       ordinalPosition: col.ordinal_position,
     }));
 

@@ -59,7 +59,7 @@ export const healthcareTemplate: DomainTemplate = {
         },
         {
           columnName: 'mrn',
-          strategy: { kind: 'text', options: { mode: 'short' } },
+          strategy: { kind: 'custom', options: { name: 'sequential', prefix: 'MRN-', padLength: 6 } },
         },
         {
           columnName: 'date_of_birth',
@@ -110,7 +110,7 @@ export const healthcareTemplate: DomainTemplate = {
         },
         {
           columnName: 'npi',
-          strategy: { kind: 'text', options: { mode: 'short' } },
+          strategy: { kind: 'custom', options: { name: 'sequential', prefix: 'NPI-', padLength: 6 } },
         },
         {
           columnName: 'active',
