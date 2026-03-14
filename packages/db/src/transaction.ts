@@ -1,8 +1,8 @@
-import pg from 'pg';
+import type { DbPool, DbClient } from './adapter.js';
 
 export async function withTransaction<T>(
-  pool: pg.Pool,
-  fn: (client: pg.PoolClient) => Promise<T>,
+  pool: DbPool,
+  fn: (client: DbClient) => Promise<T>,
 ): Promise<T> {
   const client = await pool.connect();
   try {

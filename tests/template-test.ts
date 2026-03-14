@@ -30,8 +30,8 @@ async function runTest(): Promise<void> {
   console.log(`  Seeded ${saasResult.totalRows} rows in ${saasResult.durationMs}ms\n`);
 
   // 3. Query subscription status distribution
-  const { createPostgresClient, closeConnection } = await import('@databox/db');
-  const pool = createPostgresClient(config.database.connectionString);
+  const { createDatabaseClient, closeConnection } = await import('@databox/db');
+  const pool = createDatabaseClient(config.database.client, config.database.connectionString);
 
   try {
     const subResult = await pool.query(

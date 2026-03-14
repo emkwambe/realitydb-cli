@@ -2,7 +2,7 @@ import type { DataboxConfig } from '@databox/config';
 import type { DatabaseSchema } from '@databox/schema';
 import type { GenerationPlan, ScenarioConfig, ScenarioResult } from '@databox/shared';
 import type { DatasetInsertResult } from '@databox/db';
-import { createPostgresClient, testConnection, closeConnection, withTransaction, batchInsertDataset } from '@databox/db';
+import { createDatabaseClient, testConnection, closeConnection, withTransaction, batchInsertDataset } from '@databox/db';
 import { createSeededRandom } from '@databox/shared';
 import { introspectDatabase } from '@databox/schema';
 import { generateDataset, generateTimelineDataset, simulateLifecycles, applyCorrelations } from '@databox/generators';
@@ -65,7 +65,7 @@ export async function seedDatabase(
     timelineConfig.growthModel.finalCount = effectiveConfig.seed.defaultRecords;
   }
 
-  const pool = createPostgresClient(effectiveConfig.database.connectionString);
+  const pool = createDatabaseClient(effectiveConfig.database.client, effectiveConfig.database.connectionString);
 
   try {
     await testConnection(pool);
@@ -127,7 +127,7 @@ export async function seedDatabase(
     }
 
     const insertResult = await withTransaction(pool, async (client) => {
-      return batchInsertDataset(client, dataset, plan.tableOrder, plan.config.batchSize);
+      return batchInsertDataset(client, dataset, plan.tableOrder, plan.config.batchSize, pool.dialect);
     });
 
     const durationMs = Math.round(performance.now() - start);

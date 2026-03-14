@@ -1,6 +1,6 @@
 import type { DataboxConfig } from '@databox/config';
 import type { DatabaseSchema } from '@databox/schema';
-import { createPostgresClient, testConnection, closeConnection, withTransaction, batchInsertTable, readTableRows, truncateTables } from '@databox/db';
+import { createDatabaseClient, testConnection, closeConnection, withTransaction, batchInsertTable, readTableRows, truncateTables } from '@databox/db';
 import { createSeededRandom } from '@databox/shared';
 import { introspectDatabase } from '@databox/schema';
 import { detectTablePII, maskTableRows, buildAuditLog, exportToJson, exportToCsv, exportToSql } from '@databox/generators';
@@ -36,7 +36,7 @@ export async function maskDatabase(
   const seed = options?.seed ?? 42;
   const dryRun = options?.dryRun ?? false;
 
-  const pool = createPostgresClient(config.database.connectionString);
+  const pool = createDatabaseClient(config.database.client, config.database.connectionString);
 
   try {
     await testConnection(pool);
@@ -162,7 +162,7 @@ export async function maskDatabase(
         for (const tableName of tableOrder) {
           const maskedTable = maskedTables.get(tableName);
           if (!maskedTable || maskedTable.rowCount === 0) continue;
-          await batchInsertTable(client, maskedTable, 1000);
+          await batchInsertTable(client, maskedTable, 1000, pool.dialect);
         }
       });
     }

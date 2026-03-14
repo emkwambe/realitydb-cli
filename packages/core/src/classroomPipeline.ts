@@ -1,5 +1,5 @@
 import type { DataboxConfig } from '@databox/config';
-import { createPostgresClient, testConnection, closeConnection } from '@databox/db';
+import { createDatabaseClient, testConnection, closeConnection } from '@databox/db';
 import {
   CourseRegistry,
   sql101Course,
@@ -76,7 +76,7 @@ export async function classroomStart(
     throw new Error(`Course "${courseName}" not found. Available: ${available}`);
   }
 
-  const pool = createPostgresClient(config.database.connectionString);
+  const pool = createDatabaseClient(config.database.client, config.database.connectionString);
   try {
     await testConnection(pool);
 

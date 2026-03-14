@@ -1,4 +1,4 @@
-import type pg from 'pg';
+import type { DbPool } from '@databox/shared';
 import type { DatabaseSchema } from './types.js';
 import { getTables } from './introspection/getTables.js';
 import { getColumns } from './introspection/getColumns.js';
@@ -13,16 +13,26 @@ export interface IntrospectOptions {
 }
 
 export async function introspectDatabase(
-  pool: pg.Pool,
-  schemaName: string = 'public',
+  pool: DbPool,
+  schemaName?: string,
   options?: IntrospectOptions,
 ): Promise<DatabaseSchema> {
+  let effectiveSchema: string;
+  if (schemaName) {
+    effectiveSchema = schemaName;
+  } else if (pool.dialect === 'mysql') {
+    const result = await pool.query<{ db: string }>('SELECT DATABASE() AS db');
+    effectiveSchema = result.rows[0].db;
+  } else {
+    effectiveSchema = 'public';
+  }
+
   const [tables, columns, foreignKeys, primaryKeys, uniqueConstraints] = await Promise.all([
-    getTables(pool, schemaName),
-    getColumns(pool, schemaName),
-    getForeignKeys(pool, schemaName),
-    getPrimaryKeys(pool, schemaName),
-    getUniqueConstraints(pool, schemaName),
+    getTables(pool, effectiveSchema),
+    getColumns(pool, effectiveSchema),
+    getForeignKeys(pool, effectiveSchema),
+    getPrimaryKeys(pool, effectiveSchema),
+    getUniqueConstraints(pool, effectiveSchema),
   ]);
 
   const schema = normalizeSchema({ tables, columns, foreignKeys, primaryKeys, uniqueConstraints });

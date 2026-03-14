@@ -1,6 +1,6 @@
 import type { DataboxConfig } from '@databox/config';
 import type { RealityPack, PackSchema, PackDataset } from '@databox/shared';
-import { createPostgresClient, testConnection, closeConnection, readTableRows } from '@databox/db';
+import { createDatabaseClient, testConnection, closeConnection, readTableRows } from '@databox/db';
 import { introspectDatabase } from '@databox/schema';
 import { generateCreateTableDDL } from '@databox/schema';
 import { saveRealityPack } from '@databox/generators';
@@ -40,7 +40,7 @@ export async function captureDatabase(
 ): Promise<CaptureResult> {
   const start = performance.now();
 
-  const pool = createPostgresClient(config.database.connectionString);
+  const pool = createDatabaseClient(config.database.client, config.database.connectionString);
 
   try {
     await testConnection(pool);

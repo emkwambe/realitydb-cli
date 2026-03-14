@@ -1,6 +1,6 @@
 import type { DataboxConfig } from '@databox/config';
 import type { DatabaseSchema } from '@databox/schema';
-import { createPostgresClient, testConnection, closeConnection } from '@databox/db';
+import { createDatabaseClient, testConnection, closeConnection } from '@databox/db';
 import { introspectDatabase } from '@databox/schema';
 import {
   detectTableColumns,
@@ -35,7 +35,7 @@ export async function analyzeDatabase(
   const start = performance.now();
   const sampleSize = options?.sampleSize ?? 1000;
 
-  const pool = createPostgresClient(config.database.connectionString);
+  const pool = createDatabaseClient(config.database.client, config.database.connectionString);
 
   try {
     await testConnection(pool);

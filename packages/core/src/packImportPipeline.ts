@@ -1,7 +1,7 @@
 import type { DataboxConfig } from '@databox/config';
 import type { RealityPack } from '@databox/shared';
 import type { DatasetInsertResult } from '@databox/db';
-import { createPostgresClient, testConnection, closeConnection, withTransaction, batchInsertDataset } from '@databox/db';
+import { createDatabaseClient, testConnection, closeConnection, withTransaction, batchInsertDataset } from '@databox/db';
 import { introspectDatabase } from '@databox/schema';
 import { loadRealityPack } from '@databox/generators';
 import type { GeneratedDataset, GeneratedTable } from '@databox/generators';
@@ -28,7 +28,7 @@ export async function importPack(
   // Determine table order from plan
   const tableOrder = pack.plan.tableOrder;
 
-  const pool = createPostgresClient(config.database.connectionString);
+  const pool = createDatabaseClient(config.database.client, config.database.connectionString);
 
   try {
     await testConnection(pool);
@@ -47,7 +47,7 @@ export async function importPack(
     }
 
     const insertResult = await withTransaction(pool, async (client) => {
-      return batchInsertDataset(client, dataset, tableOrder, pack.plan.config.batchSize);
+      return batchInsertDataset(client, dataset, tableOrder, pack.plan.config.batchSize, pool.dialect);
     });
 
     const durationMs = Math.round(performance.now() - start);

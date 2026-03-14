@@ -1,10 +1,27 @@
-import type pg from 'pg';
+import type { DbPool } from '@databox/shared';
 import type { RawForeignKeyInfo } from './rawTypes.js';
 
 export async function getForeignKeys(
-  pool: pg.Pool,
+  pool: DbPool,
   schemaName: string = 'public',
 ): Promise<RawForeignKeyInfo[]> {
+  if (pool.dialect === 'mysql') {
+    const result = await pool.query<RawForeignKeyInfo>(
+      `SELECT
+         kcu.CONSTRAINT_NAME AS constraint_name,
+         kcu.TABLE_NAME AS source_table,
+         kcu.COLUMN_NAME AS source_column,
+         kcu.REFERENCED_TABLE_NAME AS target_table,
+         kcu.REFERENCED_COLUMN_NAME AS target_column
+       FROM information_schema.key_column_usage kcu
+       WHERE kcu.TABLE_SCHEMA = ?
+         AND kcu.REFERENCED_TABLE_NAME IS NOT NULL
+       ORDER BY kcu.TABLE_NAME, kcu.COLUMN_NAME`,
+      [schemaName],
+    );
+    return result.rows;
+  }
+
   const result = await pool.query<RawForeignKeyInfo>(
     `SELECT
        kcu.constraint_name,
