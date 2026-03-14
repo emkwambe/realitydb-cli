@@ -8,6 +8,7 @@ const VERSION = '0.10.0';
 export async function resetCommand(options: {
   confirm?: boolean;
   ci?: boolean;
+  configPath?: string;
 }): Promise<void> {
   const start = performance.now();
 
@@ -20,7 +21,7 @@ export async function resetCommand(options: {
   }
 
   try {
-    const config = await loadConfig();
+    const config = await loadConfig(options.configPath);
     const masked = maskConnectionString(config.database.connectionString);
 
     if (!options.ci) {

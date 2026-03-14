@@ -11,10 +11,11 @@ export async function analyzeCommand(options: {
   output?: string;
   sampleSize?: string;
   ci?: boolean;
+  configPath?: string;
 }): Promise<void> {
   const start = performance.now();
   try {
-    const config = await loadConfig();
+    const config = await loadConfig(options.configPath);
     const sampleSize = options.sampleSize ? parseInt(options.sampleSize, 10) : 1000;
     const masked = maskConnectionString(config.database.connectionString);
 

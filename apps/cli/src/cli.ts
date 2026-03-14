@@ -27,7 +27,7 @@ import {
   simulateWebhooksCommand,
 } from './commands/simulate.js';
 
-const VERSION = '1.3.1';
+const VERSION = '1.4.3';
 
 export function run(argv: string[]): void {
   const program = new Command();
@@ -45,7 +45,7 @@ export function run(argv: string[]): void {
     .description('Scan database schema')
     .action(async () => {
       const opts = program.opts();
-      await scanCommand({ ci: opts.ci });
+      await scanCommand({ ci: opts.ci, configPath: opts.config });
     });
 
   program
@@ -55,7 +55,7 @@ export function run(argv: string[]): void {
     .option('--sample-size <count>', 'Number of rows to sample per table', '1000')
     .action(async (cmdOpts) => {
       const opts = program.opts();
-      await analyzeCommand({ ...cmdOpts, ci: opts.ci });
+      await analyzeCommand({ ...cmdOpts, ci: opts.ci, configPath: opts.config });
     });
 
   program
@@ -71,7 +71,7 @@ export function run(argv: string[]): void {
     .option('--lifecycle', 'Enable lifecycle simulation for causally-connected data')
     .action(async (cmdOpts) => {
       const opts = program.opts();
-      await seedCommand({ ...cmdOpts, ci: opts.ci });
+      await seedCommand({ ...cmdOpts, ci: opts.ci, configPath: opts.config });
     });
 
   program
@@ -80,7 +80,7 @@ export function run(argv: string[]): void {
     .option('--confirm', 'Confirm destructive operation')
     .action(async (cmdOpts) => {
       const opts = program.opts();
-      await resetCommand({ ...cmdOpts, ci: opts.ci });
+      await resetCommand({ ...cmdOpts, ci: opts.ci, configPath: opts.config });
     });
 
   program
@@ -97,7 +97,7 @@ export function run(argv: string[]): void {
     .option('--scenario-schedule <schedule>', 'Timeline-scheduled scenarios (e.g., "fraud-spike:month-6,churn-spike:month-9")')
     .action(async (cmdOpts) => {
       const opts = program.opts();
-      await exportCommand({ ...cmdOpts, ci: opts.ci });
+      await exportCommand({ ...cmdOpts, ci: opts.ci, configPath: opts.config });
     });
 
   program
@@ -112,7 +112,7 @@ export function run(argv: string[]): void {
     .option('--correlations', 'Enable cross-column correlations from schema')
     .action(async (cmdOpts) => {
       const opts = program.opts();
-      await generateCommand({ ...cmdOpts, ci: opts.ci });
+      await generateCommand({ ...cmdOpts, ci: opts.ci, configPath: opts.config });
     });
 
   const templates = program
@@ -165,7 +165,7 @@ export function run(argv: string[]): void {
     .option('--confirm', 'Confirm writing masked data back to database')
     .action(async (cmdOpts) => {
       const opts = program.opts();
-      await maskCommand({ ...cmdOpts, ci: opts.ci });
+      await maskCommand({ ...cmdOpts, ci: opts.ci, configPath: opts.config });
     });
 
   const classroom = program
@@ -177,7 +177,7 @@ export function run(argv: string[]): void {
     .description('List available courses')
     .action(async () => {
       const opts = program.opts();
-      await classroomListCommand({ ci: opts.ci });
+      await classroomListCommand({ ci: opts.ci, configPath: opts.config });
     });
 
   classroom
@@ -185,7 +185,7 @@ export function run(argv: string[]): void {
     .description('Load a course into your database')
     .action(async (course: string) => {
       const opts = program.opts();
-      await classroomStartCommand(course, { ci: opts.ci });
+      await classroomStartCommand(course, { ci: opts.ci, configPath: opts.config });
     });
 
   classroom
@@ -193,7 +193,7 @@ export function run(argv: string[]): void {
     .description('Show progress for all courses or a specific course')
     .action(async (course?: string) => {
       const opts = program.opts();
-      await classroomStatusCommand(course, { ci: opts.ci });
+      await classroomStatusCommand(course, { ci: opts.ci, configPath: opts.config });
     });
 
   classroom
@@ -201,7 +201,7 @@ export function run(argv: string[]): void {
     .description('Mark an exercise as completed')
     .action(async (course: string, exercise: string) => {
       const opts = program.opts();
-      await classroomCompleteCommand(course, exercise, { ci: opts.ci });
+      await classroomCompleteCommand(course, exercise, { ci: opts.ci, configPath: opts.config });
     });
 
   classroom
@@ -209,7 +209,7 @@ export function run(argv: string[]): void {
     .description('Reset progress for a course')
     .action(async (course: string) => {
       const opts = program.opts();
-      await classroomResetCommand(course, { ci: opts.ci });
+      await classroomResetCommand(course, { ci: opts.ci, configPath: opts.config });
     });
 
   classroom
@@ -217,7 +217,7 @@ export function run(argv: string[]): void {
     .description('Scaffold a custom course JSON file')
     .action(async (name: string) => {
       const opts = program.opts();
-      await classroomCreateCommand(name, { ci: opts.ci });
+      await classroomCreateCommand(name, { ci: opts.ci, configPath: opts.config });
     });
 
   const simulate = program
@@ -235,7 +235,7 @@ export function run(argv: string[]): void {
     .option('--format <format>', 'Output format (json|ndjson)', 'json')
     .action(async (cmdOpts) => {
       const opts = program.opts();
-      await simulateRunCommand({ ...cmdOpts, ci: opts.ci });
+      await simulateRunCommand({ ...cmdOpts, ci: opts.ci, configPath: opts.config });
     });
 
   simulate
@@ -243,7 +243,7 @@ export function run(argv: string[]): void {
     .description('List available simulation profiles')
     .action(async () => {
       const opts = program.opts();
-      await simulateProfilesCommand({ ci: opts.ci });
+      await simulateProfilesCommand({ ci: opts.ci, configPath: opts.config });
     });
 
   simulate
@@ -256,7 +256,7 @@ export function run(argv: string[]): void {
     .option('--format <format>', 'Output format (json|ndjson)', 'json')
     .action(async (cmdOpts) => {
       const opts = program.opts();
-      await simulateWebhooksCommand({ ...cmdOpts, ci: opts.ci });
+      await simulateWebhooksCommand({ ...cmdOpts, ci: opts.ci, configPath: opts.config });
     });
 
   program
@@ -268,7 +268,7 @@ export function run(argv: string[]): void {
     .option('--output <dir>', 'Output directory', '.')
     .action(async (cmdOpts) => {
       const opts = program.opts();
-      await captureCommand({ ...cmdOpts, ci: opts.ci });
+      await captureCommand({ ...cmdOpts, ci: opts.ci, configPath: opts.config });
     });
 
   program
@@ -278,7 +278,7 @@ export function run(argv: string[]): void {
     .option('--description <desc>', 'Gist description')
     .action(async (filePath, cmdOpts) => {
       const opts = program.opts();
-      await shareCommand(filePath, { ...cmdOpts, ci: opts.ci });
+      await shareCommand(filePath, { ...cmdOpts, ci: opts.ci, configPath: opts.config });
     });
 
   program
@@ -288,7 +288,7 @@ export function run(argv: string[]): void {
     .option('--show-ddl', 'Show schema DDL without importing')
     .action(async (filePath, cmdOpts) => {
       const opts = program.opts();
-      await loadCommand(filePath, { ...cmdOpts, ci: opts.ci });
+      await loadCommand(filePath, { ...cmdOpts, ci: opts.ci, configPath: opts.config });
     });
 
   const pack = program
@@ -308,13 +308,19 @@ export function run(argv: string[]): void {
     .option('--scenario <names>', 'Scenarios to apply (comma-separated)')
     .option('--scenario-intensity <level>', 'Scenario intensity (low|medium|high)', 'medium')
     .option('--scenario-schedule <schedule>', 'Timeline-scheduled scenarios (e.g., "fraud-spike:month-6,churn-spike:month-9")')
-    .action(packExportCommand);
+    .action(async (cmdOpts) => {
+      const opts = program.opts();
+      await packExportCommand({ ...cmdOpts, configPath: opts.config });
+    });
 
   pack
     .command('import <file>')
     .description('Import Reality Pack into database')
     .option('--confirm', 'Confirm import operation')
-    .action(packImportCommand);
+    .action(async (filePath: string, cmdOpts) => {
+      const opts = program.opts();
+      await packImportCommand(filePath, { ...cmdOpts, configPath: opts.config });
+    });
 
   const packs = program
     .command('packs')

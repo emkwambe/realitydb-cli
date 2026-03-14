@@ -77,11 +77,11 @@ export async function classroomListCommand(options: {
 
 export async function classroomStartCommand(
   courseName: string,
-  options: { ci?: boolean },
+  options: { ci?: boolean; configPath?: string },
 ): Promise<void> {
   const start = performance.now();
   try {
-    const config = await loadConfig();
+    const config = await loadConfig(options.configPath);
     const masked = maskConnectionString(config.database.connectionString);
 
     if (!options.ci) {

@@ -16,10 +16,11 @@ export async function maskCommand(options: {
   auditLog?: string;
   confirm?: boolean;
   ci?: boolean;
+  configPath?: string;
 }): Promise<void> {
   const start = performance.now();
   try {
-    const config = await loadConfig();
+    const config = await loadConfig(options.configPath);
     const mode = (options.mode ?? 'gdpr') as 'hipaa' | 'gdpr' | 'strict';
     const seed = options.seed ? parseInt(options.seed, 10) : undefined;
     const dryRun = options.dryRun ?? false;

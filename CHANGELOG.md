@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.4.3 (2026-03-14)
+
+### Fixes
+
+- fix: `--config` flag is now respected — previously parsed by commander but never forwarded to `loadConfig()`
+- All command handlers (scan, seed, reset, export, analyze, capture, mask, load, pack export/import, classroom start) now receive and pass `configPath` to the config loader
+- Pack export/import commands restructured from direct `.action(fn)` binding to wrapper pattern for proper parent opts access
+
 ## v1.4.2 (2026-03-14)
 
 ### Fixes

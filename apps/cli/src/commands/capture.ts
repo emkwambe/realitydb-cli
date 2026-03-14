@@ -12,6 +12,7 @@ export async function captureCommand(options: {
   tables?: string;
   output?: string;
   ci?: boolean;
+  configPath?: string;
 }): Promise<void> {
   const start = performance.now();
   try {
@@ -33,7 +34,7 @@ export async function captureCommand(options: {
       process.exit(1);
     }
 
-    const config = await loadConfig();
+    const config = await loadConfig(options.configPath);
     const masked = maskConnectionString(config.database.connectionString);
 
     const tables = options.tables

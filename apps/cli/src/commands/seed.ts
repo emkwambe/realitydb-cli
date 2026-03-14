@@ -17,10 +17,11 @@ export async function seedCommand(options: {
   scenarioSchedule?: string;
   lifecycle?: boolean;
   ci?: boolean;
+  configPath?: string;
 }): Promise<void> {
   const start = performance.now();
   try {
-    const config = await loadConfig();
+    const config = await loadConfig(options.configPath);
 
     const records = options.records ? parseInt(options.records, 10) : undefined;
     const seed = options.seed ? parseInt(options.seed, 10) : undefined;
