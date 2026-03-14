@@ -15,9 +15,10 @@ export async function packExportCommand(options: {
   timeline?: string;
   scenario?: string;
   scenarioIntensity?: string;
+  configPath?: string;
 }): Promise<void> {
   try {
-    const config = await loadConfig();
+    const config = await loadConfig(options.configPath);
 
     const records = options.records ? parseInt(options.records, 10) : undefined;
     const seed = options.seed ? parseInt(options.seed, 10) : undefined;
@@ -124,7 +125,7 @@ export async function packExportCommand(options: {
 
 export async function packImportCommand(
   filePath: string,
-  options: { confirm?: boolean },
+  options: { confirm?: boolean; configPath?: string },
 ): Promise<void> {
   try {
     if (!options.confirm) {
@@ -139,7 +140,7 @@ export async function packImportCommand(
       process.exit(1);
     }
 
-    const config = await loadConfig();
+    const config = await loadConfig(options.configPath);
     const masked = maskConnectionString(config.database.connectionString);
 
     // Quick-validate by loading the pack first for display

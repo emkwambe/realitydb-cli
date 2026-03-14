@@ -1,5 +1,26 @@
 # Changelog
 
+## v1.4.4 (2026-03-14)
+
+### Fixes
+
+- fix: lifecycle overlay now merges with normally-generated data instead of replacing it
+- Root table rows retain all generated columns (email, full_name, etc.) — lifecycle only overwrites columns it explicitly sets
+- Side-effect values (subscription status, payment status) overlaid onto existing generated rows with valid FKs
+- Warning messages deduplicated: one per column per table, not per row
+- SaaS lifecycle: removed `plan` from subscription side effects (column is `plan_id` FK, not `plan`)
+- SaaS lifecycle: removed enterprise plan correlation referencing non-existent `subscriptions.plan`
+- SaaS lifecycle: added `status` column values to states (churned/paused → `inactive`)
+- New `applyLifecycleOverlay()` function cleanly separates generation from lifecycle overlay
+
+## v1.4.3 (2026-03-14)
+
+### Fixes
+
+- fix: `--config` flag is now respected — previously parsed by commander but never forwarded to `loadConfig()`
+- All command handlers (scan, seed, reset, export, analyze, capture, mask, load, pack export/import, classroom start) now receive and pass `configPath` to the config loader
+- Pack export/import commands restructured from direct `.action(fn)` binding to wrapper pattern for proper parent opts access
+
 ## v1.4.2 (2026-03-14)
 
 ### Fixes

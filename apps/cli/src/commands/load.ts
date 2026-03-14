@@ -14,7 +14,7 @@ function isUrl(input: string): boolean {
 
 export async function loadCommand(
   filePath: string,
-  options: { confirm?: boolean; showDdl?: boolean; ci?: boolean },
+  options: { confirm?: boolean; showDdl?: boolean; ci?: boolean; configPath?: string },
 ): Promise<void> {
   const start = performance.now();
   try {
@@ -88,7 +88,7 @@ export async function loadCommand(
       return;
     }
 
-    const config = await loadConfig();
+    const config = await loadConfig(options.configPath);
     const masked = maskConnectionString(config.database.connectionString);
 
     if (!options.ci) {

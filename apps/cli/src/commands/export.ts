@@ -18,10 +18,11 @@ export async function exportCommand(options: {
   scenarioIntensity?: string;
   scenarioSchedule?: string;
   ci?: boolean;
+  configPath?: string;
 }): Promise<void> {
   const start = performance.now();
   try {
-    const config = await loadConfig();
+    const config = await loadConfig(options.configPath);
 
     const format = (options.format ?? config.export?.defaultFormat ?? 'json') as 'json' | 'csv' | 'sql';
     const outputDir = options.output ?? config.export?.outputDir ?? './.realitydb';

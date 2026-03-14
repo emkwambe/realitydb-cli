@@ -7,10 +7,11 @@ const VERSION = '0.10.0';
 
 export async function scanCommand(options: {
   ci?: boolean;
+  configPath?: string;
 }): Promise<void> {
   const start = performance.now();
   try {
-    const config = await loadConfig();
+    const config = await loadConfig(options.configPath);
     const result = await scanDatabase(config);
     const { schema } = result;
     const masked = maskConnectionString(config.database.connectionString);
