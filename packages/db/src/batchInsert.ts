@@ -15,6 +15,19 @@ export interface DatasetInsertResult {
   totalDurationMs: number;
 }
 
+/**
+ * Convert ISO 8601 timestamp strings to MySQL DATETIME format.
+ * '2024-12-08T23:27:18.063Z' → '2024-12-08 23:27:18'
+ */
+function toMySQLTimestamp(value: unknown): unknown {
+  if (typeof value !== 'string') return value;
+  // Match ISO 8601: YYYY-MM-DDTHH:MM:SS with optional ms and Z
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)) {
+    return value.replace('T', ' ').replace(/\.\d{3}Z$/, '').replace(/Z$/, '');
+  }
+  return value;
+}
+
 export async function batchInsertTable(
   client: DbClient,
   table: GeneratedTable,
@@ -22,6 +35,7 @@ export async function batchInsertTable(
   dialect: 'postgres' | 'mysql' = 'postgres',
 ): Promise<InsertResult> {
   const start = performance.now();
+  const isMySQL = dialect === 'mysql';
 
   if (table.rows.length === 0) {
     return {
@@ -50,7 +64,8 @@ export async function batchInsertTable(
       for (let colIdx = 0; colIdx < colCount; colIdx++) {
         const paramIndex = rowIdx * colCount + colIdx + 1;
         placeholders.push(placeholder(dialect, paramIndex));
-        values.push(row[columns[colIdx]]);
+        const val = row[columns[colIdx]];
+        values.push(isMySQL ? toMySQLTimestamp(val) : val);
       }
       rowPlaceholders.push(`(${placeholders.join(', ')})`);
     }
