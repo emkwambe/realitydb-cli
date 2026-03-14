@@ -1,7 +1,7 @@
 import type { DatabaseSchema, ForeignKeySchema } from '@databox/schema';
 import type { DataboxConfig } from '@databox/config';
 import type { TimelineConfig } from '@databox/shared';
-import { inferColumnStrategy, resolveTemporalConstraints } from '@databox/generators';
+import { inferColumnStrategy, resolveTemporalConstraints, parseMySQLEnumValues } from '@databox/generators';
 import { getDefaultRegistry, resolveColumnOverride, loadTemplateFromJSON, createTemplateRegistry } from '@databox/templates';
 import { buildDependencyGraph } from './dependencyGraph.js';
 import { topologicalSort } from './topologicalSort.js';
@@ -103,6 +103,45 @@ export function buildGenerationPlan(
         strategy = override ?? inferColumnStrategy(column, tableForeignKeys, table.name);
       } else {
         strategy = inferColumnStrategy(column, tableForeignKeys, table.name);
+      }
+
+      // If the column is a MySQL ENUM, constrain template enum values
+      // to only those allowed by the column definition
+      if (
+        strategy.kind === 'enum' &&
+        strategy.options?.['values'] &&
+        (column.dataType === 'enum' || column.udtName.toLowerCase().startsWith('enum('))
+      ) {
+        const allowedValues = parseMySQLEnumValues(column.udtName);
+        if (allowedValues.length > 0) {
+          const templateValues = strategy.options['values'] as string[];
+          const filtered = templateValues.filter((v) => allowedValues.includes(v));
+          // Use filtered values if any match, otherwise use the column's ENUM values
+          const finalValues = filtered.length > 0 ? filtered : allowedValues;
+          // Rebuild weights proportionally for remaining values
+          const templateWeights = strategy.options['weights'] as number[] | undefined;
+          let finalWeights: number[] | undefined;
+          if (templateWeights && filtered.length > 0) {
+            finalWeights = [];
+            for (let i = 0; i < templateValues.length; i++) {
+              if (allowedValues.includes(templateValues[i])) {
+                finalWeights.push(templateWeights[i]);
+              }
+            }
+            // Normalize weights to sum to 1
+            const sum = finalWeights.reduce((a, b) => a + b, 0);
+            if (sum > 0) {
+              finalWeights = finalWeights.map((w) => w / sum);
+            }
+          }
+          strategy = {
+            kind: 'enum' as const,
+            options: {
+              values: finalValues,
+              ...(finalWeights ? { weights: finalWeights } : {}),
+            },
+          };
+        }
       }
 
       const columnPlan: ColumnGenerationPlan = {
