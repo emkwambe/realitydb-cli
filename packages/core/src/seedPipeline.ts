@@ -7,7 +7,8 @@ import { createSeededRandom } from '@databox/shared';
 import { introspectDatabase } from '@databox/schema';
 import { generateDataset, generateTimelineDataset, simulateLifecycles, applyCorrelations } from '@databox/generators';
 import { composeScenarios, parseScheduleString, applyScheduledScenarios, buildScenarioReport, formatScenarioReportCI } from '@databox/generators';
-import type { GeneratedDataset, GeneratedTable } from '@databox/generators';
+import type { GeneratedDataset } from '@databox/generators';
+import type { LifecycleDefinition, SimulationResult } from '@databox/shared';
 import { buildGenerationPlan, validateGenerationPlan } from './planning/index.js';
 import { parseTimelineString } from './planning/parseTimeline.js';
 import { resolveLifecycle } from './resolveLifecycle.js';
@@ -80,67 +81,18 @@ export async function seedDatabase(
       );
     }
 
-    // Generate dataset — lifecycle, timeline, or standard
-    let dataset: GeneratedDataset;
+    // STEP 1: Generate full dataset using normal engine (always)
     const lifecycleUsed = !!options?.lifecycle;
+    let dataset: GeneratedDataset = timelineConfig
+      ? generateTimelineDataset(plan, timelineConfig)
+      : generateDataset(plan);
 
+    // STEP 2: If lifecycle enabled, overlay lifecycle state onto dataset
     if (options?.lifecycle && options?.template) {
       const lifecycle = resolveLifecycle(options.template);
       if (lifecycle) {
-        const random = createSeededRandom(plan.reproducibility.randomSeed);
-        const entityCount = effectiveConfig.seed.defaultRecords;
-        const simResult = simulateLifecycles(lifecycle, entityCount, random);
-        const correlatedResult = applyCorrelations(simResult, lifecycle.correlations, random);
-
-        // Convert SimulationResult → GeneratedDataset
-        // Filter out columns that don't exist in the actual schema
-        const schemaColumnLookup = new Map<string, Set<string>>();
-        for (const table of schema.tables) {
-          schemaColumnLookup.set(table.name, new Set(table.columns.map((c) => c.name)));
-        }
-
-        const tables = new Map<string, GeneratedTable>();
-        let totalRows = 0;
-        for (const [tableName, rows] of correlatedResult.tables) {
-          const validColumns = schemaColumnLookup.get(tableName);
-          const filteredRows = validColumns
-            ? rows.map((row) => {
-                const filtered: Record<string, unknown> = {};
-                for (const [col, val] of Object.entries(row)) {
-                  if (validColumns.has(col)) {
-                    filtered[col] = val;
-                  } else {
-                    console.warn(`[lifecycle] Skipping column '${col}' on table '${tableName}' — column does not exist`);
-                  }
-                }
-                return filtered;
-              })
-            : rows;
-          tables.set(tableName, {
-            tableName,
-            columns: filteredRows.length > 0 ? Object.keys(filteredRows[0]) : [],
-            rows: filteredRows,
-            rowCount: filteredRows.length,
-          });
-          totalRows += filteredRows.length;
-        }
-
-        dataset = {
-          tables,
-          generatedAt: new Date().toISOString(),
-          seed: plan.reproducibility.randomSeed,
-          totalRows,
-        };
-      } else {
-        // No lifecycle for this template — fall back to standard generation
-        dataset = timelineConfig
-          ? generateTimelineDataset(plan, timelineConfig)
-          : generateDataset(plan);
+        dataset = applyLifecycleOverlay(dataset, lifecycle, plan, schema);
       }
-    } else {
-      dataset = timelineConfig
-        ? generateTimelineDataset(plan, timelineConfig)
-        : generateDataset(plan);
     }
 
     // Apply scenarios: scheduled or composed
@@ -194,6 +146,95 @@ export async function seedDatabase(
   } finally {
     await closeConnection(pool);
   }
+}
+
+/**
+ * Overlays lifecycle simulation results onto an already-generated dataset.
+ *
+ * Instead of replacing the dataset (which loses all generated columns/FKs),
+ * this function:
+ * 1. Runs the lifecycle simulation to get per-entity state assignments
+ * 2. Overlays state columnValues onto existing root table rows
+ * 3. Overlays side-effect values onto existing related table rows
+ * 4. Filters out columns that don't exist in the schema (with deduplicated warnings)
+ */
+function applyLifecycleOverlay(
+  dataset: GeneratedDataset,
+  lifecycle: LifecycleDefinition,
+  plan: GenerationPlan,
+  schema: DatabaseSchema,
+): GeneratedDataset {
+  const random = createSeededRandom(plan.reproducibility.randomSeed);
+  const rootTable = dataset.tables.get(lifecycle.rootTable);
+  const entityCount = rootTable?.rowCount ?? plan.tables[0]?.rowCount ?? 0;
+
+  // Run lifecycle simulation
+  const simResult: SimulationResult = simulateLifecycles(lifecycle, entityCount, random);
+  const correlatedResult = applyCorrelations(simResult, lifecycle.correlations, random);
+
+  // Build schema column lookup for validation
+  const schemaColumnLookup = new Map<string, Set<string>>();
+  for (const table of schema.tables) {
+    schemaColumnLookup.set(table.name, new Set(table.columns.map((c) => c.name)));
+  }
+
+  // Track warned columns to deduplicate warnings (one per column, not per row)
+  const warnedColumns = new Set<string>();
+
+  // Overlay root table: merge lifecycle columnValues onto existing generated rows
+  if (rootTable) {
+    const lifecycleRootRows = correlatedResult.tables.get(lifecycle.rootTable);
+    if (lifecycleRootRows) {
+      const validColumns = schemaColumnLookup.get(lifecycle.rootTable);
+      const count = Math.min(rootTable.rows.length, lifecycleRootRows.length);
+      for (let i = 0; i < count; i++) {
+        for (const [col, val] of Object.entries(lifecycleRootRows[i])) {
+          if (col === 'id') continue; // Never overwrite generated IDs
+          if (validColumns && !validColumns.has(col)) {
+            const key = `${lifecycle.rootTable}.${col}`;
+            if (!warnedColumns.has(key)) {
+              console.warn(`[lifecycle] Skipping column '${col}' on table '${lifecycle.rootTable}' — does not exist in schema`);
+              warnedColumns.add(key);
+            }
+            continue;
+          }
+          rootTable.rows[i][col] = val;
+        }
+      }
+    }
+  }
+
+  // Overlay side-effect tables: merge lifecycle values onto existing generated rows
+  for (const [tableName, lifecycleRows] of correlatedResult.tables) {
+    if (tableName === lifecycle.rootTable) continue;
+
+    const existingTable = dataset.tables.get(tableName);
+    if (!existingTable || lifecycleRows.length === 0) continue;
+
+    const validColumns = schemaColumnLookup.get(tableName);
+    const entityIdCol = `${lifecycle.entityName}_id`;
+
+    // Overlay lifecycle values onto existing rows proportionally
+    // (lifecycle rows may not have valid FKs, so we modify existing rows in-place)
+    const count = Math.min(lifecycleRows.length, existingTable.rows.length);
+    for (let i = 0; i < count; i++) {
+      for (const [col, val] of Object.entries(lifecycleRows[i])) {
+        // Skip generated IDs and lifecycle-injected FK columns
+        if (col === 'id' || col === entityIdCol) continue;
+        if (validColumns && !validColumns.has(col)) {
+          const key = `${tableName}.${col}`;
+          if (!warnedColumns.has(key)) {
+            console.warn(`[lifecycle] Skipping column '${col}' on table '${tableName}' — does not exist in schema`);
+            warnedColumns.add(key);
+          }
+          continue;
+        }
+        existingTable.rows[i][col] = val;
+      }
+    }
+  }
+
+  return dataset;
 }
 
 function computeTotalMonths(tc: { startDate: string; endDate: string }): number {

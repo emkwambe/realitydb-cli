@@ -10,8 +10,17 @@ import type { LifecycleDefinition } from '@databox/shared';
  *   past_due (8%) - subscription past_due, last payment failed
  *   paused (5%)   - subscription paused
  *
+ * Root table column overrides:
+ *   churned users → status = 'inactive'
+ *   paused users → status = 'inactive'
+ *
+ * Side effects:
+ *   Transitions create/update subscription status and payment status.
+ *   Only references columns that exist in the enriched SaaS schema:
+ *     subscriptions: status (NOT plan — plan_id is a FK to plans table)
+ *     payments: status, amount_cents, currency
+ *
  * Correlations:
- *   Enterprise plan users → 2x more payments (longer tenure)
  *   Churned users → always have a failed payment before cancel
  */
 export const saasLifecycle: LifecycleDefinition = {
@@ -21,27 +30,27 @@ export const saasLifecycle: LifecycleDefinition = {
     {
       name: 'trial',
       weight: 0.12,
-      columnValues: {},
+      columnValues: { status: 'active' },
     },
     {
       name: 'active',
       weight: 0.65,
-      columnValues: {},
+      columnValues: { status: 'active' },
     },
     {
       name: 'churned',
       weight: 0.10,
-      columnValues: {},
+      columnValues: { status: 'inactive' },
     },
     {
       name: 'past_due',
       weight: 0.08,
-      columnValues: {},
+      columnValues: { status: 'active' },
     },
     {
       name: 'paused',
       weight: 0.05,
-      columnValues: {},
+      columnValues: { status: 'inactive' },
     },
   ],
   transitions: [
@@ -53,7 +62,7 @@ export const saasLifecycle: LifecycleDefinition = {
         {
           table: 'subscriptions',
           action: 'create',
-          values: { status: 'active', plan: 'Professional' },
+          values: { status: 'active' },
         },
         {
           table: 'payments',
@@ -156,20 +165,6 @@ export const saasLifecycle: LifecycleDefinition = {
     },
   ],
   correlations: [
-    {
-      description: 'Enterprise plan users have 2x more payments (longer tenure)',
-      condition: {
-        table: 'subscriptions',
-        column: 'plan',
-        operator: 'eq',
-        value: 'Enterprise',
-      },
-      effect: {
-        table: 'payments',
-        column: 'amount_cents',
-        multiplier: 2,
-      },
-    },
     {
       description: 'Churned users always have a failed payment before cancel',
       condition: {
