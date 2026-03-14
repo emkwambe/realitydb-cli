@@ -48,7 +48,14 @@ export function inferColumnStrategy(
   }
 
   if (name.includes('amount') || name.includes('price') || name.includes('cost') || name.includes('total')) {
-    return { kind: 'money', options: { min: 100, max: 100000 } };
+    let min = 100;
+    let max = 100000;
+    if (column.numericPrecision !== null && column.numericScale !== null) {
+      const columnMax = Math.pow(10, column.numericPrecision - column.numericScale) - Math.pow(10, -column.numericScale);
+      if (max > columnMax) max = columnMax;
+      if (min > max) min = 0;
+    }
+    return { kind: 'money', options: { min, max } };
   }
 
   if (name.includes('status')) {
@@ -101,7 +108,11 @@ export function inferColumnStrategy(
   }
 
   if (dataType === 'numeric' || dataType === 'decimal' || dataType === 'float4' || dataType === 'float8' || dataType === 'float') {
-    return { kind: 'float', options: { min: 0, max: 10000 } };
+    let max = 10000;
+    if (column.numericPrecision !== null && column.numericScale !== null) {
+      max = Math.pow(10, column.numericPrecision - column.numericScale) - Math.pow(10, -column.numericScale);
+    }
+    return { kind: 'float', options: { min: 0, max } };
   }
 
   if (dataType === 'bool' || dataType === 'boolean') {
