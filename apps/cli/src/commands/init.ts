@@ -1,4 +1,4 @@
-import { createInterface } from 'node:readline/promises';
+import { createInterface } from 'node:readline';
 import { stdin, stdout } from 'node:process';
 import { writeFileSync, existsSync } from 'node:fs';
 import { scanDatabase, seedDatabase } from '@databox/core';
@@ -8,6 +8,14 @@ import { maskConnectionString } from '../utils.js';
 
 const CONFIG_FILE = 'realitydb.config.json';
 const DEFAULT_CONNECTION = 'postgres://postgres:postgres@localhost:5432/myapp_dev';
+
+function ask(rl: ReturnType<typeof createInterface>, prompt: string): Promise<string> {
+  return new Promise((resolve) => {
+    rl.question(prompt, (answer) => {
+      resolve(answer);
+    });
+  });
+}
 
 export async function initCommand(): Promise<void> {
   const rl = createInterface({ input: stdin, output: stdout });
@@ -36,7 +44,7 @@ export async function initCommand(): Promise<void> {
 
     // ── Step 2: Check for existing config ────────────────────────────
     if (existsSync(CONFIG_FILE)) {
-      const overwrite = await rl.question(`${CONFIG_FILE} already exists. Overwrite? (y/N) `);
+      const overwrite = await ask(rl, `${CONFIG_FILE} already exists. Overwrite? (y/N) `);
       if (overwrite.toLowerCase() !== 'y') {
         wizardComplete = true;
         console.log('');
@@ -47,42 +55,54 @@ export async function initCommand(): Promise<void> {
       console.log('');
     }
 
-    // ── Step 3: Database connection ──────────────────────────────────
-    console.log('Step 1: Database Connection');
-    console.log('───────────────────────────────────────');
-    const connectionString = await promptWithDefault(
-      rl,
-      'PostgreSQL connection string',
-      DEFAULT_CONNECTION,
-    );
-    console.log('');
-
-    // ── Step 4: Test connection + scan schema ────────────────────────
-    console.log('Step 2: Connecting & Scanning');
-    console.log('───────────────────────────────────────');
-    const masked = maskConnectionString(connectionString);
-    console.log(`  Connecting to ${masked}...`);
-
-    const scanConfig: DataboxConfig = {
-      database: { client: 'postgres', connectionString },
-      seed: { defaultRecords: 50, batchSize: 1000, environment: 'dev' },
-    };
-
+    // ── Step 3: Database connection (with retry) ─────────────────────
+    let connectionString: string;
     let scanResult;
-    try {
-      scanResult = await scanDatabase(scanConfig);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      wizardComplete = true;
-      console.error('');
-      console.error(`  Connection failed: ${msg}`);
-      console.error('');
-      console.error('Hints:');
-      console.error('  - Is PostgreSQL running? (docker ps, pg_isready)');
-      console.error('  - Check host, port, username, password, and database name');
-      console.error('  - Ensure the database exists (createdb myapp_dev)');
-      console.error('');
-      process.exit(1);
+    let masked: string;
+
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      console.log('Step 1: Database Connection');
+      console.log('───────────────────────────────────────');
+      connectionString = await promptWithDefault(
+        rl,
+        'PostgreSQL connection string',
+        DEFAULT_CONNECTION,
+      );
+      console.log('');
+
+      // ── Step 4: Test connection + scan schema ──────────────────────
+      console.log('Step 2: Connecting & Scanning');
+      console.log('───────────────────────────────────────');
+      masked = maskConnectionString(connectionString);
+      console.log(`  Connecting to ${masked}...`);
+
+      const scanConfig: DataboxConfig = {
+        database: { client: 'postgres', connectionString },
+        seed: { defaultRecords: 50, batchSize: 1000, environment: 'dev' },
+      };
+
+      try {
+        scanResult = await scanDatabase(scanConfig);
+        break;
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error('');
+        console.error(`  Connection failed: ${msg}`);
+        console.error('');
+        console.error('Hints:');
+        console.error('  - Is PostgreSQL running? (docker ps, pg_isready)');
+        console.error('  - Check host, port, username, password, and database name');
+        console.error('  - Ensure the database exists (createdb myapp_dev)');
+        console.error('');
+
+        const retry = await ask(rl, 'Try a different connection string? (Y/n) ');
+        if (retry.toLowerCase() === 'n') {
+          wizardComplete = true;
+          process.exit(1);
+        }
+        console.log('');
+      }
     }
 
     const { schema } = scanResult;
@@ -128,7 +148,7 @@ export async function initCommand(): Promise<void> {
       console.log(`  Auto-detected domain: ${detected.name}`);
       console.log(`  ${detected.description}`);
       console.log('');
-      const useDetected = await rl.question(`  Use "${detected.name}" template? (Y/n) `);
+      const useDetected = await ask(rl, `  Use "${detected.name}" template? (Y/n) `);
       if (useDetected.toLowerCase() !== 'n') {
         templateName = detected.name;
       }
@@ -143,7 +163,7 @@ export async function initCommand(): Promise<void> {
       console.log(`    ${allTemplates.length + 1}. none — use schema-only generation`);
       console.log('');
 
-      const choice = await rl.question(`  Choose template (1-${allTemplates.length + 1}): `);
+      const choice = await ask(rl, `  Choose template (1-${allTemplates.length + 1}): `);
       const choiceNum = parseInt(choice, 10);
       if (choiceNum >= 1 && choiceNum <= allTemplates.length) {
         templateName = allTemplates[choiceNum - 1].name;
@@ -182,7 +202,7 @@ export async function initCommand(): Promise<void> {
     console.log('');
 
     // ── Step 9: First seed ───────────────────────────────────────────
-    const runSeed = await rl.question('Run initial seed now? (Y/n) ');
+    const runSeed = await ask(rl, 'Run initial seed now? (Y/n) ');
 
     if (runSeed.toLowerCase() !== 'n') {
       console.log('');
@@ -243,7 +263,7 @@ async function promptWithDefault(
   label: string,
   defaultValue: string,
 ): Promise<string> {
-  const answer = await rl.question(`  ${label} [${defaultValue}]: `);
+  const answer = await ask(rl, `  ${label} [${defaultValue}]: `);
   return answer.trim() || defaultValue;
 }
 
