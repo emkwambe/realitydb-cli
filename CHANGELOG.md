@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.5.0 (2026-03-14)
+
+### Features
+
+- `realitydb init` — interactive setup wizard for first-time users
+- Guided flow: connect to database, scan schema, select template, configure records, write config, seed
+- Auto-detects matching domain template by comparing schema table names against built-in templates
+- Graceful Ctrl+C handling with clean exit message
+- No external dependencies — uses Node.js built-in `readline/promises`
+- Creates `realitydb.config.json` with validated connection string, template, and seed settings
+- Optional initial seed run at end of wizard
+- Zero-to-seeded-database in a single command
+
+### Fixes
+
+- Removed `composite` and `incremental` from `tsconfig.base.json` to prevent stale `.tsbuildinfo` builds
+- Fixed merge conflict markers in `apps/cli/package.json`
+
 ## v1.4.4 (2026-03-14)
 
 ### Fixes
