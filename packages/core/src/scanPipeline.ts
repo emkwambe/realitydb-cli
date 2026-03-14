@@ -1,6 +1,6 @@
 import type { DataboxConfig } from '@databox/config';
 import type { DatabaseSchema } from '@databox/schema';
-import { createPostgresClient, testConnection, closeConnection } from '@databox/db';
+import { createDatabaseClient, testConnection, closeConnection } from '@databox/db';
 import { introspectDatabase } from '@databox/schema';
 import { buildDependencyGraph, topologicalSort } from './planning/index.js';
 
@@ -13,7 +13,7 @@ export interface ScanResult {
 }
 
 export async function scanDatabase(config: DataboxConfig): Promise<ScanResult> {
-  const pool = createPostgresClient(config.database.connectionString);
+  const pool = createDatabaseClient(config.database.client, config.database.connectionString);
 
   try {
     const connected = await testConnection(pool);

@@ -3,6 +3,7 @@ export type { Logger } from './logger.js';
 export { createSeededRandom } from './random.js';
 export type { SeededRandom } from './random.js';
 export type { Result, DataboxError } from './types.js';
+export type { DbPool, DbClient, QueryResult, DatabaseClientType } from './dbTypes.js';
 export type {
   ColumnStrategyKind,
   ColumnStrategy,

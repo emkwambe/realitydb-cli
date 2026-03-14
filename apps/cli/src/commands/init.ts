@@ -7,7 +7,12 @@ import type { DataboxConfig } from '@databox/config';
 import { maskConnectionString } from '../utils.js';
 
 const CONFIG_FILE = 'realitydb.config.json';
-const DEFAULT_CONNECTION = 'postgres://postgres:postgres@localhost:5432/myapp_dev';
+const DEFAULT_CONNECTIONS: Record<string, string> = {
+  postgres: 'postgres://postgres:postgres@localhost:5432/myapp_dev',
+  mysql: 'mysql://root:root@localhost:3306/myapp_dev',
+};
+const SUPPORTED_CLIENTS = ['postgres', 'mysql'] as const;
+type SupportedClient = typeof SUPPORTED_CLIENTS[number];
 
 function ask(rl: ReturnType<typeof createInterface>, prompt: string): Promise<string> {
   return new Promise((resolve) => {
@@ -55,19 +60,33 @@ export async function initCommand(): Promise<void> {
       console.log('');
     }
 
-    // ── Step 3: Database connection (with retry) ─────────────────────
+    // ── Step 3: Database client selection ─────────────────────────────
+    console.log('Step 1: Database Client');
+    console.log('───────────────────────────────────────');
+    console.log('  Supported databases:');
+    for (let i = 0; i < SUPPORTED_CLIENTS.length; i++) {
+      console.log(`    ${i + 1}. ${SUPPORTED_CLIENTS[i]}`);
+    }
+    console.log('');
+    const clientChoice = await promptWithDefault(rl, 'Choose database (1-2)', '1');
+    const clientIdx = parseInt(clientChoice, 10) - 1;
+    const dbClient: SupportedClient = SUPPORTED_CLIENTS[clientIdx] ?? 'postgres';
+    console.log(`  Selected: ${dbClient}`);
+    console.log('');
+
+    // ── Step 4: Database connection (with retry) ─────────────────────
     let connectionString: string;
     let scanResult;
     let masked: string;
 
     // eslint-disable-next-line no-constant-condition
     while (true) {
-      console.log('Step 1: Database Connection');
+      console.log('Step 2: Database Connection');
       console.log('───────────────────────────────────────');
       connectionString = await promptWithDefault(
         rl,
-        'PostgreSQL connection string',
-        DEFAULT_CONNECTION,
+        `${dbClient === 'mysql' ? 'MySQL' : 'PostgreSQL'} connection string`,
+        DEFAULT_CONNECTIONS[dbClient],
       );
       console.log('');
 
@@ -78,7 +97,7 @@ export async function initCommand(): Promise<void> {
       console.log(`  Connecting to ${masked}...`);
 
       const scanConfig: DataboxConfig = {
-        database: { client: 'postgres', connectionString },
+        database: { client: dbClient, connectionString },
         seed: { defaultRecords: 50, batchSize: 1000, environment: 'dev' },
       };
 
@@ -91,9 +110,13 @@ export async function initCommand(): Promise<void> {
         console.error(`  Connection failed: ${msg}`);
         console.error('');
         console.error('Hints:');
-        console.error('  - Is PostgreSQL running? (docker ps, pg_isready)');
+        if (dbClient === 'mysql') {
+          console.error('  - Is MySQL running? (docker ps, mysqladmin ping)');
+        } else {
+          console.error('  - Is PostgreSQL running? (docker ps, pg_isready)');
+        }
         console.error('  - Check host, port, username, password, and database name');
-        console.error('  - Ensure the database exists (createdb myapp_dev)');
+        console.error('  - Ensure the database exists');
         console.error('');
 
         const retry = await ask(rl, 'Try a different connection string? (Y/n) ');
@@ -109,7 +132,7 @@ export async function initCommand(): Promise<void> {
     console.log('  Connected successfully.');
     console.log('');
 
-    // ── Step 5: Schema summary ───────────────────────────────────────
+    // ── Step 5: Schema summary (step 3 in user-facing) ──────────────
     if (schema.tables.length === 0) {
       wizardComplete = true;
       console.log('  No tables found in the public schema.');
@@ -185,7 +208,7 @@ export async function initCommand(): Promise<void> {
 
     const config: DataboxConfig = {
       database: {
-        client: 'postgres',
+        client: dbClient,
         connectionString,
       },
       seed: {

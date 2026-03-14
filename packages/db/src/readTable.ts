@@ -1,16 +1,19 @@
-import type pg from 'pg';
+import type { DbPool } from './adapter.js';
+import { quoteIdent } from './adapter.js';
 
 /**
  * Reads all rows from a table, returning them as an array of objects.
  */
 export async function readTableRows(
-  pool: pg.Pool,
+  pool: DbPool,
   tableName: string,
   columns: string[],
 ): Promise<Record<string, unknown>[]> {
-  const quotedColumns = columns.map((c) => `"${c}"`).join(', ');
+  const dialect = pool.dialect;
+  const quotedColumns = columns.map((c) => quoteIdent(dialect, c)).join(', ');
+  const quotedTable = quoteIdent(dialect, tableName);
   const result = await pool.query(
-    `SELECT ${quotedColumns} FROM "${tableName}"`,
+    `SELECT ${quotedColumns} FROM ${quotedTable}`,
   );
   return result.rows;
 }
@@ -19,11 +22,13 @@ export async function readTableRows(
  * Returns the count of rows in a table.
  */
 export async function readTableRowCount(
-  pool: pg.Pool,
+  pool: DbPool,
   tableName: string,
 ): Promise<number> {
-  const result = await pool.query(
-    `SELECT COUNT(*)::int AS count FROM "${tableName}"`,
-  );
-  return result.rows[0].count;
+  const quotedTable = quoteIdent(pool.dialect, tableName);
+  const sql = pool.dialect === 'mysql'
+    ? `SELECT COUNT(*) AS count FROM ${quotedTable}`
+    : `SELECT COUNT(*)::int AS count FROM ${quotedTable}`;
+  const result = await pool.query<{ count: number }>(sql);
+  return Number(result.rows[0].count);
 }

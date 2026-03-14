@@ -1,10 +1,19 @@
-import pg from 'pg';
+import type { DbPool } from './adapter.js';
+import type { DatabaseClientType } from './adapters/index.js';
+import { createDatabaseClient } from './adapters/index.js';
+import { createPostgresPool } from './adapters/postgres.js';
 
-export function createPostgresClient(connectionString: string): pg.Pool {
-  return new pg.Pool({ connectionString });
+export { createDatabaseClient };
+export type { DatabaseClientType };
+
+/**
+ * @deprecated Use createDatabaseClient('postgres', connectionString) instead.
+ */
+export function createPostgresClient(connectionString: string): DbPool {
+  return createPostgresPool(connectionString);
 }
 
-export async function testConnection(pool: pg.Pool): Promise<boolean> {
+export async function testConnection(pool: DbPool): Promise<boolean> {
   try {
     const client = await pool.connect();
     try {
@@ -19,7 +28,7 @@ export async function testConnection(pool: pg.Pool): Promise<boolean> {
   }
 }
 
-export async function closeConnection(pool: pg.Pool): Promise<void> {
+export async function closeConnection(pool: DbPool): Promise<void> {
   try {
     await pool.end();
   } catch (err: unknown) {

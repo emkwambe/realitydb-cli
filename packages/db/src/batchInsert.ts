@@ -1,4 +1,5 @@
-import type pg from 'pg';
+import type { DbClient, DbPool } from './adapter.js';
+import { placeholder, quoteIdent } from './adapter.js';
 import type { GeneratedTable } from '@databox/generators';
 
 export interface InsertResult {
@@ -15,9 +16,10 @@ export interface DatasetInsertResult {
 }
 
 export async function batchInsertTable(
-  client: pg.PoolClient,
+  client: DbClient,
   table: GeneratedTable,
   batchSize: number,
+  dialect: 'postgres' | 'mysql' = 'postgres',
 ): Promise<InsertResult> {
   const start = performance.now();
 
@@ -31,7 +33,7 @@ export async function batchInsertTable(
   }
 
   const columns = table.columns;
-  const quotedColumns = columns.map((c) => `"${c}"`).join(', ');
+  const quotedColumns = columns.map((c) => quoteIdent(dialect, c)).join(', ');
   const colCount = columns.length;
 
   let batchCount = 0;
@@ -47,13 +49,14 @@ export async function batchInsertTable(
       const placeholders: string[] = [];
       for (let colIdx = 0; colIdx < colCount; colIdx++) {
         const paramIndex = rowIdx * colCount + colIdx + 1;
-        placeholders.push(`$${paramIndex}`);
+        placeholders.push(placeholder(dialect, paramIndex));
         values.push(row[columns[colIdx]]);
       }
       rowPlaceholders.push(`(${placeholders.join(', ')})`);
     }
 
-    const sql = `INSERT INTO "${table.tableName}" (${quotedColumns}) VALUES ${rowPlaceholders.join(', ')}`;
+    const tableName = quoteIdent(dialect, table.tableName);
+    const sql = `INSERT INTO ${tableName} (${quotedColumns}) VALUES ${rowPlaceholders.join(', ')}`;
     await client.query(sql, values);
 
     batchCount++;
@@ -71,10 +74,11 @@ export async function batchInsertTable(
 }
 
 export async function batchInsertDataset(
-  client: pg.PoolClient,
+  client: DbClient,
   dataset: { tables: Map<string, GeneratedTable> },
   tableOrder: string[],
   batchSize: number,
+  dialect: 'postgres' | 'mysql' = 'postgres',
 ): Promise<DatasetInsertResult> {
   const start = performance.now();
   const results: InsertResult[] = [];
@@ -84,7 +88,7 @@ export async function batchInsertDataset(
     const table = dataset.tables.get(tableName);
     if (!table) continue;
 
-    const result = await batchInsertTable(client, table, batchSize);
+    const result = await batchInsertTable(client, table, batchSize, dialect);
     results.push(result);
     totalRows += result.rowsInserted;
   }

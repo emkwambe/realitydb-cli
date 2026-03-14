@@ -16,6 +16,8 @@
   },
   "dependencies": {
     "@databox/generators": "workspace:^",
+    "@databox/shared": "workspace:^",
+    "mysql2": "^3.11.0",
     "pg": "^8.20.0"
   }
 }

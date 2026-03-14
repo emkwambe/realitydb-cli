@@ -66,9 +66,16 @@ export async function loadConfig(
     );
   }
 
+  const client = (database['client'] as string) ?? 'postgres';
+  if (client !== 'postgres' && client !== 'mysql') {
+    throw new Error(
+      `[realitydb] Config validation failed: database.client must be 'postgres' or 'mysql', got '${client}'.`,
+    );
+  }
+
   return {
     database: {
-      client: 'postgres',
+      client,
       connectionString: database['connectionString'] as string,
     },
     seed: {

@@ -1,5 +1,5 @@
 import { loadConfig } from '@databox/config';
-import { createPostgresClient, testConnection, closeConnection } from '@databox/db';
+import { createDatabaseClient, testConnection, closeConnection } from '@databox/db';
 import { introspectDatabase } from '@databox/schema';
 import { buildGenerationPlan, validateGenerationPlan } from '@databox/core';
 import { generateDataset } from '@databox/generators';
@@ -14,7 +14,7 @@ async function main() {
   console.log(`Config loaded: ${config.seed.defaultRecords} records, seed=${config.seed.randomSeed ?? 42}`);
 
   // 2. Connect to DB
-  const pool = createPostgresClient(config.database.connectionString);
+  const pool = createDatabaseClient(config.database.client, config.database.connectionString);
   const connected = await testConnection(pool);
   if (!connected) {
     console.error('Failed to connect to database');

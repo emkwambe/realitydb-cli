@@ -1,6 +1,6 @@
 export interface DataboxConfig {
   database: {
-    client: 'postgres';
+    client: 'postgres' | 'mysql';
     connectionString: string;
   };
   seed: {

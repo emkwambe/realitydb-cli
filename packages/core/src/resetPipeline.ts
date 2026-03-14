@@ -1,5 +1,5 @@
 import type { DataboxConfig } from '@databox/config';
-import { createPostgresClient, testConnection, closeConnection, truncateTables } from '@databox/db';
+import { createDatabaseClient, testConnection, closeConnection, truncateTables } from '@databox/db';
 import { introspectDatabase } from '@databox/schema';
 import { buildDependencyGraph, topologicalSort } from './planning/index.js';
 
@@ -12,7 +12,7 @@ export async function resetDatabase(
   config: DataboxConfig,
 ): Promise<ResetResult> {
   const start = performance.now();
-  const pool = createPostgresClient(config.database.connectionString);
+  const pool = createDatabaseClient(config.database.client, config.database.connectionString);
 
   try {
     await testConnection(pool);

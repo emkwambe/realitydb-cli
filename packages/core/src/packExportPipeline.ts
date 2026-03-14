@@ -1,6 +1,6 @@
 import type { DataboxConfig } from '@databox/config';
 import type { ScenarioConfig, ScenarioResult, RealityPack } from '@databox/shared';
-import { createPostgresClient, testConnection, closeConnection } from '@databox/db';
+import { createDatabaseClient, testConnection, closeConnection } from '@databox/db';
 import { createSeededRandom } from '@databox/shared';
 import { introspectDatabase } from '@databox/schema';
 import {
@@ -56,7 +56,7 @@ export async function exportPack(
     timelineConfig.growthModel.finalCount = effectiveConfig.seed.defaultRecords;
   }
 
-  const pool = createPostgresClient(effectiveConfig.database.connectionString);
+  const pool = createDatabaseClient(effectiveConfig.database.client, effectiveConfig.database.connectionString);
 
   try {
     await testConnection(pool);
