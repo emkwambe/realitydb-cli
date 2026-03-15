@@ -168,6 +168,14 @@ export {
   buildAuditLog,
   formatAuditLog,
   serializeAuditLog,
+  verifyAuditLogIntegrity,
+  tokenizeTableRows,
+  detokenizeRows,
+  buildTokenMap,
+  serializeTokenMap,
+  generateTokenPrefix,
+  scanColumnValues,
+  containsPII,
 } from './mask/index.js';
 export type {
   PIICategory,
@@ -176,6 +184,11 @@ export type {
   MaskStrategy,
   MaskTableResult,
   MaskAuditLog,
+  AuditIntegrityChain,
+  TokenEntry,
+  TokenMap,
+  TokenizeTableResult,
+  ValueScanResult,
 } from './mask/index.js';
 
 // Classroom / Education

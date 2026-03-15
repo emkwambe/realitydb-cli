@@ -171,6 +171,9 @@ export function run(argv: string[]): void {
     .option('--output-format <format>', 'Output format (json|csv|sql)', 'json')
     .option('--audit-log <file>', 'Write audit log to file')
     .option('--confirm', 'Confirm writing masked data back to database')
+    .option('--tokenize', 'Use reversible tokenization instead of irreversible masking')
+    .option('--token-map <file>', 'Write token map to file (requires --tokenize)')
+    .option('--deep-scan', 'Scan sample values to detect PII missed by schema analysis')
     .action(async (cmdOpts) => {
       const opts = program.opts();
       await maskCommand({ ...cmdOpts, ci: opts.ci, configPath: opts.config });

@@ -3,8 +3,8 @@ import type { DatabaseSchema } from '@databox/schema';
 import { createDatabaseClient, testConnection, closeConnection, withTransaction, batchInsertTable, readTableRows, truncateTables } from '@databox/db';
 import { createSeededRandom } from '@databox/shared';
 import { introspectDatabase } from '@databox/schema';
-import { detectTablePII, maskTableRows, buildAuditLog, exportToJson, exportToCsv, exportToSql } from '@databox/generators';
-import type { PIIDetection, ComplianceMode, MaskTableResult, MaskAuditLog, GeneratedTable } from '@databox/generators';
+import { detectTablePII, maskTableRows, buildAuditLog, exportToJson, exportToCsv, exportToSql, tokenizeTableRows, buildTokenMap, serializeTokenMap, generateTokenPrefix, scanColumnValues } from '@databox/generators';
+import type { PIIDetection, ComplianceMode, MaskTableResult, MaskAuditLog, GeneratedTable, TokenEntry, TokenMap } from '@databox/generators';
 import { buildDependencyGraph, topologicalSort } from './planning/index.js';
 
 export interface MaskOptions {
@@ -15,6 +15,9 @@ export interface MaskOptions {
   outputFormat?: 'json' | 'csv' | 'sql';
   auditLog?: string;
   confirm?: boolean;
+  tokenize?: boolean;
+  tokenMapOutput?: string;
+  deepScan?: boolean;
 }
 
 export interface MaskResult {
@@ -25,6 +28,7 @@ export interface MaskResult {
   tablesProcessed: number;
   totalRowsMasked: number;
   outputFiles?: string[];
+  tokenMap?: TokenMap;
 }
 
 export async function maskDatabase(
@@ -66,9 +70,51 @@ export async function maskDatabase(
       detectionsByTable.set(table.name, detections);
     }
 
+    // Phase 1b (optional): Deep scan — sample row values to detect PII missed by schema analysis
+    if (options?.deepScan) {
+      for (const table of schema.tables) {
+        const detections = detectionsByTable.get(table.name);
+        if (!detections) continue;
+
+        // Find columns marked safe that are text-type — candidates for value scanning
+        const safeCandidates = detections.filter(
+          (d) => d.category === 'safe' && !d.isPrimaryKey && !d.isForeignKey,
+        );
+        if (safeCandidates.length === 0) continue;
+
+        const candidateNames = safeCandidates.map((d) => d.columnName);
+        const sampleRows = await readTableRows(pool, table.name, candidateNames, 100);
+        if (sampleRows.length === 0) continue;
+
+        for (const candidate of safeCandidates) {
+          const values = sampleRows.map((r) => r[candidate.columnName]);
+          const scanResults = scanColumnValues(values);
+
+          if (scanResults.length > 0) {
+            // Promote the most confident result
+            const best = scanResults.sort((a, b) => b.hitRate - a.hitRate)[0];
+            const idx = detections.findIndex((d) => d.columnName === candidate.columnName);
+            if (idx !== -1) {
+              detections[idx] = {
+                ...detections[idx],
+                category: best.category,
+                confidence: best.confidence,
+                reason: `Value scan: ${Math.round(best.hitRate * 100)}% of samples contain ${best.matchedPattern}`,
+                shouldMask: true,
+                maskStrategy: best.suggestedStrategy,
+              };
+            }
+          }
+        }
+      }
+    }
+
     // Phase 2: Read, mask, and write data
     const maskResults: MaskTableResult[] = [];
     const random = createSeededRandom(seed);
+    const useTokenization = options?.tokenize ?? false;
+    const tokenPrefix = useTokenization ? generateTokenPrefix() : 'TOK';
+    const allTokenEntries: TokenEntry[] = [];
 
     // For file export mode
     const maskedTables = new Map<string, GeneratedTable>();
@@ -108,9 +154,34 @@ export async function maskDatabase(
         continue;
       }
 
-      // Mask rows
-      const { maskedRows, result } = maskTableRows(rows, detections, random, tableName);
-      maskResults.push(result);
+      let outputRows: Record<string, unknown>[];
+
+      if (useTokenization) {
+        // Tokenization mode: replace values with reversible tokens
+        const { tokenizedRows, entries } = tokenizeTableRows(rows, detections, tableName, tokenPrefix);
+        outputRows = tokenizedRows;
+        allTokenEntries.push(...entries);
+
+        // Build a compatible MaskTableResult
+        const columnsToMask = detections.filter((d) => d.shouldMask);
+        const maskedColumns = columnsToMask.map((d) => ({
+          columnName: d.columnName,
+          strategy: d.maskStrategy,
+          rowsMasked: tokenizedRows.filter((r) => r[d.columnName] !== null && r[d.columnName] !== undefined).length,
+        }));
+        maskResults.push({
+          tableName,
+          rowCount: rows.length,
+          columnsMatched: detections.length,
+          columnsMasked: columnsToMask.length,
+          maskedColumns,
+        });
+      } else {
+        // Standard masking mode
+        const { maskedRows, result } = maskTableRows(rows, detections, random, tableName);
+        outputRows = maskedRows;
+        maskResults.push(result);
+      }
 
       if (dryRun) continue;
 
@@ -118,8 +189,8 @@ export async function maskDatabase(
       maskedTables.set(tableName, {
         tableName,
         columns,
-        rows: maskedRows,
-        rowCount: maskedRows.length,
+        rows: outputRows,
+        rowCount: outputRows.length,
       });
     }
 
@@ -171,6 +242,20 @@ export async function maskDatabase(
     const dbName = extractDatabaseName(config.database.connectionString);
     const auditLog = buildAuditLog(detectionsByTable, maskResults, mode, seed, dbName);
 
+    // Build token map if tokenization mode was used
+    let tokenMap: TokenMap | undefined;
+    if (useTokenization && allTokenEntries.length > 0) {
+      tokenMap = buildTokenMap(allTokenEntries, tokenPrefix);
+
+      // Write token map to file if path provided
+      if (options?.tokenMapOutput) {
+        const { writeFileSync } = await import('node:fs');
+        const { resolve } = await import('node:path');
+        const tokenMapPath = resolve(options.tokenMapOutput);
+        writeFileSync(tokenMapPath, serializeTokenMap(tokenMap) + '\n', 'utf-8');
+      }
+    }
+
     const durationMs = Math.round(performance.now() - start);
 
     return {
@@ -181,6 +266,7 @@ export async function maskDatabase(
       tablesProcessed: maskResults.length,
       totalRowsMasked: auditLog.summary.totalRowsMasked,
       outputFiles,
+      tokenMap,
     };
   } finally {
     await closeConnection(pool);

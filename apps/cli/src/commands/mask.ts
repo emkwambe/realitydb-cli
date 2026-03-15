@@ -17,6 +17,9 @@ export async function maskCommand(options: {
   confirm?: boolean;
   ci?: boolean;
   configPath?: string;
+  tokenize?: boolean;
+  tokenMap?: string;
+  deepScan?: boolean;
 }): Promise<void> {
   const start = performance.now();
   try {
@@ -79,6 +82,12 @@ export async function maskCommand(options: {
       } else {
         console.log('Mode: write to database (--confirm)');
       }
+      if (options.tokenize) {
+        console.log('Masking: tokenization (reversible)');
+        if (options.tokenMap) {
+          console.log(`Token map: ${options.tokenMap}`);
+        }
+      }
       if (options.auditLog) {
         console.log(`Audit log: ${options.auditLog}`);
       }
@@ -94,6 +103,9 @@ export async function maskCommand(options: {
       outputFormat,
       auditLog: options.auditLog,
       confirm: options.confirm,
+      tokenize: options.tokenize,
+      tokenMapOutput: options.tokenMap,
+      deepScan: options.deepScan,
     });
 
     const durationMs = Math.round(performance.now() - start);
@@ -145,6 +157,13 @@ export async function maskCommand(options: {
 
     if (options.auditLog) {
       console.log(`Audit log written to: ${resolve(options.auditLog)}`);
+      console.log('');
+    }
+
+    if (options.tokenMap && result.tokenMap) {
+      console.log(`Token map written to: ${resolve(options.tokenMap)}`);
+      console.log(`  ${result.tokenMap.totalTokens} unique tokens generated`);
+      console.log('  WARNING: Store this file securely — it enables re-identification');
       console.log('');
     }
 

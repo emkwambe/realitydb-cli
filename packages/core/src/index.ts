@@ -83,8 +83,8 @@ export type { AnalysisReport } from '@databox/generators';
 
 export { maskDatabase } from './maskPipeline.js';
 export type { MaskOptions, MaskResult } from './maskPipeline.js';
-export { formatAuditLog, serializeAuditLog } from '@databox/generators';
-export type { MaskAuditLog, PIIDetection, ComplianceMode, MaskStrategy } from '@databox/generators';
+export { formatAuditLog, serializeAuditLog, verifyAuditLogIntegrity } from '@databox/generators';
+export type { MaskAuditLog, AuditIntegrityChain, PIIDetection, ComplianceMode, MaskStrategy } from '@databox/generators';
 
 export {
   getDefaultCourseRegistry,
