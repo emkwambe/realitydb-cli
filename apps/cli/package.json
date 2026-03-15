@@ -1,6 +1,10 @@
 {
   "name": "realitydb",
+<<<<<<< HEAD
   "version": "1.6.3",
+=======
+  "version": "1.7.0",
+>>>>>>> claude/databox-platform-setup-KfIH1
   "description": "Developer Reality Platform - realistic database environments from your schema",
   "license": "MIT",
   "keywords": [

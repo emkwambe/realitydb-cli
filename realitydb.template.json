@@ -1,0 +1,47 @@
+{
+  "name": "my-template",
+  "version": "1.0",
+  "description": "Custom domain template for my application",
+  "tables": {
+    "users": {
+      "match": [
+        "users",
+        "*user*"
+      ],
+      "columns": {
+        "email": {
+          "strategy": "email"
+        },
+        "full_name": {
+          "match": [
+            "full_name",
+            "name",
+            "display_name"
+          ],
+          "strategy": "full_name"
+        },
+        "status": {
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "active",
+              "inactive",
+              "suspended"
+            ],
+            "weights": [
+              0.8,
+              0.15,
+              0.05
+            ]
+          }
+        },
+        "created_at": {
+          "strategy": "timestamp",
+          "options": {
+            "mode": "past"
+          }
+        }
+      }
+    }
+  }
+}

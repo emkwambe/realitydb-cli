@@ -84,7 +84,7 @@ export function createGeneratorRegistry(): GeneratorRegistry {
         return (ctx: GeneratorContext) => generateSequential(ctx, prefix, padLength);
       }
       // Fallback to text generator with warning for unknown custom generators
-      console.warn(`[databox] Unknown custom generator "${name}", falling back to text.`);
+      console.warn(`Unknown custom generator "${name}", falling back to text.`);
       return (ctx: GeneratorContext) => generateText(ctx, 'short');
     },
   };

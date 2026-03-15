@@ -15,6 +15,8 @@ export interface RawColumnInfo {
   numeric_precision: number | null;
   numeric_scale: number | null;
   ordinal_position: number;
+  /** MySQL EXTRA column: 'auto_increment', 'VIRTUAL GENERATED', 'STORED GENERATED', etc. */
+  extra?: string;
 }
 
 export interface RawForeignKeyInfo {

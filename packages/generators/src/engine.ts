@@ -10,6 +10,11 @@ import type {
   GeneratorFunction,
 } from './types.js';
 
+const INTEGER_TYPES = new Set([
+  'int2', 'int4', 'int8', 'integer', 'serial', 'bigserial',
+  'smallint', 'bigint', 'int', 'mediumint', 'tinyint',
+]);
+
 export function generateDataset(plan: GenerationPlan): GeneratedDataset {
   const seed = createSeededRandom(plan.reproducibility.randomSeed);
   const registry = createGeneratorRegistry();
@@ -30,6 +35,7 @@ export function generateDataset(plan: GenerationPlan): GeneratedDataset {
     // Pre-resolve generators for non-FK columns
     const columnGenerators: Array<{
       columnName: string;
+      dataType: string;
       generator: GeneratorFunction | null;
       isForeignKey: boolean;
       isSelfReference: boolean;
@@ -44,6 +50,7 @@ export function generateDataset(plan: GenerationPlan): GeneratedDataset {
         const isSelfRef = colPlan.foreignKeyRef.referencedTable === tableName;
         return {
           columnName: colPlan.columnName,
+          dataType: colPlan.dataType,
           generator: null,
           isForeignKey: true,
           isSelfReference: isSelfRef,
@@ -58,6 +65,7 @@ export function generateDataset(plan: GenerationPlan): GeneratedDataset {
 
       return {
         columnName: colPlan.columnName,
+        dataType: colPlan.dataType,
         generator: registry.getGenerator(colPlan.strategy),
         isForeignKey: false,
         isSelfReference: false,
@@ -108,6 +116,15 @@ export function generateDataset(plan: GenerationPlan): GeneratedDataset {
           row[colGen.columnName] = resolveForeignKey(ctx, colGen.foreignKeyRef);
         } else if (colGen.generator) {
           row[colGen.columnName] = colGen.generator(ctx);
+        }
+
+        // Safety net: floor numeric values destined for integer columns
+        const val = row[colGen.columnName];
+        if (typeof val === 'number' && !Number.isInteger(val)) {
+          const dt = colGen.dataType.toLowerCase();
+          if (INTEGER_TYPES.has(dt)) {
+            row[colGen.columnName] = Math.floor(val);
+          }
         }
       }
 

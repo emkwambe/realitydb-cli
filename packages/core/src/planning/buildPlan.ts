@@ -45,7 +45,7 @@ export function buildGenerationPlan(
   if (config.template && !template) {
     const available = getDefaultRegistry().list().map(t => t.name).join(', ');
     console.warn(
-      `[databox] Template "${config.template}" not found. Available: ${available || 'none'}`,
+      `Template "${config.template}" not found. Available: ${available || 'none'}`,
     );
   }
 
@@ -90,16 +90,30 @@ export function buildGenerationPlan(
       ? registry.matchTable(templateLookupName, table.name)
       : null;
 
-    const columns: ColumnGenerationPlan[] = table.columns.map((column) => {
+    // Filter out generated columns (MySQL VIRTUAL/STORED GENERATED) — they cannot be inserted
+    const insertableColumns = table.columns.filter((col) => !col.isGenerated);
+
+    const columns: ColumnGenerationPlan[] = insertableColumns.map((column) => {
       // Try template override first, fall back to inference
       let strategy;
       if (template && registry && templateLookupName) {
-        const override = resolveColumnOverride(
+        let override = resolveColumnOverride(
           templateLookupName,
           table.name,
           column.name,
           registry,
         );
+        // Skip placeholder enum overrides (values: ["default"]) — fall back to inference
+        if (
+          override?.kind === 'enum' &&
+          override.options?.['values'] &&
+          Array.isArray(override.options['values'])
+        ) {
+          const vals = override.options['values'] as string[];
+          if (vals.length === 1 && vals[0] === 'default') {
+            override = null;
+          }
+        }
         strategy = override ?? inferColumnStrategy(column, tableForeignKeys, table.name);
       } else {
         strategy = inferColumnStrategy(column, tableForeignKeys, table.name);
@@ -142,6 +156,15 @@ export function buildGenerationPlan(
             },
           };
         }
+      }
+
+      // Coerce float strategy to integer when actual column type is integer-like
+      const INTEGER_TYPES = ['int2', 'int4', 'int8', 'integer', 'serial', 'bigserial', 'smallint', 'bigint', 'int', 'mediumint', 'tinyint'];
+      if (strategy.kind === 'float' && INTEGER_TYPES.includes(column.udtName.toLowerCase())) {
+        strategy = {
+          kind: 'integer' as const,
+          options: strategy.options,
+        };
       }
 
       const columnPlan: ColumnGenerationPlan = {

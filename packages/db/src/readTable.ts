@@ -8,13 +8,16 @@ export async function readTableRows(
   pool: DbPool,
   tableName: string,
   columns: string[],
+  limit?: number,
 ): Promise<Record<string, unknown>[]> {
   const dialect = pool.dialect;
   const quotedColumns = columns.map((c) => quoteIdent(dialect, c)).join(', ');
   const quotedTable = quoteIdent(dialect, tableName);
-  const result = await pool.query(
-    `SELECT ${quotedColumns} FROM ${quotedTable}`,
-  );
+  let sql = `SELECT ${quotedColumns} FROM ${quotedTable}`;
+  if (limit !== undefined && limit > 0) {
+    sql += ` LIMIT ${Math.floor(limit)}`;
+  }
+  const result = await pool.query(sql);
   return result.rows;
 }
 

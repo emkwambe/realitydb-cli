@@ -1,0 +1,2175 @@
+[
+  {
+    "id": "evt_e39720bb4450",
+    "timestamp": "2026-03-12T04:23:01.457Z",
+    "source": "app",
+    "type": "api.call",
+    "correlationId": "cor_3f9f2284",
+    "sessionId": "sess_bb362a53",
+    "actor": {
+      "id": "user_0007",
+      "type": "user"
+    },
+    "payload": {
+      "method": "GET",
+      "path": "/api/v1/data",
+      "status": 187,
+      "latency_ms": 43
+    }
+  },
+  {
+    "id": "evt_e579893545a3",
+    "timestamp": "2026-03-12T04:56:52.506Z",
+    "source": "app",
+    "type": "api.call",
+    "correlationId": "cor_2b515093",
+    "sessionId": "sess_3a34bd83",
+    "actor": {
+      "id": "user_0004",
+      "type": "user"
+    },
+    "payload": {
+      "method": "GET",
+      "path": "/api/v1/data",
+      "status": 198,
+      "latency_ms": 42
+    }
+  },
+  {
+    "id": "evt_2d8de729c368",
+    "timestamp": "2026-03-12T05:30:43.277Z",
+    "source": "stripe",
+    "type": "payment_intent.succeeded",
+    "correlationId": "cor_f7ddb012",
+    "sessionId": "sess_441aabe1",
+    "actor": {
+      "id": "user_0009",
+      "type": "user"
+    },
+    "payload": {
+      "amount": 3011,
+      "currency": "usd"
+    }
+  },
+  {
+    "id": "evt_add957ea5fa5",
+    "timestamp": "2026-03-12T05:57:13.040Z",
+    "source": "app",
+    "type": "api.call",
+    "correlationId": "cor_d2501abf",
+    "sessionId": "sess_ce17d2f2",
+    "actor": {
+      "id": "user_0010",
+      "type": "user"
+    },
+    "payload": {
+      "method": "GET",
+      "path": "/api/v1/data",
+      "status": 246,
+      "latency_ms": 44
+    }
+  },
+  {
+    "id": "evt_0479bcc3a877",
+    "timestamp": "2026-03-12T06:20:52.142Z",
+    "source": "app",
+    "type": "user.login",
+    "correlationId": "cor_76542848",
+    "sessionId": "sess_a907d090",
+    "actor": {
+      "id": "user_0003",
+      "type": "user"
+    },
+    "payload": {
+      "method": "password",
+      "success": true
+    }
+  },
+  {
+    "id": "evt_2f1d681d053b",
+    "timestamp": "2026-03-12T06:41:02.062Z",
+    "source": "app",
+    "type": "page.view",
+    "correlationId": "cor_91fcac8c",
+    "sessionId": "sess_97da2849",
+    "actor": {
+      "id": "user_0002",
+      "type": "user"
+    },
+    "payload": {
+      "path": "/dashboard",
+      "duration_ms": 3557,
+      "referrer": "direct"
+    }
+  },
+  {
+    "id": "evt_aa8f0654d83f",
+    "timestamp": "2026-03-12T06:50:23.244Z",
+    "source": "app",
+    "type": "user.login",
+    "correlationId": "cor_f48dea9c",
+    "sessionId": "sess_402c802d",
+    "actor": {
+      "id": "user_0001",
+      "type": "user"
+    },
+    "payload": {
+      "method": "password",
+      "success": true
+    }
+  },
+  {
+    "id": "evt_88ffc4aad6e5",
+    "timestamp": "2026-03-12T07:05:54.305Z",
+    "source": "app",
+    "type": "api.call",
+    "correlationId": "cor_e658d9db",
+    "sessionId": "sess_595b47db",
+    "actor": {
+      "id": "user_0006",
+      "type": "user"
+    },
+    "payload": {
+      "method": "GET",
+      "path": "/api/v1/data",
+      "status": 158,
+      "latency_ms": 39
+    }
+  },
+  {
+    "id": "evt_cbb2de8717ea",
+    "timestamp": "2026-03-12T07:27:28.544Z",
+    "source": "app",
+    "type": "page.view",
+    "correlationId": "cor_679b8021",
+    "sessionId": "sess_8d1f9e69",
+    "actor": {
+      "id": "user_0003",
+      "type": "user"
+    },
+    "payload": {
+      "path": "/dashboard",
+      "duration_ms": 2704,
+      "referrer": "direct"
+    }
+  },
+  {
+    "id": "evt_04b4daee51a3",
+    "timestamp": "2026-03-12T07:45:43.259Z",
+    "source": "stripe",
+    "type": "payment_intent.succeeded",
+    "correlationId": "cor_744b8791",
+    "sessionId": "sess_d73eb438",
+    "actor": {
+      "id": "user_0007",
+      "type": "user"
+    },
+    "payload": {
+      "amount": 3506,
+      "currency": "usd"
+    }
+  },
+  {
+    "id": "evt_0533f9d5a0bc",
+    "timestamp": "2026-03-12T08:01:10.148Z",
+    "source": "stripe",
+    "type": "payment_intent.succeeded",
+    "correlationId": "cor_63c821c6",
+    "sessionId": "sess_97da2849",
+    "actor": {
+      "id": "user_0002",
+      "type": "user"
+    },
+    "payload": {
+      "amount": 3665,
+      "currency": "usd"
+    }
+  },
+  {
+    "id": "evt_28a3c32a983e",
+    "timestamp": "2026-03-12T08:17:13.931Z",
+    "source": "app",
+    "type": "page.view",
+    "correlationId": "cor_8b0f9405",
+    "sessionId": "sess_a907d090",
+    "actor": {
+      "id": "user_0010",
+      "type": "user"
+    },
+    "payload": {
+      "path": "/dashboard",
+      "duration_ms": 3945,
+      "referrer": null
+    }
+  },
+  {
+    "id": "evt_a83d12f37897",
+    "timestamp": "2026-03-12T08:26:10.549Z",
+    "source": "stripe",
+    "type": "payment_intent.succeeded",
+    "correlationId": "cor_a2fd538c",
+    "sessionId": "sess_a907d090",
+    "actor": {
+      "id": "user_0005",
+      "type": "user"
+    },
+    "payload": {
+      "amount": 2902,
+      "currency": "usd"
+    }
+  },
+  {
+    "id": "evt_d56480a1ecac",
+    "timestamp": "2026-03-12T08:37:38.614Z",
+    "source": "app",
+    "type": "page.view",
+    "correlationId": "cor_09878779",
+    "sessionId": "sess_97da2849",
+    "actor": {
+      "id": "user_0005",
+      "type": "user"
+    },
+    "payload": {
+      "path": "/dashboard",
+      "duration_ms": 2484,
+      "referrer": null
+    }
+  },
+  {
+    "id": "evt_be49e709777c",
+    "timestamp": "2026-03-12T08:43:20.680Z",
+    "source": "app",
+    "type": "api.call",
+    "correlationId": "cor_1b9fd70e",
+    "sessionId": "sess_3a34bd83",
+    "actor": {
+      "id": "user_0002",
+      "type": "user"
+    },
+    "payload": {
+      "method": "GET",
+      "path": "/api/v1/data",
+      "status": 147,
+      "latency_ms": 45
+    }
+  },
+  {
+    "id": "evt_dafffcfc21f0",
+    "timestamp": "2026-03-12T08:54:21.840Z",
+    "source": "app",
+    "type": "api.call",
+    "correlationId": "cor_7dac5d7e",
+    "sessionId": "sess_8d1f9e69",
+    "actor": {
+      "id": "user_0006",
+      "type": "user"
+    },
+    "payload": {
+      "method": "GET",
+      "path": "/api/v1/data",
+      "status": 219,
+      "latency_ms": 38
+    }
+  },
+  {
+    "id": "evt_2395af6cb0ae",
+    "timestamp": "2026-03-12T09:01:30.508Z",
+    "source": "app",
+    "type": "page.view",
+    "correlationId": "cor_49e76da5",
+    "sessionId": "sess_97da2849",
+    "actor": {
+      "id": "user_0008",
+      "type": "user"
+    },
+    "payload": {
+      "path": "/dashboard",
+      "duration_ms": 3426,
+      "referrer": null
+    }
+  },
+  {
+    "id": "evt_ac69d692f2ab",
+    "timestamp": "2026-03-12T09:17:32.462Z",
+    "source": "app",
+    "type": "user.login",
+    "correlationId": "cor_98aec001",
+    "sessionId": "sess_d73eb438",
+    "actor": {
+      "id": "user_0006",
+      "type": "user"
+    },
+    "payload": {
+      "method": "password",
+      "success": true
+    }
+  },
+  {
+    "id": "evt_ba06d53ba0a9",
+    "timestamp": "2026-03-12T09:22:43.334Z",
+    "source": "app",
+    "type": "user.signup",
+    "correlationId": "cor_d9696932",
+    "sessionId": "sess_97da2849",
+    "actor": {
+      "id": "user_0006",
+      "type": "user"
+    },
+    "payload": {
+      "method": "email",
+      "plan": "free",
+      "source": "organic"
+    }
+  },
+  {
+    "id": "evt_f695afeb5e8e",
+    "timestamp": "2026-03-12T09:35:06.024Z",
+    "source": "app",
+    "type": "api.call",
+    "correlationId": "cor_325f8f0a",
+    "sessionId": "sess_bb362a53",
+    "actor": {
+      "id": "user_0003",
+      "type": "user"
+    },
+    "payload": {
+      "method": "GET",
+      "path": "/api/v1/data",
+      "status": 212,
+      "latency_ms": 58
+    }
+  },
+  {
+    "id": "evt_48634fa58572",
+    "timestamp": "2026-03-12T09:42:36.703Z",
+    "source": "stripe",
+    "type": "customer.subscription.created",
+    "correlationId": "cor_9ea8e9d7",
+    "sessionId": "sess_ae5c62d5",
+    "actor": {
+      "id": "user_0003",
+      "type": "user"
+    },
+    "payload": {
+      "plan": "pro"
+    }
+  },
+  {
+    "id": "evt_a620b6502a40",
+    "timestamp": "2026-03-12T09:53:46.170Z",
+    "source": "app",
+    "type": "page.view",
+    "correlationId": "cor_7b2b3495",
+    "sessionId": "sess_8d1f9e69",
+    "actor": {
+      "id": "user_0006",
+      "type": "user"
+    },
+    "payload": {
+      "path": "/dashboard",
+      "duration_ms": 3185,
+      "referrer": null
+    }
+  },
+  {
+    "id": "evt_5edf72a9cf66",
+    "timestamp": "2026-03-12T10:03:07.583Z",
+    "source": "app",
+    "type": "error.occurred",
+    "correlationId": "cor_2e920d18",
+    "sessionId": "sess_a907d090",
+    "actor": {
+      "id": "user_0001",
+      "type": "user"
+    },
+    "payload": {
+      "code": "ERR_TIMEOUT",
+      "message": "Request timed out",
+      "severity": "warning"
+    }
+  },
+  {
+    "id": "evt_a8ee13e6b875",
+    "timestamp": "2026-03-12T10:12:51.241Z",
+    "source": "app",
+    "type": "subscription.changed",
+    "correlationId": "cor_55ade397",
+    "sessionId": "sess_f6f21057",
+    "actor": {
+      "id": "user_0010",
+      "type": "user"
+    },
+    "payload": {
+      "from": "free",
+      "to": "pro",
+      "action": "upgrade"
+    }
+  },
+  {
+    "id": "evt_f3602015c876",
+    "timestamp": "2026-03-12T10:22:22.039Z",
+    "source": "app",
+    "type": "api.call",
+    "correlationId": "cor_fb75b494",
+    "sessionId": "sess_441aabe1",
+    "actor": {
+      "id": "user_0006",
+      "type": "user"
+    },
+    "payload": {
+      "method": "GET",
+      "path": "/api/v1/data",
+      "status": 154,
+      "latency_ms": 54
+    }
+  },
+  {
+    "id": "evt_c919e3d3f760",
+    "timestamp": "2026-03-12T10:30:27.347Z",
+    "source": "app",
+    "type": "user.login",
+    "correlationId": "cor_606760fc",
+    "sessionId": "sess_97da2849",
+    "actor": {
+      "id": "user_0010",
+      "type": "user"
+    },
+    "payload": {
+      "method": "password",
+      "success": true
+    }
+  },
+  {
+    "id": "evt_fde3b8d30dee",
+    "timestamp": "2026-03-12T10:36:08.242Z",
+    "source": "app",
+    "type": "user.logout",
+    "correlationId": "cor_320faa1a",
+    "sessionId": "sess_fe6841b5",
+    "actor": {
+      "id": "user_0007",
+      "type": "user"
+    },
+    "payload": {
+      "reason": "manual"
+    }
+  },
+  {
+    "id": "evt_38514ef830c0",
+    "timestamp": "2026-03-12T10:46:51.204Z",
+    "source": "app",
+    "type": "api.call",
+    "correlationId": "cor_e5ffc254",
+    "sessionId": "sess_ce17d2f2",
+    "actor": {
+      "id": "user_0001",
+      "type": "user"
+    },
+    "payload": {
+      "method": "GET",
+      "path": "/api/v1/data",
+      "status": 148,
+      "latency_ms": 49
+    }
+  },
+  {
+    "id": "evt_1ea96c361f33",
+    "timestamp": "2026-03-12T10:56:07.295Z",
+    "source": "app",
+    "type": "api.call",
+    "correlationId": "cor_9986656b",
+    "sessionId": "sess_9e1be4b2",
+    "actor": {
+      "id": "user_0007",
+      "type": "user"
+    },
+    "payload": {
+      "method": "GET",
+      "path": "/api/v1/data",
+      "status": 150,
+      "latency_ms": 48
+    }
+  },
+  {
+    "id": "evt_7c27a63fe6ee",
+    "timestamp": "2026-03-12T11:06:11.762Z",
+    "source": "app",
+    "type": "api.call",
+    "correlationId": "cor_17d47c5b",
+    "sessionId": "sess_ce17d2f2",
+    "actor": {
+      "id": "user_0009",
+      "type": "user"
+    },
+    "payload": {
+      "method": "GET",
+      "path": "/api/v1/data",
+      "status": 183,
+      "latency_ms": 57
+    }
+  },
+  {
+    "id": "evt_445430b240c1",
+    "timestamp": "2026-03-12T11:11:03.191Z",
+    "source": "stripe",
+    "type": "customer.subscription.created",
+    "correlationId": "cor_b875a94c",
+    "sessionId": "sess_441aabe1",
+    "actor": {
+      "id": "user_0008",
+      "type": "user"
+    },
+    "payload": {
+      "plan": "pro"
+    }
+  },
+  {
+    "id": "evt_59f4664a53ac",
+    "timestamp": "2026-03-12T11:22:50.635Z",
+    "source": "app",
+    "type": "api.call",
+    "correlationId": "cor_8fde986d",
+    "sessionId": "sess_f6f21057",
+    "actor": {
+      "id": "user_0007",
+      "type": "user"
+    },
+    "payload": {
+      "method": "GET",
+      "path": "/api/v1/data",
+      "status": 170,
+      "latency_ms": 33
+    }
+  },
+  {
+    "id": "evt_2326f7bdc4d5",
+    "timestamp": "2026-03-12T11:32:12.223Z",
+    "source": "app",
+    "type": "user.signup",
+    "correlationId": "cor_40bce749",
+    "sessionId": "sess_595b47db",
+    "actor": {
+      "id": "user_0002",
+      "type": "user"
+    },
+    "payload": {
+      "method": "email",
+      "plan": "free",
+      "source": "organic"
+    }
+  },
+  {
+    "id": "evt_48964bca526c",
+    "timestamp": "2026-03-12T11:32:14.042Z",
+    "source": "notifications",
+    "type": "notification.email_sent",
+    "correlationId": "cor_40bce749",
+    "sessionId": "sess_595b47db",
+    "actor": {
+      "id": "user_0002",
+      "type": "user"
+    },
+    "payload": {
+      "template": "purchase_confirmation",
+      "to": "user_0002",
+      "triggered_by": "user.signup"
+    }
+  },
+  {
+    "id": "evt_be3216a4e362",
+    "timestamp": "2026-03-12T11:32:14.582Z",
+    "source": "analytics",
+    "type": "analytics.event_tracked",
+    "correlationId": "cor_40bce749",
+    "sessionId": "sess_595b47db",
+    "actor": {
+      "id": "user_0002",
+      "type": "user"
+    },
+    "payload": {
+      "event_name": "user.signup",
+      "properties": {
+        "source": "app"
+      },
+      "triggered_by": "user.signup"
+    }
+  },
+  {
+    "id": "evt_aa8e6fd1ebd3",
+    "timestamp": "2026-03-12T11:41:42.364Z",
+    "source": "app",
+    "type": "page.view",
+    "correlationId": "cor_1d69d658",
+    "sessionId": "sess_fe6841b5",
+    "actor": {
+      "id": "user_0009",
+      "type": "user"
+    },
+    "payload": {
+      "path": "/dashboard",
+      "duration_ms": 2543,
+      "referrer": "direct"
+    }
+  },
+  {
+    "id": "evt_31e44fa3433e",
+    "timestamp": "2026-03-12T11:53:50.516Z",
+    "source": "stripe",
+    "type": "customer.subscription.created",
+    "correlationId": "cor_fa6c2979",
+    "sessionId": "sess_f6f21057",
+    "actor": {
+      "id": "user_0006",
+      "type": "user"
+    },
+    "payload": {
+      "plan": "pro"
+    }
+  },
+  {
+    "id": "evt_a3ac9252d18c",
+    "timestamp": "2026-03-12T12:00:48.738Z",
+    "source": "app",
+    "type": "page.view",
+    "correlationId": "cor_4071c739",
+    "sessionId": "sess_f6f21057",
+    "actor": {
+      "id": "user_0005",
+      "type": "user"
+    },
+    "payload": {
+      "path": "/dashboard",
+      "duration_ms": 3627,
+      "referrer": null
+    }
+  },
+  {
+    "id": "evt_dc8143c7249b",
+    "timestamp": "2026-03-12T12:11:40.103Z",
+    "source": "stripe",
+    "type": "invoice.paid",
+    "correlationId": "cor_bf7debd5",
+    "sessionId": "sess_97da2849",
+    "actor": {
+      "id": "user_0002",
+      "type": "user"
+    },
+    "payload": {
+      "amount": 2451
+    }
+  },
+  {
+    "id": "evt_ffbf3c148afc",
+    "timestamp": "2026-03-12T12:16:09.358Z",
+    "source": "app",
+    "type": "page.view",
+    "correlationId": "cor_bcfcd9e5",
+    "sessionId": "sess_7c570089",
+    "actor": {
+      "id": "user_0007",
+      "type": "user"
+    },
+    "payload": {
+      "path": "/dashboard",
+      "duration_ms": 3619,
+      "referrer": "direct"
+    }
+  },
+  {
+    "id": "evt_a3c4023ff55e",
+    "timestamp": "2026-03-12T12:23:05.289Z",
+    "source": "app",
+    "type": "user.logout",
+    "correlationId": "cor_b3529ebc",
+    "sessionId": "sess_402c802d",
+    "actor": {
+      "id": "user_0008",
+      "type": "user"
+    },
+    "payload": {
+      "reason": "manual"
+    }
+  },
+  {
+    "id": "evt_463f28d5efb2",
+    "timestamp": "2026-03-12T12:33:41.859Z",
+    "source": "app",
+    "type": "api.call",
+    "correlationId": "cor_38e6d109",
+    "sessionId": "sess_402c802d",
+    "actor": {
+      "id": "user_0008",
+      "type": "user"
+    },
+    "payload": {
+      "method": "GET",
+      "path": "/api/v1/data",
+      "status": 186,
+      "latency_ms": 35
+    }
+  },
+  {
+    "id": "evt_033fe675834b",
+    "timestamp": "2026-03-12T12:42:34.329Z",
+    "source": "stripe",
+    "type": "payment_intent.succeeded",
+    "correlationId": "cor_77f81e8a",
+    "sessionId": "sess_d73eb438",
+    "actor": {
+      "id": "user_0003",
+      "type": "user"
+    },
+    "payload": {
+      "amount": 2309,
+      "currency": "usd"
+    }
+  },
+  {
+    "id": "evt_337658717b20",
+    "timestamp": "2026-03-12T12:47:36.373Z",
+    "source": "app",
+    "type": "purchase.completed",
+    "correlationId": "cor_436eea6a",
+    "sessionId": "sess_7c570089",
+    "actor": {
+      "id": "user_0010",
+      "type": "user"
+    },
+    "payload": {
+      "amount": 4156,
+      "currency": "usd",
+      "items": 1
+    }
+  },
+  {
+    "id": "evt_44d8abd2bdbb",
+    "timestamp": "2026-03-12T12:47:39.156Z",
+    "source": "stripe",
+    "type": "payment_intent.succeeded",
+    "correlationId": "cor_436eea6a",
+    "sessionId": "sess_7c570089",
+    "actor": {
+      "id": "user_0010",
+      "type": "user"
+    },
+    "payload": {
+      "object": "payment_intent",
+      "amount": 4156,
+      "currency": "usd",
+      "status": "succeeded",
+      "triggered_by": "purchase.completed"
+    }
+  },
+  {
+    "id": "evt_971d92faef03",
+    "timestamp": "2026-03-12T12:47:39.845Z",
+    "source": "notifications",
+    "type": "notification.email_sent",
+    "correlationId": "cor_436eea6a",
+    "sessionId": "sess_7c570089",
+    "actor": {
+      "id": "user_0010",
+      "type": "user"
+    },
+    "payload": {
+      "template": "purchase_confirmation",
+      "to": "user_0010",
+      "triggered_by": "purchase.completed"
+    }
+  },
+  {
+    "id": "evt_8082feb88339",
+    "timestamp": "2026-03-12T12:47:43.891Z",
+    "source": "analytics",
+    "type": "analytics.event_tracked",
+    "correlationId": "cor_436eea6a",
+    "sessionId": "sess_7c570089",
+    "actor": {
+      "id": "user_0010",
+      "type": "user"
+    },
+    "payload": {
+      "event_name": "purchase.completed",
+      "properties": {
+        "source": "app"
+      },
+      "triggered_by": "purchase.completed"
+    }
+  },
+  {
+    "id": "evt_95a947357275",
+    "timestamp": "2026-03-12T12:53:01.888Z",
+    "source": "app",
+    "type": "api.call",
+    "correlationId": "cor_3553c06d",
+    "sessionId": "sess_f6f21057",
+    "actor": {
+      "id": "user_0009",
+      "type": "user"
+    },
+    "payload": {
+      "method": "GET",
+      "path": "/api/v1/data",
+      "status": 219,
+      "latency_ms": 44
+    }
+  },
+  {
+    "id": "evt_d386c97d963b",
+    "timestamp": "2026-03-12T12:57:34.734Z",
+    "source": "app",
+    "type": "purchase.completed",
+    "correlationId": "cor_eecca221",
+    "sessionId": "sess_a907d090",
+    "actor": {
+      "id": "user_0002",
+      "type": "user"
+    },
+    "payload": {
+      "amount": 6234,
+      "currency": "usd",
+      "items": 1
+    }
+  },
+  {
+    "id": "evt_6e99dcef97c8",
+    "timestamp": "2026-03-12T12:57:38.667Z",
+    "source": "stripe",
+    "type": "payment_intent.succeeded",
+    "correlationId": "cor_eecca221",
+    "sessionId": "sess_a907d090",
+    "actor": {
+      "id": "user_0002",
+      "type": "user"
+    },
+    "payload": {
+      "object": "payment_intent",
+      "amount": 6234,
+      "currency": "usd",
+      "status": "succeeded",
+      "triggered_by": "purchase.completed"
+    }
+  },
+  {
+    "id": "evt_ac4fcee9c96e",
+    "timestamp": "2026-03-12T12:57:42.535Z",
+    "source": "notifications",
+    "type": "notification.email_sent",
+    "correlationId": "cor_eecca221",
+    "sessionId": "sess_a907d090",
+    "actor": {
+      "id": "user_0002",
+      "type": "user"
+    },
+    "payload": {
+      "template": "purchase_confirmation",
+      "to": "user_0002",
+      "triggered_by": "purchase.completed"
+    }
+  },
+  {
+    "id": "evt_cb291cb2370d",
+    "timestamp": "2026-03-12T12:57:44.425Z",
+    "source": "analytics",
+    "type": "analytics.event_tracked",
+    "correlationId": "cor_eecca221",
+    "sessionId": "sess_a907d090",
+    "actor": {
+      "id": "user_0002",
+      "type": "user"
+    },
+    "payload": {
+      "event_name": "purchase.completed",
+      "properties": {
+        "source": "app"
+      },
+      "triggered_by": "purchase.completed"
+    }
+  },
+  {
+    "id": "evt_d56feb08e310",
+    "timestamp": "2026-03-12T13:05:09.474Z",
+    "source": "app",
+    "type": "purchase.completed",
+    "correlationId": "cor_64dd90e5",
+    "sessionId": "sess_8d1f9e69",
+    "actor": {
+      "id": "user_0003",
+      "type": "user"
+    },
+    "payload": {
+      "amount": 5327,
+      "currency": "usd",
+      "items": 1
+    }
+  },
+  {
+    "id": "evt_0cfe9a00cb98",
+    "timestamp": "2026-03-12T13:05:10.521Z",
+    "source": "stripe",
+    "type": "payment_intent.succeeded",
+    "correlationId": "cor_64dd90e5",
+    "sessionId": "sess_8d1f9e69",
+    "actor": {
+      "id": "user_0003",
+      "type": "user"
+    },
+    "payload": {
+      "object": "payment_intent",
+      "amount": 5327,
+      "currency": "usd",
+      "status": "succeeded",
+      "triggered_by": "purchase.completed"
+    }
+  },
+  {
+    "id": "evt_0c42cb3fa3c4",
+    "timestamp": "2026-03-12T13:05:13.861Z",
+    "source": "notifications",
+    "type": "notification.email_sent",
+    "correlationId": "cor_64dd90e5",
+    "sessionId": "sess_8d1f9e69",
+    "actor": {
+      "id": "user_0003",
+      "type": "user"
+    },
+    "payload": {
+      "template": "purchase_confirmation",
+      "to": "user_0003",
+      "triggered_by": "purchase.completed"
+    }
+  },
+  {
+    "id": "evt_2ee734d7f3c2",
+    "timestamp": "2026-03-12T13:05:16.603Z",
+    "source": "analytics",
+    "type": "analytics.event_tracked",
+    "correlationId": "cor_64dd90e5",
+    "sessionId": "sess_8d1f9e69",
+    "actor": {
+      "id": "user_0003",
+      "type": "user"
+    },
+    "payload": {
+      "event_name": "purchase.completed",
+      "properties": {
+        "source": "app"
+      },
+      "triggered_by": "purchase.completed"
+    }
+  },
+  {
+    "id": "evt_52173c89eab4",
+    "timestamp": "2026-03-12T13:12:41.085Z",
+    "source": "app",
+    "type": "api.call",
+    "correlationId": "cor_200c1014",
+    "sessionId": "sess_ce17d2f2",
+    "actor": {
+      "id": "user_0008",
+      "type": "user"
+    },
+    "payload": {
+      "method": "GET",
+      "path": "/api/v1/data",
+      "status": 199,
+      "latency_ms": 44
+    }
+  },
+  {
+    "id": "evt_761f912103bb",
+    "timestamp": "2026-03-12T13:17:14.038Z",
+    "source": "app",
+    "type": "api.call",
+    "correlationId": "cor_636c127f",
+    "sessionId": "sess_f6f21057",
+    "actor": {
+      "id": "user_0010",
+      "type": "user"
+    },
+    "payload": {
+      "method": "GET",
+      "path": "/api/v1/data",
+      "status": 189,
+      "latency_ms": 33
+    }
+  },
+  {
+    "id": "evt_7661ca2ef964",
+    "timestamp": "2026-03-12T13:21:48.200Z",
+    "source": "stripe",
+    "type": "invoice.paid",
+    "correlationId": "cor_b32ae6f2",
+    "sessionId": "sess_ae5c62d5",
+    "actor": {
+      "id": "user_0006",
+      "type": "user"
+    },
+    "payload": {
+      "amount": 3729
+    }
+  },
+  {
+    "id": "evt_8fc7021c80cb",
+    "timestamp": "2026-03-12T13:28:19.507Z",
+    "source": "app",
+    "type": "page.view",
+    "correlationId": "cor_b7abe2c6",
+    "sessionId": "sess_3a34bd83",
+    "actor": {
+      "id": "user_0004",
+      "type": "user"
+    },
+    "payload": {
+      "path": "/dashboard",
+      "duration_ms": 3525,
+      "referrer": null
+    }
+  },
+  {
+    "id": "evt_2ef9f42b8128",
+    "timestamp": "2026-03-12T13:38:00.400Z",
+    "source": "app",
+    "type": "purchase.completed",
+    "correlationId": "cor_2ff84774",
+    "sessionId": "sess_441aabe1",
+    "actor": {
+      "id": "user_0002",
+      "type": "user"
+    },
+    "payload": {
+      "amount": 4342,
+      "currency": "usd",
+      "items": 1
+    }
+  },
+  {
+    "id": "evt_67ced8f79423",
+    "timestamp": "2026-03-12T13:38:00.661Z",
+    "source": "stripe",
+    "type": "payment_intent.succeeded",
+    "correlationId": "cor_2ff84774",
+    "sessionId": "sess_441aabe1",
+    "actor": {
+      "id": "user_0002",
+      "type": "user"
+    },
+    "payload": {
+      "object": "payment_intent",
+      "amount": 4342,
+      "currency": "usd",
+      "status": "succeeded",
+      "triggered_by": "purchase.completed"
+    }
+  },
+  {
+    "id": "evt_7b6bdcb96725",
+    "timestamp": "2026-03-12T13:38:01.503Z",
+    "source": "notifications",
+    "type": "notification.email_sent",
+    "correlationId": "cor_2ff84774",
+    "sessionId": "sess_441aabe1",
+    "actor": {
+      "id": "user_0002",
+      "type": "user"
+    },
+    "payload": {
+      "template": "purchase_confirmation",
+      "to": "user_0002",
+      "triggered_by": "purchase.completed"
+    }
+  },
+  {
+    "id": "evt_10df0aeadfce",
+    "timestamp": "2026-03-12T13:38:05.447Z",
+    "source": "analytics",
+    "type": "analytics.event_tracked",
+    "correlationId": "cor_2ff84774",
+    "sessionId": "sess_441aabe1",
+    "actor": {
+      "id": "user_0002",
+      "type": "user"
+    },
+    "payload": {
+      "event_name": "purchase.completed",
+      "properties": {
+        "source": "app"
+      },
+      "triggered_by": "purchase.completed"
+    }
+  },
+  {
+    "id": "evt_12e68af6b870",
+    "timestamp": "2026-03-12T13:42:33.348Z",
+    "source": "stripe",
+    "type": "invoice.paid",
+    "correlationId": "cor_41ecc844",
+    "sessionId": "sess_f6f21057",
+    "actor": {
+      "id": "user_0002",
+      "type": "user"
+    },
+    "payload": {
+      "amount": 3129
+    }
+  },
+  {
+    "id": "evt_05d830cfc245",
+    "timestamp": "2026-03-12T13:51:53.932Z",
+    "source": "app",
+    "type": "user.logout",
+    "correlationId": "cor_34f15233",
+    "sessionId": "sess_ae5c62d5",
+    "actor": {
+      "id": "user_0010",
+      "type": "user"
+    },
+    "payload": {
+      "reason": "manual"
+    }
+  },
+  {
+    "id": "evt_b3e8b2e82ca1",
+    "timestamp": "2026-03-12T13:57:23.329Z",
+    "source": "stripe",
+    "type": "invoice.paid",
+    "correlationId": "cor_11fb5b25",
+    "sessionId": "sess_7c570089",
+    "actor": {
+      "id": "user_0003",
+      "type": "user"
+    },
+    "payload": {
+      "amount": 2311
+    }
+  },
+  {
+    "id": "evt_75299bb057b1",
+    "timestamp": "2026-03-12T14:07:17.266Z",
+    "source": "app",
+    "type": "page.view",
+    "correlationId": "cor_e9c98f30",
+    "sessionId": "sess_595b47db",
+    "actor": {
+      "id": "user_0004",
+      "type": "user"
+    },
+    "payload": {
+      "path": "/dashboard",
+      "duration_ms": 3983,
+      "referrer": "direct"
+    }
+  },
+  {
+    "id": "evt_ed31f62a652e",
+    "timestamp": "2026-03-12T14:18:16.327Z",
+    "source": "stripe",
+    "type": "payment_intent.succeeded",
+    "correlationId": "cor_e0e54ce8",
+    "sessionId": "sess_97da2849",
+    "actor": {
+      "id": "user_0006",
+      "type": "user"
+    },
+    "payload": {
+      "amount": 3758,
+      "currency": "usd"
+    }
+  },
+  {
+    "id": "evt_3ce8841df0b9",
+    "timestamp": "2026-03-12T14:23:14.205Z",
+    "source": "app",
+    "type": "error.occurred",
+    "correlationId": "cor_8a2a5a21",
+    "sessionId": "sess_595b47db",
+    "actor": {
+      "id": "user_0010",
+      "type": "user"
+    },
+    "payload": {
+      "code": "ERR_TIMEOUT",
+      "message": "Request timed out",
+      "severity": "warning"
+    }
+  },
+  {
+    "id": "evt_c1a01e0c3448",
+    "timestamp": "2026-03-12T14:27:31.667Z",
+    "source": "app",
+    "type": "page.view",
+    "correlationId": "cor_8faa6971",
+    "sessionId": "sess_3a34bd83",
+    "actor": {
+      "id": "user_0002",
+      "type": "user"
+    },
+    "payload": {
+      "path": "/dashboard",
+      "duration_ms": 3774,
+      "referrer": null
+    }
+  },
+  {
+    "id": "evt_308a7c1d62ff",
+    "timestamp": "2026-03-12T14:32:26.931Z",
+    "source": "app",
+    "type": "user.login",
+    "correlationId": "cor_aba604c3",
+    "sessionId": "sess_ce17d2f2",
+    "actor": {
+      "id": "user_0010",
+      "type": "user"
+    },
+    "payload": {
+      "method": "password",
+      "success": true
+    }
+  },
+  {
+    "id": "evt_8dc3d903ae48",
+    "timestamp": "2026-03-12T14:41:24.639Z",
+    "source": "app",
+    "type": "api.call",
+    "correlationId": "cor_5a148123",
+    "sessionId": "sess_bb362a53",
+    "actor": {
+      "id": "user_0002",
+      "type": "user"
+    },
+    "payload": {
+      "method": "GET",
+      "path": "/api/v1/data",
+      "status": 240,
+      "latency_ms": 36
+    }
+  },
+  {
+    "id": "evt_09ab29c2c065",
+    "timestamp": "2026-03-12T14:46:18.254Z",
+    "source": "app",
+    "type": "api.call",
+    "correlationId": "cor_95176b7f",
+    "sessionId": "sess_7c570089",
+    "actor": {
+      "id": "user_0005",
+      "type": "user"
+    },
+    "payload": {
+      "method": "GET",
+      "path": "/api/v1/data",
+      "status": 212,
+      "latency_ms": 53
+    }
+  },
+  {
+    "id": "evt_ee06f787485e",
+    "timestamp": "2026-03-12T14:53:52.845Z",
+    "source": "stripe",
+    "type": "payment_intent.succeeded",
+    "correlationId": "cor_44c83b5a",
+    "sessionId": "sess_a907d090",
+    "actor": {
+      "id": "user_0007",
+      "type": "user"
+    },
+    "payload": {
+      "amount": 3211,
+      "currency": "usd"
+    }
+  },
+  {
+    "id": "evt_5bc7e409e8ad",
+    "timestamp": "2026-03-12T15:04:12.914Z",
+    "source": "app",
+    "type": "page.view",
+    "correlationId": "cor_ab764d16",
+    "sessionId": "sess_3a34bd83",
+    "actor": {
+      "id": "user_0003",
+      "type": "user"
+    },
+    "payload": {
+      "path": "/dashboard",
+      "duration_ms": 3975,
+      "referrer": "direct"
+    }
+  },
+  {
+    "id": "evt_165ef4d0eba0",
+    "timestamp": "2026-03-12T15:13:17.439Z",
+    "source": "app",
+    "type": "api.call",
+    "correlationId": "cor_f2023fd4",
+    "sessionId": "sess_f6f21057",
+    "actor": {
+      "id": "user_0005",
+      "type": "user"
+    },
+    "payload": {
+      "method": "GET",
+      "path": "/api/v1/data",
+      "status": 146,
+      "latency_ms": 32
+    }
+  },
+  {
+    "id": "evt_6dfa2c188484",
+    "timestamp": "2026-03-12T15:24:04.433Z",
+    "source": "app",
+    "type": "api.call",
+    "correlationId": "cor_62bdaa8a",
+    "sessionId": "sess_ae5c62d5",
+    "actor": {
+      "id": "user_0009",
+      "type": "user"
+    },
+    "payload": {
+      "method": "GET",
+      "path": "/api/v1/data",
+      "status": 207,
+      "latency_ms": 46
+    }
+  },
+  {
+    "id": "evt_231e6ab7dd1f",
+    "timestamp": "2026-03-12T15:28:22.294Z",
+    "source": "app",
+    "type": "user.logout",
+    "correlationId": "cor_fd3757a8",
+    "sessionId": "sess_7c570089",
+    "actor": {
+      "id": "user_0002",
+      "type": "user"
+    },
+    "payload": {
+      "reason": "manual"
+    }
+  },
+  {
+    "id": "evt_20371f5390a2",
+    "timestamp": "2026-03-12T15:33:58.748Z",
+    "source": "app",
+    "type": "api.call",
+    "correlationId": "cor_24baf557",
+    "sessionId": "sess_441aabe1",
+    "actor": {
+      "id": "user_0004",
+      "type": "user"
+    },
+    "payload": {
+      "method": "GET",
+      "path": "/api/v1/data",
+      "status": 156,
+      "latency_ms": 54
+    }
+  },
+  {
+    "id": "evt_49b3354e5223",
+    "timestamp": "2026-03-12T15:39:14.316Z",
+    "source": "app",
+    "type": "user.login",
+    "correlationId": "cor_c4f27daa",
+    "sessionId": "sess_7c570089",
+    "actor": {
+      "id": "user_0002",
+      "type": "user"
+    },
+    "payload": {
+      "method": "password",
+      "success": true
+    }
+  },
+  {
+    "id": "evt_bfee3f5431f7",
+    "timestamp": "2026-03-12T15:49:19.775Z",
+    "source": "app",
+    "type": "user.signup",
+    "correlationId": "cor_2b73d92d",
+    "sessionId": "sess_8d1f9e69",
+    "actor": {
+      "id": "user_0007",
+      "type": "user"
+    },
+    "payload": {
+      "method": "email",
+      "plan": "free",
+      "source": "organic"
+    }
+  },
+  {
+    "id": "evt_7f9e7a6faa14",
+    "timestamp": "2026-03-12T15:49:21.647Z",
+    "source": "notifications",
+    "type": "notification.email_sent",
+    "correlationId": "cor_2b73d92d",
+    "sessionId": "sess_8d1f9e69",
+    "actor": {
+      "id": "user_0007",
+      "type": "user"
+    },
+    "payload": {
+      "template": "purchase_confirmation",
+      "to": "user_0007",
+      "triggered_by": "user.signup"
+    }
+  },
+  {
+    "id": "evt_aa2e6da34fa9",
+    "timestamp": "2026-03-12T15:49:23.325Z",
+    "source": "analytics",
+    "type": "analytics.event_tracked",
+    "correlationId": "cor_2b73d92d",
+    "sessionId": "sess_8d1f9e69",
+    "actor": {
+      "id": "user_0007",
+      "type": "user"
+    },
+    "payload": {
+      "event_name": "user.signup",
+      "properties": {
+        "source": "app"
+      },
+      "triggered_by": "user.signup"
+    }
+  },
+  {
+    "id": "evt_2271980a52e2",
+    "timestamp": "2026-03-12T15:59:15.310Z",
+    "source": "app",
+    "type": "page.view",
+    "correlationId": "cor_324c0aef",
+    "sessionId": "sess_441aabe1",
+    "actor": {
+      "id": "user_0006",
+      "type": "user"
+    },
+    "payload": {
+      "path": "/dashboard",
+      "duration_ms": 3643,
+      "referrer": "direct"
+    }
+  },
+  {
+    "id": "evt_36bf0a21a180",
+    "timestamp": "2026-03-12T16:07:19.562Z",
+    "source": "app",
+    "type": "user.logout",
+    "correlationId": "cor_b77ffc83",
+    "sessionId": "sess_97da2849",
+    "actor": {
+      "id": "user_0006",
+      "type": "user"
+    },
+    "payload": {
+      "reason": "manual"
+    }
+  },
+  {
+    "id": "evt_8547ff78b010",
+    "timestamp": "2026-03-12T16:17:15.354Z",
+    "source": "app",
+    "type": "api.call",
+    "correlationId": "cor_2e8e63c0",
+    "sessionId": "sess_595b47db",
+    "actor": {
+      "id": "user_0004",
+      "type": "user"
+    },
+    "payload": {
+      "method": "GET",
+      "path": "/api/v1/data",
+      "status": 193,
+      "latency_ms": 39
+    }
+  },
+  {
+    "id": "evt_742d8bf5d0b1",
+    "timestamp": "2026-03-12T16:26:41.555Z",
+    "source": "app",
+    "type": "page.view",
+    "correlationId": "cor_e42c85ee",
+    "sessionId": "sess_8d1f9e69",
+    "actor": {
+      "id": "user_0001",
+      "type": "user"
+    },
+    "payload": {
+      "path": "/dashboard",
+      "duration_ms": 3699,
+      "referrer": null
+    }
+  },
+  {
+    "id": "evt_751af03c2ed6",
+    "timestamp": "2026-03-12T16:34:01.983Z",
+    "source": "app",
+    "type": "api.call",
+    "correlationId": "cor_3f6f0529",
+    "sessionId": "sess_a907d090",
+    "actor": {
+      "id": "user_0007",
+      "type": "user"
+    },
+    "payload": {
+      "method": "GET",
+      "path": "/api/v1/data",
+      "status": 145,
+      "latency_ms": 55
+    }
+  },
+  {
+    "id": "evt_8eba7617b8fd",
+    "timestamp": "2026-03-12T16:41:39.207Z",
+    "source": "app",
+    "type": "page.view",
+    "correlationId": "cor_8ebd14a8",
+    "sessionId": "sess_8d1f9e69",
+    "actor": {
+      "id": "user_0004",
+      "type": "user"
+    },
+    "payload": {
+      "path": "/dashboard",
+      "duration_ms": 3905,
+      "referrer": "direct"
+    }
+  },
+  {
+    "id": "evt_3f0aaae74308",
+    "timestamp": "2026-03-12T16:51:26.835Z",
+    "source": "app",
+    "type": "page.view",
+    "correlationId": "cor_30d95721",
+    "sessionId": "sess_441aabe1",
+    "actor": {
+      "id": "user_0002",
+      "type": "user"
+    },
+    "payload": {
+      "path": "/dashboard",
+      "duration_ms": 3777,
+      "referrer": "direct"
+    }
+  },
+  {
+    "id": "evt_2b0d6d1086e3",
+    "timestamp": "2026-03-12T16:56:10.167Z",
+    "source": "app",
+    "type": "user.signup",
+    "correlationId": "cor_de3072f0",
+    "sessionId": "sess_402c802d",
+    "actor": {
+      "id": "user_0002",
+      "type": "user"
+    },
+    "payload": {
+      "method": "email",
+      "plan": "free",
+      "source": "organic"
+    }
+  },
+  {
+    "id": "evt_ff49cbdc79b7",
+    "timestamp": "2026-03-12T16:56:11.394Z",
+    "source": "notifications",
+    "type": "notification.email_sent",
+    "correlationId": "cor_de3072f0",
+    "sessionId": "sess_402c802d",
+    "actor": {
+      "id": "user_0002",
+      "type": "user"
+    },
+    "payload": {
+      "template": "purchase_confirmation",
+      "to": "user_0002",
+      "triggered_by": "user.signup"
+    }
+  },
+  {
+    "id": "evt_5ce3aa89c814",
+    "timestamp": "2026-03-12T16:56:11.979Z",
+    "source": "analytics",
+    "type": "analytics.event_tracked",
+    "correlationId": "cor_de3072f0",
+    "sessionId": "sess_402c802d",
+    "actor": {
+      "id": "user_0002",
+      "type": "user"
+    },
+    "payload": {
+      "event_name": "user.signup",
+      "properties": {
+        "source": "app"
+      },
+      "triggered_by": "user.signup"
+    }
+  },
+  {
+    "id": "evt_f580e0bc9f82",
+    "timestamp": "2026-03-12T17:01:48.499Z",
+    "source": "app",
+    "type": "subscription.changed",
+    "correlationId": "cor_d9025367",
+    "sessionId": "sess_ce17d2f2",
+    "actor": {
+      "id": "user_0006",
+      "type": "user"
+    },
+    "payload": {
+      "from": "free",
+      "to": "pro",
+      "action": "upgrade"
+    }
+  },
+  {
+    "id": "evt_4d7bce7a3933",
+    "timestamp": "2026-03-12T17:10:06.779Z",
+    "source": "app",
+    "type": "user.logout",
+    "correlationId": "cor_d599fa0e",
+    "sessionId": "sess_a907d090",
+    "actor": {
+      "id": "user_0004",
+      "type": "user"
+    },
+    "payload": {
+      "reason": "manual"
+    }
+  },
+  {
+    "id": "evt_883e6fecf173",
+    "timestamp": "2026-03-12T17:20:03.520Z",
+    "source": "app",
+    "type": "purchase.completed",
+    "correlationId": "cor_cc4d495b",
+    "sessionId": "sess_441aabe1",
+    "actor": {
+      "id": "user_0009",
+      "type": "user"
+    },
+    "payload": {
+      "amount": 6292,
+      "currency": "usd",
+      "items": 1
+    }
+  },
+  {
+    "id": "evt_d6b1a47d7fb0",
+    "timestamp": "2026-03-12T17:20:05.577Z",
+    "source": "stripe",
+    "type": "payment_intent.succeeded",
+    "correlationId": "cor_cc4d495b",
+    "sessionId": "sess_441aabe1",
+    "actor": {
+      "id": "user_0009",
+      "type": "user"
+    },
+    "payload": {
+      "object": "payment_intent",
+      "amount": 6292,
+      "currency": "usd",
+      "status": "succeeded",
+      "triggered_by": "purchase.completed"
+    }
+  },
+  {
+    "id": "evt_334c4d1487a8",
+    "timestamp": "2026-03-12T17:20:09.090Z",
+    "source": "notifications",
+    "type": "notification.email_sent",
+    "correlationId": "cor_cc4d495b",
+    "sessionId": "sess_441aabe1",
+    "actor": {
+      "id": "user_0009",
+      "type": "user"
+    },
+    "payload": {
+      "template": "purchase_confirmation",
+      "to": "user_0009",
+      "triggered_by": "purchase.completed"
+    }
+  },
+  {
+    "id": "evt_1eb2e474944b",
+    "timestamp": "2026-03-12T17:20:10.733Z",
+    "source": "analytics",
+    "type": "analytics.event_tracked",
+    "correlationId": "cor_cc4d495b",
+    "sessionId": "sess_441aabe1",
+    "actor": {
+      "id": "user_0009",
+      "type": "user"
+    },
+    "payload": {
+      "event_name": "purchase.completed",
+      "properties": {
+        "source": "app"
+      },
+      "triggered_by": "purchase.completed"
+    }
+  },
+  {
+    "id": "evt_aae14ba6bc15",
+    "timestamp": "2026-03-12T17:28:22.539Z",
+    "source": "app",
+    "type": "api.call",
+    "correlationId": "cor_f411be85",
+    "sessionId": "sess_402c802d",
+    "actor": {
+      "id": "user_0007",
+      "type": "user"
+    },
+    "payload": {
+      "method": "GET",
+      "path": "/api/v1/data",
+      "status": 209,
+      "latency_ms": 32
+    }
+  },
+  {
+    "id": "evt_ea28c61d574b",
+    "timestamp": "2026-03-12T17:36:58.706Z",
+    "source": "app",
+    "type": "api.call",
+    "correlationId": "cor_11b960cb",
+    "sessionId": "sess_ae5c62d5",
+    "actor": {
+      "id": "user_0009",
+      "type": "user"
+    },
+    "payload": {
+      "method": "GET",
+      "path": "/api/v1/data",
+      "status": 218,
+      "latency_ms": 50
+    }
+  },
+  {
+    "id": "evt_d82f60516216",
+    "timestamp": "2026-03-12T17:43:00.231Z",
+    "source": "app",
+    "type": "page.view",
+    "correlationId": "cor_c1fe9104",
+    "sessionId": "sess_a907d090",
+    "actor": {
+      "id": "user_0004",
+      "type": "user"
+    },
+    "payload": {
+      "path": "/dashboard",
+      "duration_ms": 4234,
+      "referrer": null
+    }
+  },
+  {
+    "id": "evt_9d5b5fae9f10",
+    "timestamp": "2026-03-12T17:51:03.980Z",
+    "source": "app",
+    "type": "page.view",
+    "correlationId": "cor_9f092fb6",
+    "sessionId": "sess_595b47db",
+    "actor": {
+      "id": "user_0006",
+      "type": "user"
+    },
+    "payload": {
+      "path": "/dashboard",
+      "duration_ms": 3074,
+      "referrer": null
+    }
+  },
+  {
+    "id": "evt_64c8ca1cdae1",
+    "timestamp": "2026-03-12T18:01:09.137Z",
+    "source": "app",
+    "type": "page.view",
+    "correlationId": "cor_25a271f8",
+    "sessionId": "sess_d73eb438",
+    "actor": {
+      "id": "user_0010",
+      "type": "user"
+    },
+    "payload": {
+      "path": "/dashboard",
+      "duration_ms": 3956,
+      "referrer": "direct"
+    }
+  },
+  {
+    "id": "evt_01da66469282",
+    "timestamp": "2026-03-12T18:04:54.838Z",
+    "source": "stripe",
+    "type": "payment_intent.succeeded",
+    "correlationId": "cor_23426c26",
+    "sessionId": "sess_402c802d",
+    "actor": {
+      "id": "user_0006",
+      "type": "user"
+    },
+    "payload": {
+      "amount": 2614,
+      "currency": "usd"
+    }
+  },
+  {
+    "id": "evt_374496d9e03c",
+    "timestamp": "2026-03-12T18:10:54.470Z",
+    "source": "stripe",
+    "type": "invoice.paid",
+    "correlationId": "cor_bb3be6d4",
+    "sessionId": "sess_ce17d2f2",
+    "actor": {
+      "id": "user_0001",
+      "type": "user"
+    },
+    "payload": {
+      "amount": 2428
+    }
+  },
+  {
+    "id": "evt_dc39f5788dcc",
+    "timestamp": "2026-03-12T18:19:54.915Z",
+    "source": "app",
+    "type": "purchase.completed",
+    "correlationId": "cor_10bcf923",
+    "sessionId": "sess_7c570089",
+    "actor": {
+      "id": "user_0001",
+      "type": "user"
+    },
+    "payload": {
+      "amount": 5913,
+      "currency": "usd",
+      "items": 1
+    }
+  },
+  {
+    "id": "evt_b4df09b52e3e",
+    "timestamp": "2026-03-12T18:19:56.877Z",
+    "source": "stripe",
+    "type": "payment_intent.succeeded",
+    "correlationId": "cor_10bcf923",
+    "sessionId": "sess_7c570089",
+    "actor": {
+      "id": "user_0001",
+      "type": "user"
+    },
+    "payload": {
+      "object": "payment_intent",
+      "amount": 5913,
+      "currency": "usd",
+      "status": "succeeded",
+      "triggered_by": "purchase.completed"
+    }
+  },
+  {
+    "id": "evt_3bf8f97acbbd",
+    "timestamp": "2026-03-12T18:20:01.167Z",
+    "source": "notifications",
+    "type": "notification.email_sent",
+    "correlationId": "cor_10bcf923",
+    "sessionId": "sess_7c570089",
+    "actor": {
+      "id": "user_0001",
+      "type": "user"
+    },
+    "payload": {
+      "template": "purchase_confirmation",
+      "to": "user_0001",
+      "triggered_by": "purchase.completed"
+    }
+  },
+  {
+    "id": "evt_6b638fc99e57",
+    "timestamp": "2026-03-12T18:20:01.780Z",
+    "source": "analytics",
+    "type": "analytics.event_tracked",
+    "correlationId": "cor_10bcf923",
+    "sessionId": "sess_7c570089",
+    "actor": {
+      "id": "user_0001",
+      "type": "user"
+    },
+    "payload": {
+      "event_name": "purchase.completed",
+      "properties": {
+        "source": "app"
+      },
+      "triggered_by": "purchase.completed"
+    }
+  },
+  {
+    "id": "evt_10b6a0a59183",
+    "timestamp": "2026-03-12T18:29:01.309Z",
+    "source": "app",
+    "type": "user.login",
+    "correlationId": "cor_e81b56d0",
+    "sessionId": "sess_f6f21057",
+    "actor": {
+      "id": "user_0004",
+      "type": "user"
+    },
+    "payload": {
+      "method": "password",
+      "success": true
+    }
+  },
+  {
+    "id": "evt_63f2341a3b78",
+    "timestamp": "2026-03-12T18:37:40.908Z",
+    "source": "app",
+    "type": "user.login",
+    "correlationId": "cor_2dbdfe24",
+    "sessionId": "sess_595b47db",
+    "actor": {
+      "id": "user_0010",
+      "type": "user"
+    },
+    "payload": {
+      "method": "password",
+      "success": true
+    }
+  },
+  {
+    "id": "evt_d9f2d926549a",
+    "timestamp": "2026-03-12T18:45:24.914Z",
+    "source": "app",
+    "type": "user.logout",
+    "correlationId": "cor_2f540be5",
+    "sessionId": "sess_441aabe1",
+    "actor": {
+      "id": "user_0001",
+      "type": "user"
+    },
+    "payload": {
+      "reason": "manual"
+    }
+  },
+  {
+    "id": "evt_4618c5e48eb4",
+    "timestamp": "2026-03-12T18:52:02.017Z",
+    "source": "app",
+    "type": "api.call",
+    "correlationId": "cor_c9eec33d",
+    "sessionId": "sess_bb362a53",
+    "actor": {
+      "id": "user_0001",
+      "type": "user"
+    },
+    "payload": {
+      "method": "GET",
+      "path": "/api/v1/data",
+      "status": 183,
+      "latency_ms": 41
+    }
+  },
+  {
+    "id": "evt_364aa5a9dac0",
+    "timestamp": "2026-03-12T18:56:15.682Z",
+    "source": "stripe",
+    "type": "invoice.paid",
+    "correlationId": "cor_d84dc903",
+    "sessionId": "sess_441aabe1",
+    "actor": {
+      "id": "user_0003",
+      "type": "user"
+    },
+    "payload": {
+      "amount": 3334
+    }
+  },
+  {
+    "id": "evt_7d6684c118d3",
+    "timestamp": "2026-03-12T19:02:47.854Z",
+    "source": "app",
+    "type": "purchase.completed",
+    "correlationId": "cor_ac17f143",
+    "sessionId": "sess_f6f21057",
+    "actor": {
+      "id": "user_0010",
+      "type": "user"
+    },
+    "payload": {
+      "amount": 4192,
+      "currency": "usd",
+      "items": 1
+    }
+  },
+  {
+    "id": "evt_d41e93a84a51",
+    "timestamp": "2026-03-12T19:02:48.405Z",
+    "source": "stripe",
+    "type": "payment_intent.succeeded",
+    "correlationId": "cor_ac17f143",
+    "sessionId": "sess_f6f21057",
+    "actor": {
+      "id": "user_0010",
+      "type": "user"
+    },
+    "payload": {
+      "object": "payment_intent",
+      "amount": 4192,
+      "currency": "usd",
+      "status": "succeeded",
+      "triggered_by": "purchase.completed"
+    }
+  },
+  {
+    "id": "evt_a8b4d8dc1a3c",
+    "timestamp": "2026-03-12T19:02:52.602Z",
+    "source": "notifications",
+    "type": "notification.email_sent",
+    "correlationId": "cor_ac17f143",
+    "sessionId": "sess_f6f21057",
+    "actor": {
+      "id": "user_0010",
+      "type": "user"
+    },
+    "payload": {
+      "template": "purchase_confirmation",
+      "to": "user_0010",
+      "triggered_by": "purchase.completed"
+    }
+  },
+  {
+    "id": "evt_9a790622a100",
+    "timestamp": "2026-03-12T19:02:53.145Z",
+    "source": "analytics",
+    "type": "analytics.event_tracked",
+    "correlationId": "cor_ac17f143",
+    "sessionId": "sess_f6f21057",
+    "actor": {
+      "id": "user_0010",
+      "type": "user"
+    },
+    "payload": {
+      "event_name": "purchase.completed",
+      "properties": {
+        "source": "app"
+      },
+      "triggered_by": "purchase.completed"
+    }
+  },
+  {
+    "id": "evt_0163eb078323",
+    "timestamp": "2026-03-12T19:13:38.084Z",
+    "source": "stripe",
+    "type": "payment_intent.succeeded",
+    "correlationId": "cor_c66f03a2",
+    "sessionId": "sess_fe6841b5",
+    "actor": {
+      "id": "user_0006",
+      "type": "user"
+    },
+    "payload": {
+      "amount": 3565,
+      "currency": "usd"
+    }
+  },
+  {
+    "id": "evt_ade15c26173a",
+    "timestamp": "2026-03-12T19:24:21.365Z",
+    "source": "app",
+    "type": "error.occurred",
+    "correlationId": "cor_2e15f882",
+    "sessionId": "sess_d73eb438",
+    "actor": {
+      "id": "user_0001",
+      "type": "user"
+    },
+    "payload": {
+      "code": "ERR_TIMEOUT",
+      "message": "Request timed out",
+      "severity": "warning"
+    }
+  },
+  {
+    "id": "evt_a5cd35d3fe3f",
+    "timestamp": "2026-03-12T19:33:33.395Z",
+    "source": "app",
+    "type": "api.call",
+    "correlationId": "cor_c343101f",
+    "sessionId": "sess_a907d090",
+    "actor": {
+      "id": "user_0002",
+      "type": "user"
+    },
+    "payload": {
+      "method": "GET",
+      "path": "/api/v1/data",
+      "status": 155,
+      "latency_ms": 41
+    }
+  },
+  {
+    "id": "evt_1aae85a1925b",
+    "timestamp": "2026-03-12T19:44:10.488Z",
+    "source": "app",
+    "type": "api.call",
+    "correlationId": "cor_62d3f191",
+    "sessionId": "sess_f6f21057",
+    "actor": {
+      "id": "user_0010",
+      "type": "user"
+    },
+    "payload": {
+      "method": "GET",
+      "path": "/api/v1/data",
+      "status": 143,
+      "latency_ms": 33
+    }
+  },
+  {
+    "id": "evt_b9ac3039dff5",
+    "timestamp": "2026-03-12T19:54:36.067Z",
+    "source": "app",
+    "type": "page.view",
+    "correlationId": "cor_3a8b8cf1",
+    "sessionId": "sess_ae5c62d5",
+    "actor": {
+      "id": "user_0001",
+      "type": "user"
+    },
+    "payload": {
+      "path": "/dashboard",
+      "duration_ms": 2772,
+      "referrer": null
+    }
+  },
+  {
+    "id": "evt_2031a358b8b7",
+    "timestamp": "2026-03-12T20:06:42.619Z",
+    "source": "app",
+    "type": "page.view",
+    "correlationId": "cor_af5c85ba",
+    "sessionId": "sess_fe6841b5",
+    "actor": {
+      "id": "user_0002",
+      "type": "user"
+    },
+    "payload": {
+      "path": "/dashboard",
+      "duration_ms": 2669,
+      "referrer": null
+    }
+  },
+  {
+    "id": "evt_8cf55a86db4f",
+    "timestamp": "2026-03-12T20:13:14.866Z",
+    "source": "app",
+    "type": "api.call",
+    "correlationId": "cor_9b980540",
+    "sessionId": "sess_441aabe1",
+    "actor": {
+      "id": "user_0010",
+      "type": "user"
+    },
+    "payload": {
+      "method": "GET",
+      "path": "/api/v1/data",
+      "status": 221,
+      "latency_ms": 40
+    }
+  }
+]

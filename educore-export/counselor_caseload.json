@@ -1,0 +1,272 @@
+[
+  {
+    "id": "76cc38ce-bd9a-48fe-af40-062ca7a438ba",
+    "counselor_id": "4b28ad58-e8fc-4646-a110-17cb2733f000",
+    "student_id": "76eeb5b7-efc5-4dfe-a40f-4084e558cc24",
+    "assigned_at": "2023-07-12T22:48:10.306Z",
+    "case_type": "Client epsilon zeta theta data lambda omega fox",
+    "notes": "Theta system lambda gamma kappa epsilon network epsilon",
+    "is_active": true
+  },
+  {
+    "id": "65b1264c-ad52-4e40-ac0f-60c9f218443b",
+    "counselor_id": "d784659e-b558-4e4c-bfd6-3bfc588ccc50",
+    "student_id": "9f5c45c9-f91a-440f-b4ad-911c859b3200",
+    "assigned_at": "2024-02-05T04:21:15.579Z",
+    "case_type": "Platform alpha cloud network lambda gamma omega gamma",
+    "notes": "Jumps beta quick epsilon lazy network fox module",
+    "is_active": true
+  },
+  {
+    "id": "0bf6c4f6-5726-4268-9541-d9a59e972bd3",
+    "counselor_id": "766f48a9-026d-41b2-93d1-577c585e76f1",
+    "student_id": "694630c5-e943-4c1e-bb0d-199a828263a4",
+    "assigned_at": "2024-06-10T04:04:57.635Z",
+    "case_type": "Lambda jumps over engine network dog beta dog",
+    "notes": "Epsilon client omega fox engine module fox zeta",
+    "is_active": true
+  },
+  {
+    "id": "6733a596-7f81-4448-ba06-bde365294b33",
+    "counselor_id": "a6cd9d2b-e8cd-472f-b086-df1fe33fd63c",
+    "student_id": "cc12c338-0daf-4d71-b3bc-d9501f291fc3",
+    "assigned_at": "2023-09-19T21:59:16.104Z",
+    "case_type": "Delta dog quick lazy over client over brown",
+    "notes": "System lazy quick gamma process delta jumps lambda",
+    "is_active": true
+  },
+  {
+    "id": "b2bfae39-cc18-4f95-a2e4-05a0b515ce20",
+    "counselor_id": "7e80e4b1-bb8a-4faa-a1fc-0cbf6adc8b10",
+    "student_id": "52dd83e6-9cf4-43ec-87a3-368936b6dfcc",
+    "assigned_at": "2023-02-06T08:35:19.194Z",
+    "case_type": "Delta beta theta dog brown alpha dog data",
+    "notes": "Kappa module alpha network gamma gamma module alpha",
+    "is_active": true
+  },
+  {
+    "id": "a2770eb7-5beb-40be-8e47-e1183eccdc56",
+    "counselor_id": "8ea63c92-b932-4c84-885e-14a4910993c8",
+    "student_id": "d56d3db1-1b4f-4ce5-94fb-c9a986c0b066",
+    "assigned_at": "2023-12-30T14:08:07.737Z",
+    "case_type": "Gamma zeta kappa client client lambda system service",
+    "notes": "Over kappa gamma the quick omega system lambda",
+    "is_active": true
+  },
+  {
+    "id": "d92910ed-9533-45bd-92ce-430fa177f692",
+    "counselor_id": "59a0480f-a822-4e90-9a3f-d93c4a9ef259",
+    "student_id": "d56d3db1-1b4f-4ce5-94fb-c9a986c0b066",
+    "assigned_at": "2024-05-28T22:16:26.694Z",
+    "case_type": "Network cloud platform theta dog cloud theta service",
+    "notes": "Network kappa quick process client brown dog zeta",
+    "is_active": true
+  },
+  {
+    "id": "467eb110-1872-4d75-b661-cdfb498c93ac",
+    "counselor_id": "2e3766e9-a020-4025-807b-fb9d7529ec0d",
+    "student_id": "111cdda3-8903-4dab-8b86-82bbcbe4286a",
+    "assigned_at": "2024-05-20T04:38:42.530Z",
+    "case_type": "Dog beta alpha lambda zeta epsilon engine zeta",
+    "notes": "Dog zeta lazy lazy system network dog module",
+    "is_active": true
+  },
+  {
+    "id": "2f2ee6d1-43a7-49f9-90d8-3abbddd51ab7",
+    "counselor_id": "b681f51b-ca01-4a98-a405-4c4acc39842c",
+    "student_id": "80e72420-85c7-434f-865b-b252f56c7d62",
+    "assigned_at": "2024-05-31T11:26:30.345Z",
+    "case_type": "Process lambda data gamma omega server epsilon service",
+    "notes": "Over module kappa module delta sigma over network",
+    "is_active": true
+  },
+  {
+    "id": "00a2c025-587b-46e4-b369-b067c3540b8f",
+    "counselor_id": "f2689502-5c65-49c3-aef4-f8e32def9767",
+    "student_id": "f18f4f3a-f183-4428-81e9-92a5b897b10c",
+    "assigned_at": "2023-10-15T19:43:03.012Z",
+    "case_type": "Over omega alpha brown the jumps theta service",
+    "notes": "Alpha process cloud data sigma delta theta client",
+    "is_active": true
+  },
+  {
+    "id": "5a5c1808-a064-46da-8ce6-07cad4709c1c",
+    "counselor_id": "517e8d26-1dab-4e37-9046-808c3f9d2695",
+    "student_id": "80e72420-85c7-434f-865b-b252f56c7d62",
+    "assigned_at": "2024-12-28T16:06:01.780Z",
+    "case_type": "Data zeta dog alpha network epsilon process lazy",
+    "notes": "Kappa module network gamma beta system client quick",
+    "is_active": true
+  },
+  {
+    "id": "ab865937-b0c0-4786-966d-e31c733f5c60",
+    "counselor_id": "69f5b687-0bbe-4c77-b5eb-f49c1b83bc19",
+    "student_id": "76eeb5b7-efc5-4dfe-a40f-4084e558cc24",
+    "assigned_at": "2024-08-13T21:36:40.719Z",
+    "case_type": "Delta the kappa fox platform gamma sigma client",
+    "notes": "Alpha lazy network engine dog server delta cloud",
+    "is_active": false
+  },
+  {
+    "id": "53f5e78b-fa1d-4615-855f-e1f2a70cd4e5",
+    "counselor_id": "8cf7c2d9-b4fb-4cd4-938e-1f3788e0c6a8",
+    "student_id": "0dfececf-2279-46a5-a564-5a40c41f3d20",
+    "assigned_at": "2023-04-22T03:05:43.463Z",
+    "case_type": "Omega module process server theta lambda network process",
+    "notes": "Lambda kappa lazy process engine server fox theta",
+    "is_active": false
+  },
+  {
+    "id": "1c6a9fa6-019f-42c2-a6cd-6d044327ea47",
+    "counselor_id": "7781eb01-3fc4-419f-8b94-51be4a11a433",
+    "student_id": "80e72420-85c7-434f-865b-b252f56c7d62",
+    "assigned_at": "2024-04-09T02:53:02.117Z",
+    "case_type": "Theta network platform theta omega platform module omega",
+    "notes": "Engine theta brown cloud quick data jumps the",
+    "is_active": true
+  },
+  {
+    "id": "73fd99e1-108c-40db-85bd-a2b00e13dee2",
+    "counselor_id": "ad22a461-0e88-4008-96ca-59fe3d62a7b6",
+    "student_id": "ee4f6e13-db7f-4ed5-be0e-dee24bf9d6c4",
+    "assigned_at": "2023-08-12T06:12:08.035Z",
+    "case_type": "Omega sigma platform module server server data zeta",
+    "notes": "Beta jumps lazy theta beta brown module client",
+    "is_active": true
+  },
+  {
+    "id": "b82409f2-f14f-42e6-a3a9-e1035c7b6302",
+    "counselor_id": "fea73dfd-bc21-4d5b-8108-5b5b7bafef1b",
+    "student_id": "f77a108d-5f7d-409a-9e99-71f4e87a2a1e",
+    "assigned_at": "2023-05-17T00:46:33.767Z",
+    "case_type": "System system epsilon the service engine theta server",
+    "notes": "Brown service dog delta kappa lambda alpha sigma",
+    "is_active": false
+  },
+  {
+    "id": "69963971-3dec-4905-b19c-608a9b100f0e",
+    "counselor_id": "5883e008-c0db-4858-808d-928400072bc4",
+    "student_id": "a931b9de-c102-436d-a32a-40b58176bc2c",
+    "assigned_at": "2024-09-20T20:24:37.133Z",
+    "case_type": "Dog alpha quick the lazy engine jumps brown",
+    "notes": "Dog lazy zeta client brown jumps epsilon the",
+    "is_active": true
+  },
+  {
+    "id": "dc595ae2-0c32-4c59-a73f-2a5e64859dea",
+    "counselor_id": "bb2189d9-c01b-4d54-90b2-af0264ef8d69",
+    "student_id": "0dfececf-2279-46a5-a564-5a40c41f3d20",
+    "assigned_at": "2023-09-26T12:56:00.218Z",
+    "case_type": "Dog sigma epsilon lambda platform cloud cloud gamma",
+    "notes": "Brown dog lazy client brown epsilon server lazy",
+    "is_active": false
+  },
+  {
+    "id": "6ba4a9b6-c903-4085-b2a0-accf62677965",
+    "counselor_id": "7667c57b-dcb6-48e3-9622-ab23005f52dd",
+    "student_id": "ee4f6e13-db7f-4ed5-be0e-dee24bf9d6c4",
+    "assigned_at": "2024-11-01T14:21:04.034Z",
+    "case_type": "System epsilon omega platform lazy network over zeta",
+    "notes": "Engine quick quick cloud lambda lambda zeta system",
+    "is_active": false
+  },
+  {
+    "id": "ec72eb2f-40b5-497b-83cf-40859f0ccdb2",
+    "counselor_id": "f79d7f2d-fa6b-4888-8774-b6ad0b6c3735",
+    "student_id": "ee4f6e13-db7f-4ed5-be0e-dee24bf9d6c4",
+    "assigned_at": "2023-05-30T07:29:54.127Z",
+    "case_type": "Kappa module data beta module delta alpha lambda",
+    "notes": "Jumps fox omega module engine epsilon dog fox",
+    "is_active": false
+  },
+  {
+    "id": "90fd103d-80ef-4c52-8d0a-7c0e8b51515a",
+    "counselor_id": "2a40dcfd-f572-4870-a72d-23e939e759ad",
+    "student_id": "848b1fb2-3e57-4903-97b0-60def4eb574f",
+    "assigned_at": "2024-08-17T14:13:21.412Z",
+    "case_type": "Process client module jumps fox data brown cloud",
+    "notes": "The beta epsilon jumps engine network epsilon jumps",
+    "is_active": true
+  },
+  {
+    "id": "90c037ed-4186-4b2a-a9a2-1891ce348814",
+    "counselor_id": "19cd8c6b-bd2b-4eb0-80c9-6320f997e88e",
+    "student_id": "9792e79b-8235-4a3e-a121-452c2ac73534",
+    "assigned_at": "2023-05-10T12:55:46.242Z",
+    "case_type": "Fox epsilon jumps epsilon process jumps sigma platform",
+    "notes": "Epsilon over lazy cloud lambda gamma lazy data",
+    "is_active": false
+  },
+  {
+    "id": "3b0feff6-6322-4713-b72a-ec1ef952f61e",
+    "counselor_id": "477e6d97-9627-4e5a-998b-6d1c0e2cd7f6",
+    "student_id": "24b6629c-2ac5-4c91-92ce-03bd657b328a",
+    "assigned_at": "2024-03-11T00:17:59.748Z",
+    "case_type": "Platform epsilon network epsilon jumps module data quick",
+    "notes": "Server platform sigma network delta lazy client epsilon",
+    "is_active": true
+  },
+  {
+    "id": "b6da6db2-9568-468d-bbd0-86d495d146c3",
+    "counselor_id": "68eb6a8c-a8a4-4605-a1bb-0bea010a96e0",
+    "student_id": "76eeb5b7-efc5-4dfe-a40f-4084e558cc24",
+    "assigned_at": "2023-12-04T17:25:22.380Z",
+    "case_type": "Sigma service process lazy delta cloud engine cloud",
+    "notes": "Server lambda client epsilon lazy engine cloud network",
+    "is_active": true
+  },
+  {
+    "id": "bc33ab24-fc15-400d-80f9-cf07c13e47f0",
+    "counselor_id": "cf5ec96f-97a8-40be-abbb-c79b0c55dd32",
+    "student_id": "9792e79b-8235-4a3e-a121-452c2ac73534",
+    "assigned_at": "2024-06-04T17:11:21.035Z",
+    "case_type": "Client engine module gamma kappa platform beta data",
+    "notes": "Theta over server engine cloud jumps beta zeta",
+    "is_active": false
+  },
+  {
+    "id": "008fdc22-f078-4d37-b7be-f46683f2e6c3",
+    "counselor_id": "1722ed70-0142-4e29-8cdc-ebfd0b12ddc9",
+    "student_id": "9792e79b-8235-4a3e-a121-452c2ac73534",
+    "assigned_at": "2024-05-26T22:14:09.208Z",
+    "case_type": "Client jumps system cloud brown delta client client",
+    "notes": "Data the network process platform delta beta over",
+    "is_active": true
+  },
+  {
+    "id": "4bec5196-a295-402d-9869-7a5b42803181",
+    "counselor_id": "84cf34e7-1905-494d-8fc6-3a1c39ea1693",
+    "student_id": "85e22c81-e96e-4465-a04f-60649fb8f9f2",
+    "assigned_at": "2023-06-22T14:54:04.968Z",
+    "case_type": "Over quick alpha quick fox theta the quick",
+    "notes": "Kappa lazy over gamma lambda dog lazy fox",
+    "is_active": true
+  },
+  {
+    "id": "ccc6030b-01ab-4d24-b94f-a3d61680a16c",
+    "counselor_id": "ab5dc3d1-e4d2-4503-be8c-c91b8f41cfe4",
+    "student_id": "f6dc8fad-a373-4a9c-ba5b-a1faccce700e",
+    "assigned_at": "2023-04-02T06:53:50.278Z",
+    "case_type": "Alpha delta alpha process sigma over client beta",
+    "notes": "System client jumps zeta client service the theta",
+    "is_active": true
+  },
+  {
+    "id": "6cfe9812-4377-4625-9d54-d09d8ac55957",
+    "counselor_id": "999c8ca5-e209-4fe8-b8e6-40f570036894",
+    "student_id": "848b1fb2-3e57-4903-97b0-60def4eb574f",
+    "assigned_at": "2024-07-21T12:09:26.095Z",
+    "case_type": "Sigma omega jumps client omega server omega beta",
+    "notes": "Module engine fox quick server data epsilon lazy",
+    "is_active": true
+  },
+  {
+    "id": "3e216f98-5e5e-477c-80bc-59c2fbc94a23",
+    "counselor_id": "e4c9ef4a-76c5-4b2b-b963-935c8877a827",
+    "student_id": "0dfececf-2279-46a5-a564-5a40c41f3d20",
+    "assigned_at": "2024-07-06T19:48:10.025Z",
+    "case_type": "Module fox beta theta over process quick engine",
+    "notes": "Sigma sigma gamma alpha theta fox kappa fox",
+    "is_active": false
+  }
+]

@@ -193,7 +193,7 @@ function applyLifecycleOverlay(
           if (validColumns && !validColumns.has(col)) {
             const key = `${lifecycle.rootTable}.${col}`;
             if (!warnedColumns.has(key)) {
-              console.warn(`[lifecycle] Skipping column '${col}' on table '${lifecycle.rootTable}' — does not exist in schema`);
+              console.warn(`Skipping lifecycle column '${col}' on table '${lifecycle.rootTable}' — not in schema`);
               warnedColumns.add(key);
             }
             continue;
@@ -224,7 +224,7 @@ function applyLifecycleOverlay(
         if (validColumns && !validColumns.has(col)) {
           const key = `${tableName}.${col}`;
           if (!warnedColumns.has(key)) {
-            console.warn(`[lifecycle] Skipping column '${col}' on table '${tableName}' — does not exist in schema`);
+            console.warn(`Skipping lifecycle column '${col}' on table '${tableName}' — not in schema`);
             warnedColumns.add(key);
           }
           continue;

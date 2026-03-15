@@ -27,6 +27,10 @@ function toMySQLValue(value: unknown): unknown {
   if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)) {
     return value.replace('T', ' ').replace(/\.\d{3}Z$/, '').replace(/Z$/, '');
   }
+  // Serialize objects/arrays as JSON strings for JSON columns
+  if (value !== null && typeof value === 'object') {
+    return JSON.stringify(value);
+  }
   return value;
 }
 

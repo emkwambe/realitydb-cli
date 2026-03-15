@@ -1,0 +1,452 @@
+[
+  {
+    "id": "9972daab-2c86-459f-9d78-3fe1be4e3280",
+    "created_at": "2023-08-18T18:33:26.806Z",
+    "updated_at": "2023-10-13T05:55:18.694Z",
+    "name": "NC DPI",
+    "slug": " 1",
+    "contact_email": "melissa.wood.0@gmail.com",
+    "is_active": true
+  },
+  {
+    "id": "08440f2f-c887-462c-977c-cf5173090d8e",
+    "created_at": "2023-10-23T09:17:56.169Z",
+    "updated_at": "2024-07-06T00:32:22.986Z",
+    "name": "State Board of Education",
+    "slug": " 2",
+    "contact_email": "charles.walker.1@fastmail.com",
+    "is_active": false
+  },
+  {
+    "id": "8234484b-13a8-4eb1-ad16-f16ef1231c04",
+    "created_at": "2024-04-12T20:59:29.698Z",
+    "updated_at": "2024-01-15T08:13:17.368Z",
+    "name": "OCS - Office of Charter Schools",
+    "slug": " 3",
+    "contact_email": "rachel.davis.2@fastmail.com",
+    "is_active": false
+  },
+  {
+    "id": "47b42d85-d21e-4e90-aa6f-94569852ba4b",
+    "created_at": "2024-02-07T16:09:24.687Z",
+    "updated_at": "2023-04-26T12:26:11.545Z",
+    "name": "State Board of Education",
+    "slug": " 4",
+    "contact_email": "heather.hughes.3@protonmail.com",
+    "is_active": true
+  },
+  {
+    "id": "4b19b250-c9e7-4779-9221-f92db5b33969",
+    "created_at": "2024-09-03T16:34:32.151Z",
+    "updated_at": "2023-09-11T02:14:41.491Z",
+    "name": "CSAB - Charlotte",
+    "slug": " 5",
+    "contact_email": "charles.morales.4@zoho.com",
+    "is_active": true
+  },
+  {
+    "id": "ca6421dd-5e02-4ca2-a0e8-359a7d2f0cb4",
+    "created_at": "2023-08-02T21:21:29.687Z",
+    "updated_at": "2024-06-02T05:03:29.249Z",
+    "name": "CSAB - Charlotte",
+    "slug": " 6",
+    "contact_email": "dorothy.williams.5@outlook.com",
+    "is_active": false
+  },
+  {
+    "id": "92fd292b-8f4a-456f-abaf-6656e5537e9c",
+    "created_at": "2023-11-29T03:44:11.219Z",
+    "updated_at": "2023-10-28T19:30:00.077Z",
+    "name": "CSAB - Charlotte",
+    "slug": " 7",
+    "contact_email": "steven.robinson.6@hotmail.com",
+    "is_active": true
+  },
+  {
+    "id": "382bb150-1f50-4a93-b57b-61b6e9cf7027",
+    "created_at": "2023-04-08T15:06:58.422Z",
+    "updated_at": "2023-12-14T06:10:12.498Z",
+    "name": "UNC System Charter Board",
+    "slug": " 8",
+    "contact_email": "rachel.rivera.7@yahoo.com",
+    "is_active": true
+  },
+  {
+    "id": "ce35638b-fc7d-4cd7-be0d-112b81adc2fd",
+    "created_at": "2023-05-16T08:04:35.913Z",
+    "updated_at": "2023-09-27T22:07:35.342Z",
+    "name": "UNC System Charter Board",
+    "slug": " 9",
+    "contact_email": "christine.reyes.8@hotmail.com",
+    "is_active": true
+  },
+  {
+    "id": "e0ae59f0-a054-4826-9d05-15a5b9f4e177",
+    "created_at": "2023-08-03T12:59:34.012Z",
+    "updated_at": "2024-09-17T00:55:41.395Z",
+    "name": "CSAB - Charlotte",
+    "slug": " 10",
+    "contact_email": "susan.jones.9@outlook.com",
+    "is_active": true
+  },
+  {
+    "id": "91b7cbc8-32aa-4471-b875-6c544e258144",
+    "created_at": "2023-12-10T16:38:05.395Z",
+    "updated_at": "2023-11-27T23:47:23.608Z",
+    "name": "State Board of Education",
+    "slug": " 11",
+    "contact_email": "carol.wilson.10@gmail.com",
+    "is_active": true
+  },
+  {
+    "id": "f111de6e-8019-420e-9e3a-b39018f7c0a9",
+    "created_at": "2023-05-30T15:21:44.449Z",
+    "updated_at": "2023-11-27T08:52:46.504Z",
+    "name": "UNC System Charter Board",
+    "slug": " 12",
+    "contact_email": "edward.moore.11@gmail.com",
+    "is_active": true
+  },
+  {
+    "id": "0f43acab-8ffa-4565-9648-d58934f1f344",
+    "created_at": "2023-12-19T14:19:39.805Z",
+    "updated_at": "2023-04-14T04:31:24.344Z",
+    "name": "KIPP Foundation",
+    "slug": " 13",
+    "contact_email": "jonathan.cruz.12@zoho.com",
+    "is_active": true
+  },
+  {
+    "id": "7ec08caf-8d8b-47fb-844f-a1aadd63e051",
+    "created_at": "2023-03-30T16:37:24.029Z",
+    "updated_at": "2024-03-05T07:56:46.253Z",
+    "name": "CSAB - Charlotte",
+    "slug": " 14",
+    "contact_email": "rebecca.wood.13@mail.com",
+    "is_active": false
+  },
+  {
+    "id": "b12649f6-7c46-41c5-bdb6-2fd8e78b7812",
+    "created_at": "2024-01-02T01:38:06.168Z",
+    "updated_at": "2023-03-20T22:51:53.684Z",
+    "name": "State Board of Education",
+    "slug": " 15",
+    "contact_email": "kevin.hall.14@mail.com",
+    "is_active": true
+  },
+  {
+    "id": "840b2a18-1f60-44d6-ae15-0845b345dba0",
+    "created_at": "2023-03-09T11:15:29.646Z",
+    "updated_at": "2023-03-24T15:46:27.078Z",
+    "name": "CSAB - Charlotte",
+    "slug": " 16",
+    "contact_email": "elizabeth.morales.15@outlook.com",
+    "is_active": true
+  },
+  {
+    "id": "4742b884-7c97-4bc8-b0eb-1d0f08573d3a",
+    "created_at": "2023-01-09T00:26:29.134Z",
+    "updated_at": "2023-11-03T17:23:15.209Z",
+    "name": "UNC System Charter Board",
+    "slug": " 17",
+    "contact_email": "andrew.cook.16@gmail.com",
+    "is_active": true
+  },
+  {
+    "id": "cc6034c9-8123-45c5-aede-ca7ef32c258d",
+    "created_at": "2023-08-27T12:40:47.632Z",
+    "updated_at": "2024-08-03T05:02:33.984Z",
+    "name": "Innovative School District",
+    "slug": " 18",
+    "contact_email": "matthew.wilson.17@mail.com",
+    "is_active": true
+  },
+  {
+    "id": "8e34ec85-be0c-4594-880c-53b6c240dc74",
+    "created_at": "2024-08-20T16:01:19.513Z",
+    "updated_at": "2023-09-19T20:38:33.723Z",
+    "name": "OCS - Office of Charter Schools",
+    "slug": " 19",
+    "contact_email": "christopher.bennett.18@gmail.com",
+    "is_active": true
+  },
+  {
+    "id": "fe367882-9e7c-4c28-bad4-583484c3727c",
+    "created_at": "2024-06-30T21:42:32.885Z",
+    "updated_at": "2024-01-02T11:33:39.496Z",
+    "name": "NC DPI",
+    "slug": " 20",
+    "contact_email": "gregory.torres.19@protonmail.com",
+    "is_active": true
+  },
+  {
+    "id": "810aaa10-e6c3-48cf-8d96-8c7b83797393",
+    "created_at": "2024-12-20T02:26:18.546Z",
+    "updated_at": "2023-08-02T22:52:35.743Z",
+    "name": "NC DPI",
+    "slug": " 21",
+    "contact_email": "anna.jackson.20@hotmail.com",
+    "is_active": true
+  },
+  {
+    "id": "ee479ee7-760b-417e-b177-c01fb798f2d5",
+    "created_at": "2024-01-17T02:51:30.321Z",
+    "updated_at": "2024-12-25T23:19:07.356Z",
+    "name": "KIPP Foundation",
+    "slug": " 22",
+    "contact_email": "michael.phillips.21@protonmail.com",
+    "is_active": true
+  },
+  {
+    "id": "8e9cdaaa-fbfa-47cf-b5cf-2816fe087ddf",
+    "created_at": "2023-08-24T04:38:26.505Z",
+    "updated_at": "2023-06-14T10:55:32.798Z",
+    "name": "CSAB - Charlotte",
+    "slug": " 23",
+    "contact_email": "raymond.rivera.22@aol.com",
+    "is_active": true
+  },
+  {
+    "id": "40275fb9-0c23-4d9e-9fa2-f968cabd04af",
+    "created_at": "2023-04-03T01:03:51.476Z",
+    "updated_at": "2024-06-29T07:19:03.899Z",
+    "name": "OCS - Office of Charter Schools",
+    "slug": " 24",
+    "contact_email": "rachel.campbell.23@hotmail.com",
+    "is_active": true
+  },
+  {
+    "id": "a1507687-fe2c-4813-a4cb-6f98d564962b",
+    "created_at": "2023-01-19T03:12:40.894Z",
+    "updated_at": "2024-08-21T16:09:41.951Z",
+    "name": "State Board of Education",
+    "slug": " 25",
+    "contact_email": "stephen.cruz.24@icloud.com",
+    "is_active": true
+  },
+  {
+    "id": "e5c5000f-18e8-4008-860e-bea20067d358",
+    "created_at": "2024-08-09T06:39:20.132Z",
+    "updated_at": "2023-07-08T21:35:38.017Z",
+    "name": "State Board of Education",
+    "slug": " 26",
+    "contact_email": "john.morales.25@icloud.com",
+    "is_active": false
+  },
+  {
+    "id": "946a9669-9731-42b5-bb48-ecf16e9856aa",
+    "created_at": "2023-01-17T10:41:14.526Z",
+    "updated_at": "2023-03-22T10:17:08.940Z",
+    "name": "State Board of Education",
+    "slug": " 27",
+    "contact_email": "andrew.price.26@icloud.com",
+    "is_active": false
+  },
+  {
+    "id": "3b2651fb-81f9-45a6-9afd-40f639f24e83",
+    "created_at": "2024-03-22T10:02:02.329Z",
+    "updated_at": "2024-07-26T16:05:30.556Z",
+    "name": "CSAB - Charlotte",
+    "slug": " 28",
+    "contact_email": "jack.morales.27@hotmail.com",
+    "is_active": true
+  },
+  {
+    "id": "5d722d92-e6a8-4ae3-96da-71a17496a9a0",
+    "created_at": "2024-03-08T14:34:09.170Z",
+    "updated_at": "2024-08-27T15:46:29.304Z",
+    "name": "NC DPI",
+    "slug": " 29",
+    "contact_email": "brenda.hill.28@hotmail.com",
+    "is_active": true
+  },
+  {
+    "id": "20a6470b-75b3-42b5-b747-9e57599d77d0",
+    "created_at": "2024-10-31T11:01:01.244Z",
+    "updated_at": "2024-08-08T10:23:45.113Z",
+    "name": "CSAB - Charlotte",
+    "slug": " 30",
+    "contact_email": "frank.bennett.29@aol.com",
+    "is_active": true
+  },
+  {
+    "id": "2ca99cc0-f067-4029-a692-2c08db188885",
+    "created_at": "2023-10-22T09:18:45.626Z",
+    "updated_at": "2023-01-19T10:20:09.689Z",
+    "name": "OCS - Office of Charter Schools",
+    "slug": " 31",
+    "contact_email": "shirley.evans.30@aol.com",
+    "is_active": false
+  },
+  {
+    "id": "1639eb63-b489-4053-9f56-a5dfe13d967e",
+    "created_at": "2023-12-20T19:16:58.746Z",
+    "updated_at": "2023-07-18T22:39:57.752Z",
+    "name": "OCS - Office of Charter Schools",
+    "slug": " 32",
+    "contact_email": "kenneth.jimenez.31@outlook.com",
+    "is_active": true
+  },
+  {
+    "id": "0a270c1f-56c4-4673-a1ff-b97059bf4a95",
+    "created_at": "2024-06-22T07:28:53.900Z",
+    "updated_at": "2024-10-10T16:02:06.798Z",
+    "name": "UNC System Charter Board",
+    "slug": " 33",
+    "contact_email": "emily.lopez.32@aol.com",
+    "is_active": true
+  },
+  {
+    "id": "c093109e-e030-4738-b873-6a05650d627b",
+    "created_at": "2024-03-14T14:08:52.228Z",
+    "updated_at": "2024-12-20T00:43:39.706Z",
+    "name": "KIPP Foundation",
+    "slug": " 34",
+    "contact_email": "scott.thompson.33@yahoo.com",
+    "is_active": true
+  },
+  {
+    "id": "b0caf9da-e33e-4482-9236-00d7e8ee3922",
+    "created_at": "2024-12-24T03:32:41.285Z",
+    "updated_at": "2023-02-04T14:35:42.961Z",
+    "name": "State Board of Education",
+    "slug": " 35",
+    "contact_email": "amy.martinez.34@mail.com",
+    "is_active": true
+  },
+  {
+    "id": "cb03d839-865e-4346-a6fd-8e3408cf0aed",
+    "created_at": "2024-04-29T22:03:33.458Z",
+    "updated_at": "2023-02-05T17:11:38.749Z",
+    "name": "KIPP Foundation",
+    "slug": " 36",
+    "contact_email": "scott.anderson.35@hotmail.com",
+    "is_active": true
+  },
+  {
+    "id": "11a38b99-a897-40e1-af9f-6ace396c1af0",
+    "created_at": "2024-08-08T15:40:00.267Z",
+    "updated_at": "2024-07-16T10:28:09.847Z",
+    "name": "OCS - Office of Charter Schools",
+    "slug": " 37",
+    "contact_email": "jacob.parker.36@protonmail.com",
+    "is_active": true
+  },
+  {
+    "id": "5a6db914-9fa6-46e0-9a7c-c72575a76631",
+    "created_at": "2023-01-17T09:34:06.874Z",
+    "updated_at": "2023-02-27T21:20:32.777Z",
+    "name": "CSAB - Raleigh",
+    "slug": " 38",
+    "contact_email": "patrick.price.37@gmail.com",
+    "is_active": true
+  },
+  {
+    "id": "dd457ecc-58b9-4af5-8ff2-bd754b445e45",
+    "created_at": "2024-08-02T18:48:49.774Z",
+    "updated_at": "2024-12-10T08:49:15.130Z",
+    "name": "State Board of Education",
+    "slug": " 39",
+    "contact_email": "jessica.sanchez.38@gmail.com",
+    "is_active": true
+  },
+  {
+    "id": "16bb8c73-55a4-474c-88df-bdaa7b5e99fb",
+    "created_at": "2024-05-27T22:15:24.119Z",
+    "updated_at": "2024-03-06T22:49:10.430Z",
+    "name": "CSAB - Raleigh",
+    "slug": " 40",
+    "contact_email": "sandra.ortiz.39@hotmail.com",
+    "is_active": true
+  },
+  {
+    "id": "a4ca8ffd-dee7-4882-a3da-400f9b0421ba",
+    "created_at": "2024-08-31T02:58:13.786Z",
+    "updated_at": "2024-07-11T04:11:19.974Z",
+    "name": "NC DPI",
+    "slug": " 41",
+    "contact_email": "joshua.long.40@protonmail.com",
+    "is_active": true
+  },
+  {
+    "id": "dbcf44d3-5d41-4fb9-80e4-7d409da246e4",
+    "created_at": "2023-05-30T12:19:51.749Z",
+    "updated_at": "2023-10-01T02:09:24.824Z",
+    "name": "State Board of Education",
+    "slug": " 42",
+    "contact_email": "stephanie.alvarez.41@protonmail.com",
+    "is_active": false
+  },
+  {
+    "id": "d116e0b7-d53e-4ed6-a491-dd685d880b49",
+    "created_at": "2023-01-26T12:33:25.004Z",
+    "updated_at": "2023-01-30T19:46:46.662Z",
+    "name": "OCS - Office of Charter Schools",
+    "slug": " 43",
+    "contact_email": "rebecca.martin.42@gmail.com",
+    "is_active": false
+  },
+  {
+    "id": "4949ffa9-3f4d-4539-a5fc-a462c02c9375",
+    "created_at": "2023-10-26T04:16:00.776Z",
+    "updated_at": "2024-04-17T21:14:28.995Z",
+    "name": "OCS - Office of Charter Schools",
+    "slug": " 44",
+    "contact_email": "melissa.carter.43@mail.com",
+    "is_active": true
+  },
+  {
+    "id": "afcf9e22-542c-4f19-87c1-47077f11ca79",
+    "created_at": "2024-07-12T23:35:15.780Z",
+    "updated_at": "2023-10-06T14:19:28.548Z",
+    "name": "OCS - Office of Charter Schools",
+    "slug": " 45",
+    "contact_email": "edward.wood.44@aol.com",
+    "is_active": true
+  },
+  {
+    "id": "00d3c985-1445-4cce-b621-499fbabbf67e",
+    "created_at": "2023-04-15T10:29:44.470Z",
+    "updated_at": "2023-03-07T07:44:26.523Z",
+    "name": "State Board of Education",
+    "slug": " 46",
+    "contact_email": "christine.torres.45@yahoo.com",
+    "is_active": true
+  },
+  {
+    "id": "819f47f8-f7b9-4a3e-8b11-4c84a2ffc2bf",
+    "created_at": "2023-05-19T06:36:23.588Z",
+    "updated_at": "2023-01-06T10:02:56.327Z",
+    "name": "UNC System Charter Board",
+    "slug": " 47",
+    "contact_email": "christine.stewart.46@aol.com",
+    "is_active": true
+  },
+  {
+    "id": "8e0a5e33-bd35-4d38-874c-052530f1f857",
+    "created_at": "2024-05-04T22:23:43.036Z",
+    "updated_at": "2023-03-17T07:58:19.851Z",
+    "name": "Innovative School District",
+    "slug": " 48",
+    "contact_email": "daniel.king.47@yahoo.com",
+    "is_active": true
+  },
+  {
+    "id": "e6b3cdd6-b2b8-4e42-a93a-f5288fd256e8",
+    "created_at": "2023-02-09T17:57:12.799Z",
+    "updated_at": "2023-07-28T22:23:24.123Z",
+    "name": "NC DPI",
+    "slug": " 49",
+    "contact_email": "karen.gomez.48@zoho.com",
+    "is_active": true
+  },
+  {
+    "id": "d4100a9d-6221-41df-b313-08313ef0e665",
+    "created_at": "2024-01-03T23:50:38.814Z",
+    "updated_at": "2024-05-02T22:58:35.246Z",
+    "name": "OCS - Office of Charter Schools",
+    "slug": " 50",
+    "contact_email": "daniel.clark.49@mail.com",
+    "is_active": true
+  }
+]

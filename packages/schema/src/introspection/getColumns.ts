@@ -12,7 +12,8 @@ export async function getColumns(
               IS_NULLABLE AS is_nullable, COLUMN_DEFAULT AS column_default,
               CHARACTER_MAXIMUM_LENGTH AS character_maximum_length,
               NUMERIC_PRECISION AS numeric_precision, NUMERIC_SCALE AS numeric_scale,
-              ORDINAL_POSITION AS ordinal_position
+              ORDINAL_POSITION AS ordinal_position,
+              EXTRA AS extra
        FROM information_schema.columns
        WHERE TABLE_SCHEMA = ?
        ORDER BY TABLE_NAME, ORDINAL_POSITION`,

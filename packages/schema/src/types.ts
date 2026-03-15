@@ -26,6 +26,8 @@ export interface ColumnSchema {
   isPrimaryKey: boolean;
   isUnique: boolean;
   ordinalPosition: number;
+  /** True for MySQL GENERATED columns (virtual or stored) — must be excluded from INSERT. */
+  isGenerated?: boolean;
 }
 
 export interface PrimaryKeySchema {
