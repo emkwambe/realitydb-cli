@@ -29,19 +29,15 @@ import {
   simulateWebhooksCommand,
 } from './commands/simulate.js';
 
-<<<<<<< HEAD
 declare const __PKG_VERSION__: string;
 const VERSION = __PKG_VERSION__;
-=======
-const VERSION = '1.7.0';
->>>>>>> claude/databox-platform-setup-KfIH1
 
 export function run(argv: string[]): void {
   const program = new Command();
 
   program
     .name('realitydb')
-    .description('RealityDB ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â Developer Reality Platform')
+    .description('RealityDB ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â Developer Reality Platform')
     .version(VERSION)
     .option('--config <path>', 'Path to config file')
     .option('--ci', 'CI mode: JSON output, no prompts, proper exit codes', false)
@@ -49,7 +45,7 @@ export function run(argv: string[]): void {
 
   program
     .command('init')
-    .description('Interactive setup wizard ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â connect, scan, and seed in one step')
+    .description('Interactive setup wizard ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â connect, scan, and seed in one step')
     .action(async () => {
       await initCommand();
     });
@@ -85,7 +81,7 @@ export function run(argv: string[]): void {
     .option('--scenario-intensity <level>', 'Scenario intensity (low|medium|high)', 'medium')
     .option('--scenario-schedule <schedule>', 'Timeline-scheduled scenarios (e.g., "fraud-spike:month-6,churn-spike:month-9")')
     .option('--lifecycle', 'Enable lifecycle simulation for causally-connected data')
-    .option('--auto-template', 'Run analyze → generate template → seed in one command')
+    .option('--auto-template', 'Run analyze â†’ generate template â†’ seed in one command')
     .action(async (cmdOpts) => {
       const opts = program.opts();
       await seedCommand({ ...cmdOpts, ci: opts.ci, configPath: opts.config });
@@ -390,7 +386,7 @@ export function run(argv: string[]): void {
       console.log(JSON.stringify({ name: 'realitydb', version: VERSION }));
     } else {
       console.log('');
-      console.log(`RealityDB v${VERSION} ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â Developer Reality Platform`);
+      console.log(`RealityDB v${VERSION} ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â Developer Reality Platform`);
       console.log('Run `realitydb --help` for available commands.');
       console.log('');
     }
