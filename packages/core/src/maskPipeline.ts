@@ -3,7 +3,7 @@ import type { DatabaseSchema } from '@databox/schema';
 import { createDatabaseClient, testConnection, closeConnection, withTransaction, batchInsertTable, readTableRows, truncateTables } from '@databox/db';
 import { createSeededRandom } from '@databox/shared';
 import { introspectDatabase } from '@databox/schema';
-import { detectTablePII, maskTableRows, buildAuditLog, exportToJson, exportToCsv, exportToSql, tokenizeTableRows, buildTokenMap, serializeTokenMap, generateTokenPrefix, scanColumnValues } from '@databox/generators';
+import { detectTablePII, maskTableRows, buildAuditLog, exportToJson, exportToCsv, exportToSql, tokenizeTableRows, buildTokenMap, serializeTokenMap, generateTokenPrefix, scanColumnValues, isFreeTextColumn } from '@databox/generators';
 import type { PIIDetection, ComplianceMode, MaskTableResult, MaskAuditLog, GeneratedTable, TokenEntry, TokenMap } from '@databox/generators';
 import { buildDependencyGraph, topologicalSort } from './planning/index.js';
 
@@ -88,7 +88,9 @@ export async function maskDatabase(
 
         for (const candidate of safeCandidates) {
           const values = sampleRows.map((r) => r[candidate.columnName]);
-          const scanResults = scanColumnValues(values);
+          const col = table.columns.find((c) => c.name === candidate.columnName);
+          const freeText = col ? isFreeTextColumn(col.name, col.udtName, col.maxLength) : false;
+          const scanResults = scanColumnValues(values, { isFreeText: freeText });
 
           if (scanResults.length > 0) {
             // Promote the most confident result
@@ -246,14 +248,6 @@ export async function maskDatabase(
     let tokenMap: TokenMap | undefined;
     if (useTokenization && allTokenEntries.length > 0) {
       tokenMap = buildTokenMap(allTokenEntries, tokenPrefix);
-
-      // Write token map to file if path provided
-      if (options?.tokenMapOutput) {
-        const { writeFileSync } = await import('node:fs');
-        const { resolve } = await import('node:path');
-        const tokenMapPath = resolve(options.tokenMapOutput);
-        writeFileSync(tokenMapPath, serializeTokenMap(tokenMap) + '\n', 'utf-8');
-      }
     }
 
     const durationMs = Math.round(performance.now() - start);

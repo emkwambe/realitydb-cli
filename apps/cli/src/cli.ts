@@ -14,6 +14,7 @@ import { packsListCommand } from './commands/packs.js';
 import { generateCommand } from './commands/generate.js';
 import { analyzeCommand } from './commands/analyze.js';
 import { maskCommand } from './commands/mask.js';
+import { auditVerifyCommand, auditSummaryCommand, auditReIdentifyCommand } from './commands/audit.js';
 import {
   classroomListCommand,
   classroomStartCommand,
@@ -28,7 +29,7 @@ import {
   simulateWebhooksCommand,
 } from './commands/simulate.js';
 
-const VERSION = '1.5.1';
+const VERSION = '1.7.0';
 
 export function run(argv: string[]): void {
   const program = new Command();
@@ -61,6 +62,8 @@ export function run(argv: string[]): void {
     .description('Analyze database schema and suggest column strategies')
     .option('--output <file>', 'Generate a template JSON file from analysis')
     .option('--sample-size <count>', 'Number of rows to sample per table', '1000')
+    .option('--unsafe-analyze', 'Disable PII sanitization (local dev only)')
+    .option('--auto-template', 'Generate template from analysis (default: ./realitydb-template.json)')
     .action(async (cmdOpts) => {
       const opts = program.opts();
       await analyzeCommand({ ...cmdOpts, ci: opts.ci, configPath: opts.config });
@@ -77,6 +80,7 @@ export function run(argv: string[]): void {
     .option('--scenario-intensity <level>', 'Scenario intensity (low|medium|high)', 'medium')
     .option('--scenario-schedule <schedule>', 'Timeline-scheduled scenarios (e.g., "fraud-spike:month-6,churn-spike:month-9")')
     .option('--lifecycle', 'Enable lifecycle simulation for causally-connected data')
+    .option('--auto-template', 'Run analyze → generate template → seed in one command')
     .action(async (cmdOpts) => {
       const opts = program.opts();
       await seedCommand({ ...cmdOpts, ci: opts.ci, configPath: opts.config });
@@ -177,6 +181,35 @@ export function run(argv: string[]): void {
     .action(async (cmdOpts) => {
       const opts = program.opts();
       await maskCommand({ ...cmdOpts, ci: opts.ci, configPath: opts.config });
+    });
+
+  const audit = program
+    .command('audit')
+    .description('Audit log operations');
+
+  audit
+    .command('verify <log-file>')
+    .description('Verify audit log hash chain integrity')
+    .action(async (logFile: string) => {
+      const opts = program.opts();
+      await auditVerifyCommand(logFile, { ci: opts.ci });
+    });
+
+  audit
+    .command('summary <log-file>')
+    .description('Print formatted compliance summary from audit log')
+    .action(async (logFile: string) => {
+      const opts = program.opts();
+      await auditSummaryCommand(logFile, { ci: opts.ci });
+    });
+
+  audit
+    .command('re-identify')
+    .description('Decrypt token map and display original PII mappings')
+    .requiredOption('--token-map <file>', 'Encrypted token map file')
+    .action(async (cmdOpts) => {
+      const opts = program.opts();
+      await auditReIdentifyCommand({ ...cmdOpts, ci: opts.ci });
     });
 
   const classroom = program

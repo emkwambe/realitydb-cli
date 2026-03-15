@@ -1,11 +1,41 @@
 import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { createInterface } from 'node:readline';
+import { stdin, stdout } from 'node:process';
 import { loadConfig } from '@databox/config';
 import { maskDatabase, formatAuditLog, serializeAuditLog } from '@databox/core';
+import { encryptTokenMap } from '@databox/generators';
 import { formatCIOutput } from '@databox/shared';
 import { maskConnectionString } from '../utils.js';
 
 const VERSION = '1.3.1';
+
+/**
+ * Prompts for a passphrase with masked input (callback-based readline for Windows compatibility).
+ */
+function askPassphrase(prompt: string): Promise<string> {
+  return new Promise((resolvePromise) => {
+    const rl = createInterface({ input: stdin, output: stdout });
+    // Mute output for passphrase entry
+    const originalWrite = stdout.write.bind(stdout);
+    let muted = false;
+    stdout.write = ((chunk: string | Uint8Array, ...args: unknown[]) => {
+      if (muted && typeof chunk === 'string' && !chunk.includes(prompt)) {
+        return originalWrite('*');
+      }
+      return (originalWrite as (...a: unknown[]) => boolean)(chunk, ...args);
+    }) as typeof stdout.write;
+
+    rl.question(prompt, (answer) => {
+      muted = false;
+      stdout.write = originalWrite;
+      console.log('');
+      rl.close();
+      resolvePromise(answer);
+    });
+    muted = true;
+  });
+}
 
 export async function maskCommand(options: {
   mode?: string;
@@ -85,7 +115,7 @@ export async function maskCommand(options: {
       if (options.tokenize) {
         console.log('Masking: tokenization (reversible)');
         if (options.tokenMap) {
-          console.log(`Token map: ${options.tokenMap}`);
+          console.log(`Token map: ${options.tokenMap} (AES-256-GCM encrypted)`);
         }
       }
       if (options.auditLog) {
@@ -104,7 +134,6 @@ export async function maskCommand(options: {
       auditLog: options.auditLog,
       confirm: options.confirm,
       tokenize: options.tokenize,
-      tokenMapOutput: options.tokenMap,
       deepScan: options.deepScan,
     });
 
@@ -114,6 +143,25 @@ export async function maskCommand(options: {
     if (options.auditLog) {
       const auditPath = resolve(options.auditLog);
       writeFileSync(auditPath, serializeAuditLog(result.auditLog) + '\n', 'utf-8');
+    }
+
+    // Write encrypted token map if requested
+    if (options.tokenMap && result.tokenMap) {
+      const passphrase = await askPassphrase('Enter passphrase for token map encryption: ');
+      if (!passphrase || passphrase.length === 0) {
+        console.error('[realitydb] Passphrase cannot be empty. Token map not written.');
+      } else {
+        const encryptedData = encryptTokenMap(result.tokenMap, passphrase);
+        const tokenMapPath = resolve(options.tokenMap);
+        writeFileSync(tokenMapPath, encryptedData + '\n', 'utf-8');
+
+        if (!options.ci) {
+          console.log(`Token map exported (AES-256-GCM encrypted) → ${tokenMapPath}`);
+          console.log(`  ${result.tokenMap.totalTokens} unique tokens generated`);
+          console.log('  Store the passphrase securely — it cannot be recovered');
+          console.log('');
+        }
+      }
     }
 
     if (options.ci) {
@@ -157,13 +205,6 @@ export async function maskCommand(options: {
 
     if (options.auditLog) {
       console.log(`Audit log written to: ${resolve(options.auditLog)}`);
-      console.log('');
-    }
-
-    if (options.tokenMap && result.tokenMap) {
-      console.log(`Token map written to: ${resolve(options.tokenMap)}`);
-      console.log(`  ${result.tokenMap.totalTokens} unique tokens generated`);
-      console.log('  WARNING: Store this file securely — it enables re-identification');
       console.log('');
     }
 

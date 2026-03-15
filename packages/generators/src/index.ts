@@ -174,8 +174,11 @@ export {
   buildTokenMap,
   serializeTokenMap,
   generateTokenPrefix,
+  encryptTokenMap,
+  decryptTokenMap,
   scanColumnValues,
   containsPII,
+  isFreeTextColumn,
 } from './mask/index.js';
 export type {
   PIICategory,
@@ -189,6 +192,8 @@ export type {
   TokenMap,
   TokenizeTableResult,
   ValueScanResult,
+  PatternAction,
+  ScanColumnOptions,
 } from './mask/index.js';
 
 // Classroom / Education

@@ -1,6 +1,7 @@
 import { resolve } from 'node:path';
+import { writeFileSync } from 'node:fs';
 import { loadConfig } from '@databox/config';
-import { seedDatabase, getDefaultScenarioRegistry } from '@databox/core';
+import { seedDatabase, getDefaultScenarioRegistry, analyzeDatabase } from '@databox/core';
 import { formatCIOutput } from '@databox/shared';
 import { maskConnectionString } from '../utils.js';
 import { resolveTemplate } from '../resolveTemplate.js';
@@ -16,6 +17,7 @@ export async function seedCommand(options: {
   scenarioIntensity?: string;
   scenarioSchedule?: string;
   lifecycle?: boolean;
+  autoTemplate?: boolean;
   ci?: boolean;
   configPath?: string;
 }): Promise<void> {
@@ -29,9 +31,31 @@ export async function seedCommand(options: {
     // Resolve file paths to absolute paths so downstream code can find the file
     // regardless of working directory changes. Detect file paths by looking for
     // path separators or .json extension.
-    const templateName = rawTemplateName && (rawTemplateName.includes('/') || rawTemplateName.includes('\\') || rawTemplateName.endsWith('.json'))
+    let templateName = rawTemplateName && (rawTemplateName.includes('/') || rawTemplateName.includes('\\') || rawTemplateName.endsWith('.json'))
       ? resolve(rawTemplateName)
       : rawTemplateName;
+
+    // Auto-template: analyze → generate template → use it for seeding
+    if (options.autoTemplate && !templateName) {
+      if (!options.ci) {
+        console.log('');
+        console.log('Running auto-template analysis...');
+      }
+      const analyzeResult = await analyzeDatabase(config, {
+        sampleSize: 100,
+        autoTemplate: true,
+        safeMode: true,
+      });
+      if (analyzeResult.templateJson) {
+        const autoPath = resolve('.realitydb-auto-template.json');
+        writeFileSync(autoPath, analyzeResult.templateJson + '\n', 'utf-8');
+        templateName = autoPath;
+        if (!options.ci) {
+          console.log(`Auto-template generated: ${autoPath}`);
+        }
+      }
+    }
+
     const timeline = options.timeline;
     const scenario = options.scenario;
     const scenarioIntensity = (options.scenarioIntensity ?? 'medium') as 'low' | 'medium' | 'high';

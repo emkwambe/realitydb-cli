@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomBytes, createCipheriv, createDecipheriv, pbkdf2Sync } from 'node:crypto';
 import type { PIIDetection } from './piiDetector.js';
 
 /**
@@ -144,4 +144,48 @@ export function serializeTokenMap(tokenMap: TokenMap): string {
  */
 export function generateTokenPrefix(): string {
   return `TOK-${randomBytes(3).toString('hex').toUpperCase()}`;
+}
+
+/**
+ * Encrypts a token map using AES-256-GCM with a user-provided passphrase.
+ * Key derived via PBKDF2 (100,000 iterations, SHA-512).
+ * This is the ONLY way token map data should leave process memory.
+ */
+export function encryptTokenMap(tokenMap: TokenMap, passphrase: string): string {
+  const salt = randomBytes(16);
+  const key = pbkdf2Sync(passphrase, salt, 100000, 32, 'sha512');
+  const iv = randomBytes(12);
+  const cipher = createCipheriv('aes-256-gcm', key, iv);
+
+  const plaintext = JSON.stringify(tokenMap);
+  const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
+  const authTag = cipher.getAuthTag();
+
+  // Pack: salt (16) + iv (12) + authTag (16) + ciphertext
+  const packed = Buffer.concat([salt, iv, authTag, encrypted]);
+  return packed.toString('base64');
+}
+
+/**
+ * Decrypts a token map using the passphrase used during encryption.
+ * Throws if passphrase is wrong or data is tampered.
+ */
+export function decryptTokenMap(encryptedBase64: string, passphrase: string): TokenMap {
+  const packed = Buffer.from(encryptedBase64, 'base64');
+
+  const salt = packed.subarray(0, 16);
+  const iv = packed.subarray(16, 28);
+  const authTag = packed.subarray(28, 44);
+  const ciphertext = packed.subarray(44);
+
+  const key = pbkdf2Sync(passphrase, salt, 100000, 32, 'sha512');
+  const decipher = createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(authTag);
+
+  try {
+    const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+    return JSON.parse(decrypted.toString('utf8'));
+  } catch {
+    throw new Error('[realitydb] Decryption failed — wrong passphrase or corrupted data');
+  }
 }

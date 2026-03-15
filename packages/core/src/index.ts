@@ -77,14 +77,14 @@ export { simulateLifecycles, applyCorrelations } from '@databox/generators';
 export { saasLifecycle, fintechLifecycle } from '@databox/templates';
 
 export { analyzeDatabase } from './analyzePipeline.js';
-export type { AnalyzeOptions, AnalyzeResult } from './analyzePipeline.js';
+export type { AnalyzeOptions, AnalyzeResult, SanitizationReport } from './analyzePipeline.js';
 export { formatAnalysisReport, formatAnalysisReportCI } from '@databox/generators';
 export type { AnalysisReport } from '@databox/generators';
 
 export { maskDatabase } from './maskPipeline.js';
 export type { MaskOptions, MaskResult } from './maskPipeline.js';
-export { formatAuditLog, serializeAuditLog, verifyAuditLogIntegrity } from '@databox/generators';
-export type { MaskAuditLog, AuditIntegrityChain, PIIDetection, ComplianceMode, MaskStrategy } from '@databox/generators';
+export { formatAuditLog, serializeAuditLog, verifyAuditLogIntegrity, encryptTokenMap, decryptTokenMap } from '@databox/generators';
+export type { MaskAuditLog, AuditIntegrityChain, PIIDetection, ComplianceMode, MaskStrategy, TokenMap } from '@databox/generators';
 
 export {
   getDefaultCourseRegistry,

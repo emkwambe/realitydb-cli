@@ -17,6 +17,12 @@ export type PIICategory =
   | 'financial'
   | 'medical'
   | 'quasi_identifier'
+  | 'drivers_license'
+  | 'passport'
+  | 'student_id'
+  | 'case_number'
+  | 'vin'
+  | 'bank_routing'
   | 'safe';
 
 export type ComplianceMode = 'hipaa' | 'gdpr' | 'strict';
