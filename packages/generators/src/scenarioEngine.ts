@@ -87,7 +87,7 @@ export function applyScenarios(
     const definition = registry.get(config.name);
     if (!definition) {
       console.warn(
-        `[databox] Scenario "${config.name}" not found. Available: ${registry.list().map((s) => s.name).join(', ')}`,
+        `Scenario "${config.name}" not found. Available: ${registry.list().map((s) => s.name).join(', ')}`,
       );
       continue;
     }

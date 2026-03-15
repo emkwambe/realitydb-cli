@@ -100,7 +100,7 @@ export function applyScheduledScenarios(
   for (const scheduled_item of scheduled) {
     const definition = registry.get(scheduled_item.config.name);
     if (!definition) {
-      console.warn(`[databox] Scheduled scenario "${scheduled_item.config.name}" not found, skipping.`);
+      console.warn(`Scheduled scenario "${scheduled_item.config.name}" not found, skipping.`);
       continue;
     }
 

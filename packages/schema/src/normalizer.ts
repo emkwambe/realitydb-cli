@@ -52,7 +52,7 @@ export function normalizeSchema(raw: RawIntrospectionData): DatabaseSchema {
 
     if (!rawCols || rawCols.length === 0) {
       console.warn(
-        `[databox] Table "${rawTable.table_name}" has no columns — excluding from schema`,
+        `Table "${rawTable.table_name}" has no columns — excluding from schema`,
       );
       continue;
     }
@@ -63,20 +63,31 @@ export function normalizeSchema(raw: RawIntrospectionData): DatabaseSchema {
       ? { columnName: pk.column_name, constraintName: pk.constraint_name }
       : null;
 
-    const columns: ColumnSchema[] = rawCols.map((col) => ({
-      name: col.column_name,
-      dataType: col.data_type,
-      udtName: col.udt_name,
-      isNullable: col.is_nullable === 'YES',
-      hasDefault: col.column_default !== null,
-      defaultValue: col.column_default,
-      maxLength: col.character_maximum_length,
-      numericPrecision: col.numeric_precision ?? null,
-      numericScale: col.numeric_scale ?? null,
-      isPrimaryKey: pk !== null && pk.column_name === col.column_name,
-      isUnique: (pk !== null && pk.column_name === col.column_name) || uniqueColumns.has(`${rawTable.table_name}.${col.column_name}`),
-      ordinalPosition: col.ordinal_position,
-    }));
+    const columns: ColumnSchema[] = rawCols.map((col) => {
+      const extra = (col.extra ?? '').toLowerCase();
+      const isAutoIncrement = extra.includes('auto_increment');
+      const isGenerated = extra.includes('generated');
+
+      return {
+        name: col.column_name,
+        dataType: col.data_type,
+        udtName: col.udt_name,
+        isNullable: col.is_nullable === 'YES',
+        hasDefault: col.column_default !== null || isAutoIncrement || isGenerated,
+        defaultValue: col.column_default,
+        maxLength: col.character_maximum_length,
+        numericPrecision: col.numeric_precision ?? null,
+        numericScale: col.numeric_scale ?? null,
+        isPrimaryKey: pk !== null && pk.column_name === col.column_name,
+        isUnique: (pk !== null && pk.column_name === col.column_name) || uniqueColumns.has(`${rawTable.table_name}.${col.column_name}`),
+        ordinalPosition: col.ordinal_position,
+        isGenerated,
+      };
+    });
+
+    // Sort by ordinal_position for deterministic column ordering regardless of
+    // catalog internals or connection middleware reordering.
+    columns.sort((a, b) => a.ordinalPosition - b.ordinalPosition);
 
     tables.push({
       name: rawTable.table_name,

@@ -45,7 +45,7 @@ export function buildGenerationPlan(
   if (config.template && !template) {
     const available = getDefaultRegistry().list().map(t => t.name).join(', ');
     console.warn(
-      `[databox] Template "${config.template}" not found. Available: ${available || 'none'}`,
+      `Template "${config.template}" not found. Available: ${available || 'none'}`,
     );
   }
 
@@ -90,7 +90,10 @@ export function buildGenerationPlan(
       ? registry.matchTable(templateLookupName, table.name)
       : null;
 
-    const columns: ColumnGenerationPlan[] = table.columns.map((column) => {
+    // Filter out generated columns (MySQL VIRTUAL/STORED GENERATED) — they cannot be inserted
+    const insertableColumns = table.columns.filter((col) => !col.isGenerated);
+
+    const columns: ColumnGenerationPlan[] = insertableColumns.map((column) => {
       // Try template override first, fall back to inference
       let strategy;
       if (template && registry && templateLookupName) {

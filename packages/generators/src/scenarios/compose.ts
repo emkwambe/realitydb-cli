@@ -86,7 +86,7 @@ export function composeScenarios(
     const definition = registry.get(config.name);
     if (!definition) {
       console.warn(
-        `[databox] Scenario "${config.name}" not found, skipping.`,
+        `Scenario "${config.name}" not found, skipping.`,
       );
       continue;
     }

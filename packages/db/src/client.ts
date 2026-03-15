@@ -24,7 +24,7 @@ export async function testConnection(pool: DbPool): Promise<boolean> {
     }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    throw new Error(`[databox] Database connection failed: ${message}`);
+    throw new Error(`Database connection failed: ${message}`);
   }
 }
 
@@ -33,6 +33,6 @@ export async function closeConnection(pool: DbPool): Promise<void> {
     await pool.end();
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    throw new Error(`[databox] Failed to close database connection: ${message}`);
+    throw new Error(`Failed to close database connection: ${message}`);
   }
 }

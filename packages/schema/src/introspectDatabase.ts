@@ -40,17 +40,17 @@ export async function introspectDatabase(
   const validation = validateSchema(schema);
 
   for (const warning of validation.warnings) {
-    console.warn(`[databox] Schema warning: ${warning}`);
+    console.warn(`Schema warning: ${warning}`);
   }
 
   if (options?.verbose) {
     for (const vw of validation.verboseWarnings) {
-      console.warn(`[databox] Schema warning: ${vw}`);
+      console.warn(`Schema warning: ${vw}`);
     }
   }
 
   for (const error of validation.errors) {
-    console.error(`[databox] Schema error: ${error}`);
+    console.error(`Schema error: ${error}`);
   }
 
   return schema;

@@ -97,6 +97,15 @@ export function inferColumnStrategy(
     }
   }
 
+  // c2. MySQL SET type: parse allowed values from udtName
+  if (column.dataType === 'set' || udtLower.startsWith('set(')) {
+    const setValues = parseMySQLEnumValues(column.udtName.replace(/^set/i, 'enum'));
+    if (setValues.length > 0) {
+      // SET allows multiple values; generate a single random value for simplicity
+      return { kind: 'enum', options: { values: setValues } };
+    }
+  }
+
   // d. Data type fallbacks
   // Use both udtName and dataType for matching — MySQL's udtName includes length
   // (e.g. "varchar(255)") while dataType is the base type (e.g. "varchar")
@@ -105,6 +114,25 @@ export function inferColumnStrategy(
 
   if (dataType === 'uuid' || baseType === 'char' && column.maxLength === 36) {
     return { kind: 'uuid' };
+  }
+
+  // JSON/JSONB columns — generate a small object
+  if (baseType === 'json' || baseType === 'jsonb') {
+    return { kind: 'text', options: { mode: 'short' } };
+  }
+
+  // MySQL YEAR type
+  if (baseType === 'year') {
+    return { kind: 'integer', options: { min: 2000, max: 2030 } };
+  }
+
+  // Text variants: TINYTEXT, MEDIUMTEXT, LONGTEXT
+  if (baseType === 'tinytext') {
+    return { kind: 'text', options: { mode: 'short' } };
+  }
+
+  if (baseType === 'mediumtext' || baseType === 'longtext') {
+    return { kind: 'text', options: { mode: 'long' } };
   }
 
   if ((dataType === 'varchar' || dataType === 'text' || baseType === 'varchar' || baseType === 'text') && column.maxLength !== null && column.maxLength <= 10) {

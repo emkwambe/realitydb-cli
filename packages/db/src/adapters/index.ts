@@ -11,7 +11,7 @@ export function createDatabaseClient(client: DatabaseClientType, connectionStrin
     case 'mysql':
       return createMysqlPool(connectionString);
     default:
-      throw new Error(`[databox] Unsupported database client: ${client}`);
+      throw new Error(`Unsupported database client: ${client}`);
   }
 }
 

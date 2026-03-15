@@ -8,17 +8,17 @@ export interface Logger {
 export function createLogger(verbose: boolean): Logger {
   return {
     info(message: string, ...args: unknown[]): void {
-      console.log(`[databox] ${message}`, ...args);
+      console.log(message, ...args);
     },
     warn(message: string, ...args: unknown[]): void {
-      console.warn(`[databox] ${message}`, ...args);
+      console.warn(message, ...args);
     },
     error(message: string, ...args: unknown[]): void {
-      console.error(`[databox] ${message}`, ...args);
+      console.error(message, ...args);
     },
     debug(message: string, ...args: unknown[]): void {
       if (verbose) {
-        console.log(`[databox:debug] ${message}`, ...args);
+        console.log(`[debug] ${message}`, ...args);
       }
     },
   };

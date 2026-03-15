@@ -18,7 +18,7 @@ export async function scanDatabase(config: DataboxConfig): Promise<ScanResult> {
   try {
     const connected = await testConnection(pool);
     if (!connected) {
-      throw new Error('[databox] Database connection test returned false');
+      throw new Error('Database connection test returned false');
     }
 
     const schema = await introspectDatabase(pool);
