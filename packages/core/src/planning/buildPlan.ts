@@ -158,6 +158,15 @@ export function buildGenerationPlan(
         }
       }
 
+      // Coerce float strategy to integer when actual column type is integer-like
+      const INTEGER_TYPES = ['int2', 'int4', 'int8', 'integer', 'serial', 'bigserial', 'smallint', 'bigint', 'int', 'mediumint', 'tinyint'];
+      if (strategy.kind === 'float' && INTEGER_TYPES.includes(column.udtName.toLowerCase())) {
+        strategy = {
+          kind: 'integer' as const,
+          options: strategy.options,
+        };
+      }
+
       const columnPlan: ColumnGenerationPlan = {
         columnName: column.name,
         dataType: column.udtName,
