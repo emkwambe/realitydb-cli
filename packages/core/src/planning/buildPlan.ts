@@ -97,12 +97,23 @@ export function buildGenerationPlan(
       // Try template override first, fall back to inference
       let strategy;
       if (template && registry && templateLookupName) {
-        const override = resolveColumnOverride(
+        let override = resolveColumnOverride(
           templateLookupName,
           table.name,
           column.name,
           registry,
         );
+        // Skip placeholder enum overrides (values: ["default"]) — fall back to inference
+        if (
+          override?.kind === 'enum' &&
+          override.options?.['values'] &&
+          Array.isArray(override.options['values'])
+        ) {
+          const vals = override.options['values'] as string[];
+          if (vals.length === 1 && vals[0] === 'default') {
+            override = null;
+          }
+        }
         strategy = override ?? inferColumnStrategy(column, tableForeignKeys, table.name);
       } else {
         strategy = inferColumnStrategy(column, tableForeignKeys, table.name);

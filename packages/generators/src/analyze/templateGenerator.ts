@@ -114,6 +114,16 @@ export function generateTemplate(
       // Skip PK and FK columns — they're handled by the engine
       if (col.detection.isPrimaryKey || col.detection.isForeignKey) continue;
 
+      // Skip enum strategies with placeholder values — let auto-inference handle these
+      if (
+        col.refinedStrategy.kind === 'enum' &&
+        col.refinedStrategy.options?.['values'] &&
+        Array.isArray(col.refinedStrategy.options['values'])
+      ) {
+        const vals = col.refinedStrategy.options['values'] as string[];
+        if (vals.length === 1 && vals[0] === 'default') continue;
+      }
+
       const entry: GeneratedColumnJSON = {
         strategy: col.refinedStrategy.kind,
       };
