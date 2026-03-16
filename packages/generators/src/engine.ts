@@ -1,4 +1,4 @@
-import type { GenerationPlan } from '@databox/shared';
+import type { GenerationPlan, TemporalConstraint } from '@databox/shared';
 import { createSeededRandom } from '@databox/shared';
 import { createGeneratorRegistry } from './registry.js';
 import { resolveForeignKey } from './foreignKeyResolver.js';
@@ -128,6 +128,14 @@ export function generateDataset(plan: GenerationPlan): GeneratedDataset {
         }
       }
 
+      // Post-generation fixup: temporal constraints
+      if (tablePlan.temporalConstraints && tablePlan.temporalConstraints.length > 0) {
+        applyTemporalFixup(row, tablePlan.temporalConstraints, seed);
+      }
+
+      // Post-generation fixup: lifecycle rules
+      applyLifecycleRules(row, tablePlan.columns);
+
       rows.push(row);
     }
 
@@ -153,4 +161,69 @@ export function generateDataset(plan: GenerationPlan): GeneratedDataset {
     seed: plan.reproducibility.randomSeed,
     totalRows,
   };
+}
+
+/**
+ * Enforce temporal ordering: if a column depends on another column (afterColumn),
+ * ensure the dependent value is chronologically after the base value.
+ */
+function applyTemporalFixup(
+  row: GeneratedRow,
+  constraints: TemporalConstraint[],
+  seed: ReturnType<typeof createSeededRandom>,
+): void {
+  for (const constraint of constraints) {
+    if (constraint.mode !== 'dependent' || !constraint.afterColumn) continue;
+
+    const baseValue = row[constraint.afterColumn];
+    const depValue = row[constraint.columnName];
+
+    // Skip if either value is null or not a parseable date
+    if (baseValue == null || depValue == null) continue;
+    if (typeof baseValue !== 'string' && !(baseValue instanceof Date)) continue;
+
+    const baseDate = new Date(baseValue as string | number);
+    if (isNaN(baseDate.getTime())) continue;
+
+    const depDate = new Date(depValue as string | number);
+    const withinDays = constraint.withinDays ?? 90;
+
+    // If dependent date is not after the base date, regenerate it
+    if (isNaN(depDate.getTime()) || depDate <= baseDate) {
+      const offsetMs = (1 + Math.floor(seed.next() * withinDays)) * 86400000;
+      const newDate = new Date(baseDate.getTime() + offsetMs);
+      row[constraint.columnName] = newDate.toISOString();
+    }
+  }
+}
+
+/**
+ * Apply lifecycle rules: if an enum column's value matches a lifecycle rule,
+ * set the specified fields to null.
+ */
+function applyLifecycleRules(
+  row: GeneratedRow,
+  columns: GenerationPlan['tables'][0]['columns'],
+): void {
+  for (const colPlan of columns) {
+    if (colPlan.strategy.kind !== 'enum') continue;
+
+    const lifecycleRules = colPlan.strategy.options?.['lifecycleRules'] as
+      | Array<{ value: string; nullFields: string[] }>
+      | undefined;
+    if (!lifecycleRules || !Array.isArray(lifecycleRules)) continue;
+
+    const currentValue = row[colPlan.columnName];
+    if (typeof currentValue !== 'string') continue;
+
+    for (const rule of lifecycleRules) {
+      if (rule.value === currentValue && Array.isArray(rule.nullFields)) {
+        for (const field of rule.nullFields) {
+          if (field in row) {
+            row[field] = null;
+          }
+        }
+      }
+    }
+  }
 }

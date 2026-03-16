@@ -10,6 +10,7 @@ export interface TemplateColumnJSON {
   strategy: ColumnStrategyKind;
   options?: Record<string, unknown>;
   description?: string;
+  foreignKey?: { table: string; column: string };
 }
 
 export interface TemplateTableJSON {
@@ -23,6 +24,16 @@ export interface TemplateJSON {
   version: string;
   description: string;
   tables: Record<string, TemplateTableJSON>;
+  simulation?: {
+    seed?: number;
+    timelineDays?: number;
+    growthCurve?: string;
+    anomalyRate?: number;
+  };
+  generationConfig?: {
+    database?: { client?: string };
+    seed?: { defaultRecords?: number; randomSeed?: number };
+  };
 }
 
 /** All valid strategy kinds for validation */

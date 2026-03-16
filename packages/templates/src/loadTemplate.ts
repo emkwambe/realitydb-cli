@@ -42,15 +42,33 @@ export function convertToDomainTemplate(json: TemplateJSON): DomainTemplate {
     const columnOverrides: ColumnTemplateOverride[] = [];
     for (const [colName, colJson] of Object.entries(tableJson.columns)) {
       const col = colJson as TemplateColumnJSON;
-      columnOverrides.push({
-        columnName: colName,
-        matchPattern: col.match,
-        strategy: {
-          kind: col.strategy,
-          options: col.options,
-        },
-        description: col.description,
-      });
+
+      // If foreignKey is specified, convert to foreign_key strategy
+      if (col.foreignKey) {
+        columnOverrides.push({
+          columnName: colName,
+          matchPattern: col.match,
+          strategy: {
+            kind: 'foreign_key',
+            options: {
+              ...col.options,
+              referencedTable: col.foreignKey.table,
+              referencedColumn: col.foreignKey.column,
+            },
+          },
+          description: col.description,
+        });
+      } else {
+        columnOverrides.push({
+          columnName: colName,
+          matchPattern: col.match,
+          strategy: {
+            kind: col.strategy,
+            options: col.options,
+          },
+          description: col.description,
+        });
+      }
     }
 
     tableConfigs.set(tableName, {
@@ -67,5 +85,7 @@ export function convertToDomainTemplate(json: TemplateJSON): DomainTemplate {
     description: json.description,
     targetTables,
     tableConfigs,
+    simulation: json.simulation,
+    generationConfig: json.generationConfig,
   };
 }
