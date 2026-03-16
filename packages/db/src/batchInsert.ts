@@ -105,6 +105,22 @@ export async function batchInsertDataset(
   const results: InsertResult[] = [];
   let totalRows = 0;
 
+  // Collect only the tables we will actually insert into
+  const targetTables = tableOrder.filter((name) => dataset.tables.has(name));
+
+  // Truncate target tables in reverse dependency order (children before parents)
+  // to avoid foreign key constraint violations when clearing existing data
+  for (let i = targetTables.length - 1; i >= 0; i--) {
+    const tableName = quoteIdent(dialect, targetTables[i]);
+    if (dialect === 'mysql') {
+      await client.query('SET FOREIGN_KEY_CHECKS = 0');
+      await client.query(`TRUNCATE TABLE ${tableName}`);
+      await client.query('SET FOREIGN_KEY_CHECKS = 1');
+    } else {
+      await client.query(`TRUNCATE TABLE ${tableName} CASCADE`);
+    }
+  }
+
   for (const tableName of tableOrder) {
     const table = dataset.tables.get(tableName);
     if (!table) continue;

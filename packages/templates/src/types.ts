@@ -6,6 +6,16 @@ export interface DomainTemplate {
   description: string;
   targetTables: string[];
   tableConfigs: Map<string, TableTemplateConfig>;
+  simulation?: {
+    seed?: number;
+    timelineDays?: number;
+    growthCurve?: string;
+    anomalyRate?: number;
+  };
+  generationConfig?: {
+    database?: { client?: string };
+    seed?: { defaultRecords?: number; randomSeed?: number };
+  };
 }
 
 export interface TableTemplateConfig {

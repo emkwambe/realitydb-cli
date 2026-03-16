@@ -12,6 +12,7 @@ import type { LifecycleDefinition, SimulationResult } from '@databox/shared';
 import { buildGenerationPlan, validateGenerationPlan } from './planning/index.js';
 import { parseTimelineString } from './planning/parseTimeline.js';
 import { resolveLifecycle } from './resolveLifecycle.js';
+import { loadTemplateFromJSON } from '@databox/templates';
 
 export interface SeedOptions {
   records?: number;
@@ -53,6 +54,21 @@ export async function seedDatabase(
   }
   if (options?.template !== undefined) {
     effectiveConfig.template = options.template;
+  }
+
+  // If no --records flag was passed, check if template has generationConfig.seed.defaultRecords
+  if (options?.records === undefined && effectiveConfig.template) {
+    const isFilePath = effectiveConfig.template.includes('/') || effectiveConfig.template.includes('\\') || effectiveConfig.template.endsWith('.json');
+    if (isFilePath) {
+      try {
+        const tmpl = loadTemplateFromJSON(effectiveConfig.template);
+        if (tmpl.generationConfig?.seed?.defaultRecords) {
+          effectiveConfig.seed.defaultRecords = tmpl.generationConfig.seed.defaultRecords;
+        }
+      } catch {
+        // Template will be validated later in buildGenerationPlan
+      }
+    }
   }
 
   // Parse timeline if provided

@@ -1,0 +1,5 @@
+{
+  "name": "RealityDB Studio",
+  "description": "Schema-to-data design workbench -- define relational structures, preview synthetic data, and export CLI-ready templates for the RealityDB engine.",
+  "requestFramePermissions": []
+}

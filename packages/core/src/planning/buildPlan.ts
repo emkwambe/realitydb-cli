@@ -1,6 +1,6 @@
 import type { DatabaseSchema, ForeignKeySchema } from '@databox/schema';
 import type { DataboxConfig } from '@databox/config';
-import type { TimelineConfig } from '@databox/shared';
+import type { TimelineConfig, TemporalConstraint } from '@databox/shared';
 import { inferColumnStrategy, resolveTemporalConstraints, parseMySQLEnumValues } from '@databox/generators';
 import { getDefaultRegistry, resolveColumnOverride, loadTemplateFromJSON, createTemplateRegistry } from '@databox/templates';
 import { buildDependencyGraph } from './dependencyGraph.js';
@@ -17,7 +17,7 @@ export function buildGenerationPlan(
   config: DataboxConfig,
   timelineConfig?: TimelineConfig,
 ): GenerationPlan {
-  const defaultRowCount = config.seed.defaultRecords;
+  let defaultRowCount = config.seed.defaultRecords;
   const batchSize = config.seed.batchSize;
   const environment = (config.seed.environment ?? 'dev') as 'dev' | 'staging' | 'test';
   const randomSeed = config.seed.randomSeed ?? 42;
@@ -189,10 +189,36 @@ export function buildGenerationPlan(
           selectionMode: 'uniform',
         };
         columnPlan.foreignKeyRef = ref;
+      } else if (
+        strategy.kind === 'foreign_key' &&
+        strategy.options?.['referencedTable'] &&
+        strategy.options?.['referencedColumn']
+      ) {
+        // Studio template provides foreignKey reference without DB FK constraint
+        columnPlan.strategy = { kind: 'foreign_key' };
+        columnPlan.foreignKeyRef = {
+          referencedTable: strategy.options['referencedTable'] as string,
+          referencedColumn: strategy.options['referencedColumn'] as string,
+          selectionMode: 'uniform',
+        };
       }
 
       return columnPlan;
     });
+
+    // Collect temporal constraints from dependsOn in template column options
+    const templateTemporalConstraints: TemporalConstraint[] = [];
+    for (const colPlan of columns) {
+      const opts = colPlan.strategy.options;
+      if (opts?.['dependsOn'] && typeof opts['dependsOn'] === 'string') {
+        templateTemporalConstraints.push({
+          columnName: colPlan.columnName,
+          afterColumn: opts['dependsOn'] as string,
+          mode: 'dependent',
+          withinDays: 90,
+        });
+      }
+    }
 
     // Apply rowCountMultiplier from template if defined
     const rowCount = tableConfig?.rowCountMultiplier
@@ -202,13 +228,19 @@ export function buildGenerationPlan(
     // When a template is active, only enable tables matched by the template
     const enabled = template ? tableConfig !== null : true;
 
-    return {
+    const tablePlan: TableGenerationPlan = {
       tableName: table.name,
       rowCount,
       dependencies: uniqueDeps,
       columns,
       enabled,
     };
+
+    if (templateTemporalConstraints.length > 0) {
+      tablePlan.temporalConstraints = templateTemporalConstraints;
+    }
+
+    return tablePlan;
   });
 
   // When a template is active, also enable any disabled tables that are

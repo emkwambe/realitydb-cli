@@ -100,6 +100,21 @@ export function validateTemplateJSON(json: unknown): ValidationResult {
       if (c.options !== undefined && (typeof c.options !== 'object' || Array.isArray(c.options))) {
         errors.push(`Table "${tableName}".columns."${colName}": "options" must be an object`);
       }
+
+      // foreignKey is optional but must have table and column as strings
+      if (c.foreignKey !== undefined) {
+        if (typeof c.foreignKey !== 'object' || Array.isArray(c.foreignKey) || c.foreignKey === null) {
+          errors.push(`Table "${tableName}".columns."${colName}": "foreignKey" must be an object`);
+        } else {
+          const fk = c.foreignKey as Record<string, unknown>;
+          if (typeof fk.table !== 'string' || !fk.table) {
+            errors.push(`Table "${tableName}".columns."${colName}": "foreignKey.table" must be a non-empty string`);
+          }
+          if (typeof fk.column !== 'string' || !fk.column) {
+            errors.push(`Table "${tableName}".columns."${colName}": "foreignKey.column" must be a non-empty string`);
+          }
+        }
+      }
     }
   }
 
