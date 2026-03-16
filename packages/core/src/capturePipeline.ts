@@ -1,16 +1,24 @@
 import type { DataboxConfig } from '@databox/config';
 import type { RealityPack, PackSchema, PackDataset } from '@databox/shared';
+import { createSeededRandom } from '@databox/shared';
 import { createDatabaseClient, testConnection, closeConnection, readTableRows } from '@databox/db';
 import { introspectDatabase } from '@databox/schema';
 import { generateCreateTableDDL } from '@databox/schema';
-import { saveRealityPack } from '@databox/generators';
+import { saveRealityPack, detectTablePII, maskTableRows, tokenizeTableRows, generateTokenPrefix } from '@databox/generators';
+import type { PIIDetection } from '@databox/generators';
 import { buildDependencyGraph, topologicalSort } from './planning/index.js';
+
+export type SafeMode = 'mask' | 'tokenize' | 'redact';
 
 export interface CaptureOptions {
   name: string;
   description?: string;
   tables?: string[];
   outputDir?: string;
+  safe?: boolean;
+  safeMode?: SafeMode;
+  maxRows?: number;
+  around?: { column: string; value: string };
 }
 
 export interface CaptureResult {
@@ -20,6 +28,11 @@ export interface CaptureResult {
   tableCount: number;
   durationMs: number;
   tableDetails: { name: string; rowCount: number }[];
+  piiSummary?: {
+    columnsDetected: number;
+    tablesAffected: number;
+    categoriesFound: string[];
+  };
 }
 
 function maskConnection(connectionString: string): string {
@@ -104,17 +117,119 @@ export async function captureDatabase(
     // Generate DDL from filtered schema
     const ddl = generateCreateTableDDL(filteredSchema);
 
+    // If --around is specified, find related rows via FK chains
+    let aroundFilter: Map<string, { column: string; values: Set<string> }> | undefined;
+    if (options.around) {
+      aroundFilter = new Map();
+      const { column: aroundCol, value: aroundVal } = options.around;
+
+      // Find which table has this column
+      for (const table of filteredTables) {
+        const hasCol = table.columns.some((c) => c.name === aroundCol);
+        if (hasCol) {
+          aroundFilter.set(table.name, { column: aroundCol, values: new Set([aroundVal]) });
+        }
+      }
+
+      // Follow FK chains: if table A has aroundCol, and table B has FK to A, capture related rows
+      for (const fk of filteredFKs) {
+        const sourceFilter = aroundFilter.get(fk.targetTable);
+        if (sourceFilter && sourceFilter.column === fk.targetColumn) {
+          aroundFilter.set(fk.sourceTable, { column: fk.sourceColumn, values: sourceFilter.values });
+        }
+      }
+    }
+
+    // Phase: Detect PII if --safe mode
+    const detectionsByTable = new Map<string, PIIDetection[]>();
+    let piiSummary: CaptureResult['piiSummary'];
+
+    if (options.safe) {
+      const mode = 'gdpr'; // default compliance mode for safe capture
+      for (const table of filteredTables) {
+        const tableForeignKeys = filteredFKs.filter((fk) => fk.sourceTable === table.name);
+        const detections = detectTablePII(table.columns, tableForeignKeys, table.name, mode);
+        detectionsByTable.set(table.name, detections);
+      }
+
+      // Build PII summary
+      let columnsDetected = 0;
+      let tablesAffected = 0;
+      const categoriesFound = new Set<string>();
+
+      for (const [, detections] of detectionsByTable) {
+        const piiCols = detections.filter((d) => d.shouldMask);
+        if (piiCols.length > 0) {
+          tablesAffected++;
+          columnsDetected += piiCols.length;
+          for (const d of piiCols) {
+            categoriesFound.add(d.category);
+          }
+        }
+      }
+
+      piiSummary = {
+        columnsDetected,
+        tablesAffected,
+        categoriesFound: Array.from(categoriesFound),
+      };
+    }
+
     // Read data from each table
     const packDataset: PackDataset = { tables: {} };
     const tableDetails: { name: string; rowCount: number }[] = [];
     let totalRows = 0;
+
+    const safeMode = options.safeMode ?? 'mask';
+    const random = options.safe ? createSeededRandom(42) : undefined;
+    const tokenPrefix = options.safe && safeMode === 'tokenize' ? generateTokenPrefix() : undefined;
 
     for (const tableName of tablesToCapture) {
       const tableSchema = filteredTables.find((t) => t.name === tableName);
       if (!tableSchema) continue;
 
       const columns = tableSchema.columns.map((c) => c.name);
-      const rows = await readTableRows(pool, tableName, columns);
+      let rows = await readTableRows(pool, tableName, columns);
+
+      // Apply --around filter
+      const filter = aroundFilter?.get(tableName);
+      if (filter) {
+        rows = rows.filter((row) => {
+          const val = row[filter.column];
+          return val !== null && val !== undefined && filter.values.has(String(val));
+        });
+      }
+
+      // Apply --max-rows limit
+      if (options.maxRows !== undefined && rows.length > options.maxRows) {
+        rows = rows.slice(0, options.maxRows);
+      }
+
+      // Apply PII masking if --safe
+      if (options.safe) {
+        const detections = detectionsByTable.get(tableName);
+        if (detections) {
+          const hasPII = detections.some((d) => d.shouldMask);
+          if (hasPII) {
+            if (safeMode === 'tokenize' && tokenPrefix) {
+              const { tokenizedRows } = tokenizeTableRows(rows, detections, tableName, tokenPrefix);
+              rows = tokenizedRows;
+            } else if (safeMode === 'redact') {
+              // Override all mask strategies to 'redact' for redact mode
+              const redactDetections = detections.map((d) =>
+                d.shouldMask ? { ...d, maskStrategy: 'redact' as const } : d,
+              );
+              const { maskedRows } = maskTableRows(rows, redactDetections, random!, tableName);
+              rows = maskedRows;
+            } else {
+              // Default: mask mode with realistic fakes
+              const { maskedRows } = maskTableRows(rows, detections, random!, tableName);
+              rows = maskedRows;
+            }
+          }
+        }
+      }
+
       const rowCount = rows.length;
 
       packDataset.tables[tableName] = {
@@ -167,6 +282,15 @@ export async function captureDatabase(
 
     const masked = maskConnection(config.database.connectionString);
 
+    // Determine safeMode metadata value
+    const safeModeValue: 'raw' | 'masked' | 'tokenized' | 'redacted' = options.safe
+      ? safeMode === 'tokenize'
+        ? 'tokenized'
+        : safeMode === 'redact'
+          ? 'redacted'
+          : 'masked'
+      : 'raw';
+
     const pack: RealityPack = {
       format: 'realitydb-pack',
       version: '1.0',
@@ -179,6 +303,8 @@ export async function captureDatabase(
         tableCount: tablesToCapture.length,
         ddl,
         capturedFrom: masked,
+        safeMode: safeModeValue,
+        piiSummary,
       },
       schema: packSchema,
       plan: plan as RealityPack['plan'],
@@ -198,6 +324,7 @@ export async function captureDatabase(
       tableCount: tablesToCapture.length,
       durationMs,
       tableDetails,
+      piiSummary,
     };
   } finally {
     await closeConnection(pool);
