@@ -156,3 +156,9 @@ databox.config.json
 *.realitydb-pack.json
 .databox-run*/
 .databox-debug/
+
+# Internal docs (never commit)
+*-blueprint*.md
+*-sprint*.md
+how-we-work-together*.md
+LOCAL_TESTING_PLAN.md
