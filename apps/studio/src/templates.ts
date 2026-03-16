@@ -23,6 +23,9 @@ const createTable = (name: string, x: number, y: number, columns: any[]): Table 
 };
 
 export const REALITY_TEMPLATES: RealityTemplate[] = [
+  // ─────────────────────────────────────────────────────────────────────────
+  // 1. SaaS Subscription Platform (benchmark quality)
+  // ─────────────────────────────────────────────────────────────────────────
   {
     name: 'SaaS Subscription Platform',
     description: 'Complete B2B SaaS model with organizations, users, and subscription lifecycles.',
@@ -46,12 +49,13 @@ export const REALITY_TEMPLATES: RealityTemplate[] = [
         { name: 'email', type: 'email', strategy: 'email' },
         { name: 'full_name', type: 'name', strategy: 'name' },
         { name: 'role', type: 'enum', strategy: 'enum', options: { values: ['admin', 'member', 'viewer'], weights: [10, 70, 20] } },
+        { name: 'created_at', type: 'timestamp', strategy: 'past_date' },
       ]),
       createTable('subscriptions', 100, 400, [
         { name: 'id', type: 'uuid', isPK: true, strategy: 'uuid' },
         { name: 'organization_id', type: 'uuid', isFK: true, strategy: 'uuid' },
-        { name: 'status', type: 'enum', strategy: 'enum', options: { 
-          values: ['trial', 'active', 'cancelled'], 
+        { name: 'status', type: 'enum', strategy: 'enum', options: {
+          values: ['trial', 'active', 'cancelled'],
           weights: [15, 75, 10],
           lifecycleRules: [
             { value: 'cancelled', nullFields: ['next_billing_at'] }
@@ -68,8 +72,12 @@ export const REALITY_TEMPLATES: RealityTemplate[] = [
         { name: 'paid_at', type: 'timestamp', strategy: 'past_date' },
       ])
     ],
-    relationships: [] // Will be populated below
+    relationships: []
   },
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 2. E-Commerce Marketplace
+  // ─────────────────────────────────────────────────────────────────────────
   {
     name: 'E-Commerce Marketplace',
     description: 'Relational cascade from customers to shipments and payments.',
@@ -85,18 +93,29 @@ export const REALITY_TEMPLATES: RealityTemplate[] = [
         { name: 'id', type: 'uuid', isPK: true, strategy: 'uuid' },
         { name: 'email', type: 'email', strategy: 'email' },
         { name: 'name', type: 'name', strategy: 'name' },
+        { name: 'created_at', type: 'timestamp', strategy: 'past_date' },
       ]),
       createTable('products', 900, 100, [
         { name: 'id', type: 'uuid', isPK: true, strategy: 'uuid' },
         { name: 'sku', type: 'string', strategy: 'random_string' },
         { name: 'price', type: 'decimal', strategy: 'decimal', options: { min: 10, max: 1000 } },
         { name: 'stock', type: 'integer', strategy: 'integer', options: { min: 0, max: 100 } },
+        { name: 'created_at', type: 'timestamp', strategy: 'past_date' },
       ]),
       createTable('orders', 100, 400, [
         { name: 'id', type: 'uuid', isPK: true, strategy: 'uuid' },
         { name: 'customer_id', type: 'uuid', isFK: true, strategy: 'uuid' },
-        { name: 'status', type: 'enum', strategy: 'enum', options: { values: ['pending', 'paid', 'shipped', 'delivered', 'returned'], weights: [5, 20, 30, 40, 5] } },
+        { name: 'total', type: 'decimal', strategy: 'decimal', options: { min: 10, max: 2000 } },
+        { name: 'status', type: 'enum', strategy: 'enum', options: {
+          values: ['pending', 'paid', 'shipped', 'delivered', 'returned'],
+          weights: [5, 20, 30, 40, 5],
+          lifecycleRules: [
+            { value: 'pending', nullFields: ['shipped_at'] },
+            { value: 'returned', nullFields: ['shipped_at'] },
+          ]
+        }},
         { name: 'created_at', type: 'timestamp', strategy: 'past_date' },
+        { name: 'shipped_at', type: 'timestamp', strategy: 'future_date', nullable: true, options: { dependsOn: 'created_at', dependencyRule: 'after' } },
       ]),
       createTable('order_items', 500, 400, [
         { name: 'id', type: 'uuid', isPK: true, strategy: 'uuid' },
@@ -107,13 +126,17 @@ export const REALITY_TEMPLATES: RealityTemplate[] = [
       createTable('shipments', 100, 700, [
         { name: 'id', type: 'uuid', isPK: true, strategy: 'uuid' },
         { name: 'order_id', type: 'uuid', isFK: true, strategy: 'uuid' },
-        { name: 'carrier', type: 'enum', strategy: 'enum', options: { values: ['FedEx', 'UPS', 'DHL'] } },
+        { name: 'carrier', type: 'enum', strategy: 'enum', options: { values: ['FedEx', 'UPS', 'DHL'], weights: [40, 35, 25] } },
         { name: 'shipped_at', type: 'timestamp', strategy: 'past_date' },
         { name: 'delivered_at', type: 'timestamp', strategy: 'future_date', options: { dependsOn: 'shipped_at', dependencyRule: 'after' } },
       ])
     ],
     relationships: []
   },
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 3. FinTech Banking
+  // ─────────────────────────────────────────────────────────────────────────
   {
     name: 'FinTech Banking',
     description: 'High-integrity financial event streams with fraud detection scenarios.',
@@ -129,13 +152,14 @@ export const REALITY_TEMPLATES: RealityTemplate[] = [
         { name: 'id', type: 'uuid', isPK: true, strategy: 'uuid' },
         { name: 'owner_name', type: 'name', strategy: 'name' },
         { name: 'balance', type: 'decimal', strategy: 'decimal', options: { min: 0, max: 100000 } },
-        { name: 'type', type: 'enum', strategy: 'enum', options: { values: ['checking', 'savings', 'investment'] } },
+        { name: 'type', type: 'enum', strategy: 'enum', options: { values: ['checking', 'savings', 'investment'], weights: [50, 35, 15] } },
+        { name: 'created_at', type: 'timestamp', strategy: 'past_date' },
       ]),
       createTable('transactions', 500, 100, [
         { name: 'id', type: 'uuid', isPK: true, strategy: 'uuid' },
         { name: 'account_id', type: 'uuid', isFK: true, strategy: 'uuid' },
-        { name: 'amount', type: 'decimal', strategy: 'decimal' },
-        { name: 'type', type: 'enum', strategy: 'enum', options: { values: ['deposit', 'withdrawal', 'transfer', 'payment'] } },
+        { name: 'amount', type: 'decimal', strategy: 'decimal', options: { min: 1, max: 50000 } },
+        { name: 'type', type: 'enum', strategy: 'enum', options: { values: ['deposit', 'withdrawal', 'transfer', 'payment'], weights: [25, 30, 25, 20] } },
         { name: 'status', type: 'enum', strategy: 'enum', options: { values: ['pending', 'completed', 'failed', 'reversed'], weights: [5, 90, 3, 2] } },
         { name: 'created_at', type: 'timestamp', strategy: 'past_date' },
       ]),
@@ -143,11 +167,16 @@ export const REALITY_TEMPLATES: RealityTemplate[] = [
         { name: 'id', type: 'uuid', isPK: true, strategy: 'uuid' },
         { name: 'transaction_id', type: 'uuid', isFK: true, strategy: 'uuid' },
         { name: 'risk_score', type: 'integer', strategy: 'integer', options: { min: 0, max: 100 } },
-        { name: 'action_taken', type: 'enum', strategy: 'enum', options: { values: ['none', 'flagged', 'blocked', 'investigated'] } },
+        { name: 'action_taken', type: 'enum', strategy: 'enum', options: { values: ['none', 'flagged', 'blocked', 'investigated'], weights: [50, 30, 15, 5] } },
+        { name: 'detected_at', type: 'timestamp', strategy: 'past_date' },
       ])
     ],
     relationships: []
   },
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 4. Logistics & Supply Chain
+  // ─────────────────────────────────────────────────────────────────────────
   {
     name: 'Logistics & Supply Chain',
     description: 'Global trade system with complex event ordering and operational disruptions.',
@@ -162,17 +191,26 @@ export const REALITY_TEMPLATES: RealityTemplate[] = [
       createTable('suppliers', 100, 100, [
         { name: 'id', type: 'uuid', isPK: true, strategy: 'uuid' },
         { name: 'name', type: 'string', strategy: 'company_name' },
-        { name: 'country', type: 'enum', strategy: 'enum', options: { values: ['China', 'Vietnam', 'Germany', 'USA', 'Mexico'] } },
+        { name: 'country', type: 'enum', strategy: 'enum', options: { values: ['China', 'Vietnam', 'Germany', 'USA', 'Mexico'], weights: [30, 20, 20, 20, 10] } },
+        { name: 'created_at', type: 'timestamp', strategy: 'past_date' },
       ]),
       createTable('purchase_orders', 500, 100, [
         { name: 'id', type: 'uuid', isPK: true, strategy: 'uuid' },
         { name: 'supplier_id', type: 'uuid', isFK: true, strategy: 'uuid' },
-        { name: 'status', type: 'enum', strategy: 'enum', options: { values: ['draft', 'sent', 'confirmed', 'shipped', 'received', 'cancelled'] } },
+        { name: 'status', type: 'enum', strategy: 'enum', options: {
+          values: ['draft', 'sent', 'confirmed', 'shipped', 'received', 'cancelled'],
+          weights: [10, 15, 25, 25, 20, 5],
+          lifecycleRules: [
+            { value: 'cancelled', nullFields: ['shipped_at'] },
+            { value: 'draft', nullFields: ['shipped_at'] },
+          ]
+        }},
         { name: 'created_at', type: 'timestamp', strategy: 'past_date' },
+        { name: 'shipped_at', type: 'timestamp', strategy: 'future_date', nullable: true, options: { dependsOn: 'created_at', dependencyRule: 'after' } },
       ]),
       createTable('shipments', 100, 400, [
         { name: 'id', type: 'uuid', isPK: true, strategy: 'uuid' },
-        { name: 'po_id', type: 'uuid', isFK: true, strategy: 'uuid' },
+        { name: 'purchase_order_id', type: 'uuid', isFK: true, strategy: 'uuid' },
         { name: 'origin', type: 'string', strategy: 'random_string' },
         { name: 'destination', type: 'string', strategy: 'random_string' },
         { name: 'dispatched_at', type: 'timestamp', strategy: 'past_date' },
@@ -183,10 +221,15 @@ export const REALITY_TEMPLATES: RealityTemplate[] = [
         { name: 'product_name', type: 'string', strategy: 'random_string' },
         { name: 'quantity', type: 'integer', strategy: 'integer', options: { min: 0, max: 10000 } },
         { name: 'warehouse_location', type: 'enum', strategy: 'enum', options: { values: ['North', 'South', 'East', 'West'] } },
+        { name: 'last_updated', type: 'timestamp', strategy: 'past_date' },
       ])
     ],
     relationships: []
   },
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 5. Healthcare Systems
+  // ─────────────────────────────────────────────────────────────────────────
   {
     name: 'Healthcare Systems',
     description: 'Multi-stage patient lifecycles and regulatory testing scenarios.',
@@ -202,29 +245,43 @@ export const REALITY_TEMPLATES: RealityTemplate[] = [
         { name: 'id', type: 'uuid', isPK: true, strategy: 'uuid' },
         { name: 'name', type: 'name', strategy: 'name' },
         { name: 'dob', type: 'timestamp', strategy: 'past_date' },
-        { name: 'gender', type: 'enum', strategy: 'enum', options: { values: ['M', 'F', 'O'] } },
+        { name: 'gender', type: 'enum', strategy: 'enum', options: { values: ['M', 'F', 'O'], weights: [48, 48, 4] } },
+        { name: 'registered_at', type: 'timestamp', strategy: 'past_date' },
       ]),
       createTable('appointments', 500, 100, [
         { name: 'id', type: 'uuid', isPK: true, strategy: 'uuid' },
         { name: 'patient_id', type: 'uuid', isFK: true, strategy: 'uuid' },
         { name: 'scheduled_at', type: 'timestamp', strategy: 'future_date' },
-        { name: 'status', type: 'enum', strategy: 'enum', options: { values: ['scheduled', 'completed', 'cancelled', 'no-show'] } },
+        { name: 'status', type: 'enum', strategy: 'enum', options: {
+          values: ['scheduled', 'completed', 'cancelled', 'no-show'],
+          weights: [30, 50, 12, 8],
+          lifecycleRules: [
+            { value: 'cancelled', nullFields: ['completed_at'] },
+            { value: 'no-show', nullFields: ['completed_at'] },
+          ]
+        }},
+        { name: 'completed_at', type: 'timestamp', strategy: 'future_date', nullable: true, options: { dependsOn: 'scheduled_at', dependencyRule: 'after' } },
       ]),
       createTable('encounters', 100, 400, [
         { name: 'id', type: 'uuid', isPK: true, strategy: 'uuid' },
         { name: 'appointment_id', type: 'uuid', isFK: true, strategy: 'uuid' },
         { name: 'notes', type: 'string', strategy: 'random_string' },
         { name: 'diagnosis_code', type: 'string', strategy: 'random_string' },
+        { name: 'encounter_at', type: 'timestamp', strategy: 'past_date' },
       ]),
       createTable('billing', 500, 400, [
         { name: 'id', type: 'uuid', isPK: true, strategy: 'uuid' },
         { name: 'encounter_id', type: 'uuid', isFK: true, strategy: 'uuid' },
-        { name: 'amount', type: 'decimal', strategy: 'decimal' },
-        { name: 'status', type: 'enum', strategy: 'enum', options: { values: ['pending', 'paid', 'denied', 'appealed'] } },
+        { name: 'amount', type: 'decimal', strategy: 'decimal', options: { min: 50, max: 25000 } },
+        { name: 'status', type: 'enum', strategy: 'enum', options: { values: ['pending', 'paid', 'denied', 'appealed'], weights: [20, 60, 15, 5] } },
       ])
     ],
     relationships: []
   },
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 6. Cyber-Security Intelligence
+  // ─────────────────────────────────────────────────────────────────────────
   {
     name: 'Cyber-Security Intelligence',
     description: 'Anomaly-heavy distributions for training threat detection systems.',
@@ -247,16 +304,22 @@ export const REALITY_TEMPLATES: RealityTemplate[] = [
         { name: 'user_id', type: 'string', strategy: 'random_string' },
         { name: 'status', type: 'enum', strategy: 'enum', options: { values: ['success', 'failure', 'mfa_pending'], weights: [60, 35, 5] } },
         { name: 'is_suspicious', type: 'boolean', strategy: 'boolean' },
+        { name: 'attempted_at', type: 'timestamp', strategy: 'past_date' },
       ]),
       createTable('security_alerts', 100, 400, [
         { name: 'id', type: 'uuid', isPK: true, strategy: 'uuid' },
-        { name: 'source_id', type: 'uuid', isFK: true, strategy: 'uuid' },
+        { name: 'login_attempt_id', type: 'uuid', isFK: true, strategy: 'uuid' },
         { name: 'severity', type: 'enum', strategy: 'enum', options: { values: ['low', 'medium', 'high', 'critical'], weights: [50, 30, 15, 5] } },
-        { name: 'type', type: 'enum', strategy: 'enum', options: { values: ['brute_force', 'sql_injection', 'privilege_escalation', 'malware'] } },
+        { name: 'type', type: 'enum', strategy: 'enum', options: { values: ['brute_force', 'sql_injection', 'privilege_escalation', 'malware'], weights: [40, 25, 20, 15] } },
+        { name: 'detected_at', type: 'timestamp', strategy: 'past_date' },
       ])
     ],
     relationships: []
   },
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 7. AI Event-Stream Systems
+  // ─────────────────────────────────────────────────────────────────────────
   {
     name: 'AI Event-Stream Systems',
     description: 'Behavioral event streams for ML pipelines and feature stores.',
@@ -270,78 +333,100 @@ export const REALITY_TEMPLATES: RealityTemplate[] = [
     tables: [
       createTable('users', 100, 100, [
         { name: 'id', type: 'uuid', isPK: true, strategy: 'uuid' },
-        { name: 'segment', type: 'enum', strategy: 'enum', options: { values: ['power', 'casual', 'new', 'churned'] } },
+        { name: 'segment', type: 'enum', strategy: 'enum', options: { values: ['power', 'casual', 'new', 'churned'], weights: [15, 45, 30, 10] } },
+        { name: 'created_at', type: 'timestamp', strategy: 'past_date' },
       ]),
       createTable('events', 500, 100, [
         { name: 'id', type: 'uuid', isPK: true, strategy: 'uuid' },
         { name: 'user_id', type: 'uuid', isFK: true, strategy: 'uuid' },
-        { name: 'event_type', type: 'enum', strategy: 'enum', options: { values: ['page_view', 'click', 'search', 'purchase', 'recommendation_request'] } },
+        { name: 'event_type', type: 'enum', strategy: 'enum', options: { values: ['page_view', 'click', 'search', 'purchase', 'recommendation_request'], weights: [35, 25, 20, 10, 10] } },
         { name: 'timestamp', type: 'timestamp', strategy: 'past_date' },
       ]),
       createTable('inference_logs', 100, 400, [
         { name: 'id', type: 'uuid', isPK: true, strategy: 'uuid' },
-        { name: 'request_id', type: 'uuid', isFK: true, strategy: 'uuid' },
+        { name: 'event_id', type: 'uuid', isFK: true, strategy: 'uuid' },
         { name: 'model_version', type: 'string', strategy: 'random_string' },
         { name: 'latency_ms', type: 'integer', strategy: 'integer', options: { min: 10, max: 500 } },
-        { name: 'prediction', type: 'decimal', strategy: 'decimal' },
+        { name: 'prediction', type: 'decimal', strategy: 'decimal', options: { min: 0, max: 1 } },
+        { name: 'created_at', type: 'timestamp', strategy: 'past_date' },
       ]),
       createTable('drift_alerts', 500, 400, [
         { name: 'id', type: 'uuid', isPK: true, strategy: 'uuid' },
+        { name: 'inference_log_id', type: 'uuid', isFK: true, strategy: 'uuid' },
         { name: 'model_name', type: 'string', strategy: 'random_string' },
         { name: 'feature_name', type: 'string', strategy: 'random_string' },
         { name: 'drift_score', type: 'decimal', strategy: 'decimal', options: { min: 0, max: 1 } },
+        { name: 'detected_at', type: 'timestamp', strategy: 'past_date' },
       ])
     ],
     relationships: []
   }
 ];
 
-// Helper to auto-populate relationships based on FK flags
-REALITY_TEMPLATES.forEach(template => {
-  template.tables.forEach(table => {
-    table.columns.forEach(col => {
-      if (col.isFK && col.fkTarget) {
-        // This is a bit tricky because createTable doesn't know the other table IDs yet
-        // So we'll do a second pass to find the target table by name if we use names instead of IDs in createTable
-      }
-    });
-  });
-});
+// ---------------------------------------------------------------------------
+// FK Name Override Map — catches column names the heuristic cannot resolve
+// ---------------------------------------------------------------------------
+const FK_NAME_OVERRIDES: Record<string, string> = {
+  'purchase_order_id': 'purchase_orders',
+  'login_attempt_id': 'login_attempts',
+  'event_id': 'events',
+  'inference_log_id': 'inference_logs',
+  'po_id': 'purchase_orders',      // legacy fallback
+  'source_id': 'login_attempts',   // legacy fallback
+  'request_id': 'events',          // legacy fallback
+};
 
-// Re-implementing with a more robust ID linking for templates
+// Non-FK columns whose names end in _id-like patterns but are NOT foreign keys
+// (prevents false positives in the override map)
+const FK_NAME_EXCLUSIONS = new Set(['user_id']);
+
+// ---------------------------------------------------------------------------
+// Auto-populate relationships based on FK flags
+// ---------------------------------------------------------------------------
 const populateRelationships = (template: RealityTemplate) => {
   const rels: Relationship[] = [];
-  
+
   template.tables.forEach(targetTable => {
     targetTable.columns.forEach(targetCol => {
       if (targetCol.isFK) {
-        // Infer target table from column name
-        const prefix = targetCol.name.split('_')[0];
-        const possibleNames = [
-          prefix + 's',
-          prefix + 'es',
-          prefix === 'org' ? 'organizations' : '',
-          prefix === 'sub' ? 'subscriptions' : '',
-          targetCol.name.replace('_id', 's'),
-          targetCol.name.replace('_id', 'es')
-        ].filter(Boolean);
+        let sourceTable: Table | undefined;
 
-        const sourceTable = template.tables.find(t => possibleNames.includes(t.name));
-        
+        // 1. Check explicit override map first
+        const overrideName = FK_NAME_OVERRIDES[targetCol.name];
+        if (overrideName) {
+          sourceTable = template.tables.find(t => t.name === overrideName);
+        }
+
+        // 2. Fall back to heuristic name inference
+        if (!sourceTable) {
+          const prefix = targetCol.name.split('_')[0];
+          const possibleNames = [
+            prefix + 's',
+            prefix + 'es',
+            prefix === 'org' ? 'organizations' : '',
+            prefix === 'sub' ? 'subscriptions' : '',
+            targetCol.name.replace('_id', 's'),
+            targetCol.name.replace('_id', 'es'),
+            targetCol.name.replace('_id', ''),
+          ].filter(Boolean);
+
+          sourceTable = template.tables.find(t => possibleNames.includes(t.name));
+        }
+
         if (sourceTable) {
           const sourceCol = sourceTable.columns.find(c => c.isPK);
           if (sourceCol) {
             targetCol.fkTarget = { tableId: sourceTable.id, columnId: sourceCol.id };
-            
+
             // Assign semantic based on target table name
             let semantic: Relationship['semantic'] = 'connection';
             const name = targetTable.name.toLowerCase();
-            
+
             if (name.includes('shipment') || name.includes('payment') || name.includes('billing')) {
               semantic = 'trigger';
-            } else if (name.includes('alert') || name.includes('fraud') || name.includes('risk')) {
+            } else if (name.includes('alert') || name.includes('fraud') || name.includes('risk') || name.includes('drift')) {
               semantic = 'risk';
-            } else if (name.includes('event') || name.includes('log') || name.includes('activity')) {
+            } else if (name.includes('event') || name.includes('log') || name.includes('activity') || name.includes('inference')) {
               semantic = 'activity';
             } else if (name.includes('item') || name.includes('detail')) {
               semantic = 'connection';
@@ -363,8 +448,20 @@ const populateRelationships = (template: RealityTemplate) => {
       }
     });
   });
-  
+
   template.relationships = rels;
+
+  // Verify: warn about any unresolved FK columns
+  template.tables.forEach(table => {
+    table.columns.forEach(col => {
+      if (col.isFK && !col.fkTarget) {
+        console.warn(
+          `[RealityDB Studio] Unresolved FK: "${col.name}" in table "${table.name}" (template: "${template.name}"). ` +
+          `Add an entry to FK_NAME_OVERRIDES to fix.`
+        );
+      }
+    });
+  });
 };
 
 REALITY_TEMPLATES.forEach(populateRelationships);
