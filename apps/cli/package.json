@@ -47,6 +47,7 @@
   "devDependencies": {
     "@databox/config": "workspace:^",
     "@databox/core": "workspace:^",
+    "@databox/db": "workspace:^",
     "@databox/generators": "workspace:^",
     "@databox/schema": "workspace:^",
     "@databox/shared": "workspace:^",

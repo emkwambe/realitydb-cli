@@ -13,6 +13,7 @@ import { loadCommand } from './commands/load.js';
 import { packsListCommand } from './commands/packs.js';
 import { generateCommand } from './commands/generate.js';
 import { analyzeCommand } from './commands/analyze.js';
+import { runCommand } from './commands/run.js';
 import { maskCommand } from './commands/mask.js';
 import { auditVerifyCommand, auditSummaryCommand, auditReIdentifyCommand } from './commands/audit.js';
 import {
@@ -125,6 +126,20 @@ export function run(argv: string[]): void {
     .action(async (cmdOpts) => {
       const opts = program.opts();
       await generateCommand({ ...cmdOpts, ci: opts.ci, configPath: opts.config });
+    });
+
+  program
+    .command('run')
+    .description('Create schema and seed database from a Studio-exported template pack')
+    .requiredOption('--pack <path>', 'Path to Studio template JSON file')
+    .requiredOption('--connection <url>', 'Database connection string')
+    .option('--records <count>', 'Number of records per table (overrides template config)')
+    .option('--seed <number>', 'Random seed for reproducibility (overrides template config)')
+    .option('--drop-existing', 'Drop and recreate tables if they already exist')
+    .option('--dry-run', 'Show DDL and plan without executing')
+    .action(async (cmdOpts) => {
+      const opts = program.opts();
+      await runCommand({ ...cmdOpts, ci: opts.ci });
     });
 
   const templates = program
