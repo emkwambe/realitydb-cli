@@ -326,6 +326,10 @@ export function run(argv: string[]): void {
     .option('--description <desc>', 'Pack description')
     .option('--tables <tables>', 'Comma-separated list of tables to capture')
     .option('--output <dir>', 'Output directory', '.')
+    .option('--safe', 'Enable privacy-safe capture (sanitize PII before writing)')
+    .option('--safe-mode <mode>', 'PII sanitization mode: mask (default), tokenize, redact', 'mask')
+    .option('--max-rows <count>', 'Maximum rows to capture per table')
+    .option('--around <column=value>', 'Capture rows related to a specific entity (follows FK chains)')
     .action(async (cmdOpts) => {
       const opts = program.opts();
       await captureCommand({ ...cmdOpts, ci: opts.ci, configPath: opts.config });
@@ -346,6 +350,7 @@ export function run(argv: string[]): void {
     .description('Load a Reality Pack into the database (file path or URL)')
     .option('--confirm', 'Confirm import operation')
     .option('--show-ddl', 'Show schema DDL without importing')
+    .option('--preview', 'Preview pack contents without importing')
     .action(async (filePath, cmdOpts) => {
       const opts = program.opts();
       await loadCommand(filePath, { ...cmdOpts, ci: opts.ci, configPath: opts.config });

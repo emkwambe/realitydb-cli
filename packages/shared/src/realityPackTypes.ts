@@ -23,6 +23,12 @@ export interface PackMetadata {
   tableCount: number;
   ddl?: string;
   capturedFrom?: string;
+  safeMode?: 'raw' | 'masked' | 'tokenized' | 'redacted';
+  piiSummary?: {
+    columnsDetected: number;
+    tablesAffected: number;
+    categoriesFound: string[];
+  };
 }
 
 export interface PackSchema {

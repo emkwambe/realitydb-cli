@@ -61,7 +61,7 @@ export type {
 } from '@databox/generators';
 
 export { captureDatabase } from './capturePipeline.js';
-export type { CaptureOptions, CaptureResult } from './capturePipeline.js';
+export type { CaptureOptions, CaptureResult, SafeMode } from './capturePipeline.js';
 
 export { shareRealityPack } from './sharePipeline.js';
 export type { ShareOptions, ShareResult } from './sharePipeline.js';
