@@ -160,8 +160,16 @@ export const REALITY_TEMPLATES: RealityTemplate[] = [
         { name: 'account_id', type: 'uuid', isFK: true, strategy: 'uuid' },
         { name: 'amount', type: 'decimal', strategy: 'decimal', options: { min: 1, max: 50000 } },
         { name: 'type', type: 'enum', strategy: 'enum', options: { values: ['deposit', 'withdrawal', 'transfer', 'payment'], weights: [25, 30, 25, 20] } },
-        { name: 'status', type: 'enum', strategy: 'enum', options: { values: ['pending', 'completed', 'failed', 'reversed'], weights: [5, 90, 3, 2] } },
+        { name: 'status', type: 'enum', strategy: 'enum', options: {
+          values: ['pending', 'completed', 'failed', 'reversed'],
+          weights: [5, 90, 3, 2],
+          lifecycleRules: [
+            { value: 'failed', nullFields: ['completed_at'] },
+            { value: 'reversed', nullFields: ['completed_at'] },
+          ]
+        }},
         { name: 'created_at', type: 'timestamp', strategy: 'past_date' },
+        { name: 'completed_at', type: 'timestamp', strategy: 'past_date', options: { dependsOn: 'created_at', dependencyRule: 'after' } },
       ]),
       createTable('fraud_alerts', 500, 400, [
         { name: 'id', type: 'uuid', isPK: true, strategy: 'uuid' },
@@ -309,9 +317,16 @@ export const REALITY_TEMPLATES: RealityTemplate[] = [
       createTable('security_alerts', 100, 400, [
         { name: 'id', type: 'uuid', isPK: true, strategy: 'uuid' },
         { name: 'login_attempt_id', type: 'uuid', isFK: true, strategy: 'uuid' },
-        { name: 'severity', type: 'enum', strategy: 'enum', options: { values: ['low', 'medium', 'high', 'critical'], weights: [50, 30, 15, 5] } },
+        { name: 'severity', type: 'enum', strategy: 'enum', options: {
+          values: ['low', 'medium', 'high', 'critical'],
+          weights: [50, 30, 15, 5],
+          lifecycleRules: [
+            { value: 'low', nullFields: ['resolved_at'] },
+          ]
+        }},
         { name: 'type', type: 'enum', strategy: 'enum', options: { values: ['brute_force', 'sql_injection', 'privilege_escalation', 'malware'], weights: [40, 25, 20, 15] } },
         { name: 'detected_at', type: 'timestamp', strategy: 'past_date' },
+        { name: 'resolved_at', type: 'timestamp', strategy: 'past_date', nullable: true, options: { dependsOn: 'detected_at', dependencyRule: 'after' } },
       ])
     ],
     relationships: []
@@ -349,6 +364,7 @@ export const REALITY_TEMPLATES: RealityTemplate[] = [
         { name: 'latency_ms', type: 'integer', strategy: 'integer', options: { min: 10, max: 500 } },
         { name: 'prediction', type: 'decimal', strategy: 'decimal', options: { min: 0, max: 1 } },
         { name: 'created_at', type: 'timestamp', strategy: 'past_date' },
+        { name: 'completed_at', type: 'timestamp', strategy: 'past_date', options: { dependsOn: 'created_at', dependencyRule: 'after' } },
       ]),
       createTable('drift_alerts', 500, 400, [
         { name: 'id', type: 'uuid', isPK: true, strategy: 'uuid' },
@@ -356,7 +372,16 @@ export const REALITY_TEMPLATES: RealityTemplate[] = [
         { name: 'model_name', type: 'string', strategy: 'random_string' },
         { name: 'feature_name', type: 'string', strategy: 'random_string' },
         { name: 'drift_score', type: 'decimal', strategy: 'decimal', options: { min: 0, max: 1 } },
+        { name: 'status', type: 'enum', strategy: 'enum', options: {
+          values: ['active', 'resolved', 'dismissed'],
+          weights: [40, 35, 25],
+          lifecycleRules: [
+            { value: 'dismissed', nullFields: ['resolved_at'] },
+            { value: 'active', nullFields: ['resolved_at'] },
+          ]
+        }},
         { name: 'detected_at', type: 'timestamp', strategy: 'past_date' },
+        { name: 'resolved_at', type: 'timestamp', strategy: 'past_date', nullable: true, options: { dependsOn: 'detected_at', dependencyRule: 'after' } },
       ])
     ],
     relationships: []
