@@ -176,14 +176,14 @@ export function convertToCliTemplate(
         const targetTable = tableMap.get(col.fkTarget.tableId);
         const targetCol = targetTable?.columns.find(c => c.id === col.fkTarget?.columnId);
         if (targetTable && targetCol) {
-          def.foreignKey = { table: targetTable.name, column: targetCol.name };
+          def.foreignKey = { table: targetTable.name.trim(), column: targetCol.name.trim() };
         }
       }
 
-      columns[col.name] = def;
+      columns[col.name.trim()] = def;
     }
 
-    cliTables[table.name] = { columns };
+    cliTables[table.name.trim()] = { columns };
   }
 
   return {
@@ -235,12 +235,14 @@ export function generateSQLDDL(tables: Table[], relationships: Relationship[]): 
   };
 
   for (const table of tables) {
+    const tableName = table.name.trim();
     const colDefs: string[] = [];
     const constraints: string[] = [];
 
     for (const col of table.columns) {
+      const colName = col.name.trim();
       let sqlType = typeMap[col.type] || 'VARCHAR(255)';
-      let colLine = `  "${col.name}" ${sqlType}`;
+      let colLine = `  "${colName}" ${sqlType}`;
       if (!col.nullable) colLine += ' NOT NULL';
       if (col.isPK) colLine += ' PRIMARY KEY';
       if (col.isPK && col.type === 'uuid') colLine += ' DEFAULT gen_random_uuid()';
@@ -251,14 +253,14 @@ export function generateSQLDDL(tables: Table[], relationships: Relationship[]): 
         const targetCol = targetTable?.columns.find(c => c.id === col.fkTarget?.columnId);
         if (targetTable && targetCol) {
           constraints.push(
-            `  CONSTRAINT "fk_${table.name}_${col.name}" FOREIGN KEY ("${col.name}") REFERENCES "${targetTable.name}"("${targetCol.name}")`
+            `  CONSTRAINT "fk_${tableName}_${colName}" FOREIGN KEY ("${colName}") REFERENCES "${targetTable.name.trim()}"("${targetCol.name.trim()}")`
           );
         }
       }
     }
 
     const allDefs = [...colDefs, ...constraints].join(',\n');
-    lines.push(`CREATE TABLE "${table.name}" (\n${allDefs}\n);\n`);
+    lines.push(`CREATE TABLE "${tableName}" (\n${allDefs}\n);\n`);
   }
 
   return lines.join('\n');

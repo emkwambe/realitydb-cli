@@ -54,8 +54,13 @@ export default function App() {
   };
 
   const handleExportStudio = () => {
+    const trimmedTables = tables.map(t => ({
+      ...t,
+      name: t.name.trim(),
+      columns: t.columns.map(c => ({ ...c, name: c.name.trim() })),
+    }));
     const schema = {
-      tables,
+      tables: trimmedTables,
       relationships,
       simulation,
       version: '1.0.0',

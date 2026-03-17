@@ -185,9 +185,9 @@ export const useSchemaStore = create<SchemaState>()(
 
       addTable: (table) => set((state) => {
         const tableCount = state.tables.length;
-        const GRID_COLS = 3;
+        const GRID_COLS = 5;
         const defaultPos = {
-          x: 100 + (tableCount % GRID_COLS) * 320,
+          x: 100 + (tableCount % GRID_COLS) * 300,
           y: 100 + Math.floor(tableCount / GRID_COLS) * 280,
         };
 
@@ -350,6 +350,15 @@ export const useSchemaStore = create<SchemaState>()(
                   const newCol = { ...c, ...updates };
                   if (updates.type && !TYPE_STRATEGIES[updates.type].includes(newCol.strategy)) {
                     newCol.strategy = TYPE_STRATEGIES[updates.type][0];
+                  }
+                  // Re-infer strategy when column name changes and current strategy is generic
+                  if (updates.name && (newCol.strategy === 'random_string')) {
+                    const defaults = inferColumnDefaults(updates.name);
+                    if (defaults) {
+                      newCol.type = defaults.type;
+                      newCol.strategy = defaults.strategy;
+                      if (defaults.options) newCol.options = { ...newCol.options, ...defaults.options };
+                    }
                   }
                   return newCol;
                 }

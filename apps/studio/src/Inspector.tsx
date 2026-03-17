@@ -325,16 +325,16 @@ export default function Inspector() {
                   <button
                     key={targetTable.id}
                     onClick={() => {
-                      const pkCol = selectedTable!.columns.find(c => c.isPK);
-                      if (pkCol) {
+                      const targetPkCol = targetTable.columns.find(c => c.isPK);
+                      if (targetPkCol) {
                         createRelationshipWithFK({
-                          sourceTableId: selectedTable!.id,
-                          sourceColumnId: pkCol.id,
-                          targetTableId: targetTable.id,
+                          sourceTableId: targetTable.id,
+                          sourceColumnId: targetPkCol.id,
+                          targetTableId: selectedTable!.id,
                           targetColumnId: null,
                           type: 'one-to-many',
                           createFKColumn: true,
-                          fkColumnName: `${selectedTable!.name.replace(/s$/, '').toLowerCase()}_id`,
+                          fkColumnName: `${targetTable.name.replace(/s$/, '').toLowerCase()}_id`,
                           semantic: 'connection',
                         });
                       }
@@ -346,7 +346,7 @@ export default function Inspector() {
                     </div>
                     <div>
                       <p className="text-sm font-semibold text-slate-700 group-hover/item:text-indigo-700">{targetTable.name}</p>
-                      <p className="text-[10px] text-slate-400">Add FK to {targetTable.name}</p>
+                      <p className="text-[10px] text-slate-400">Add FK to {selectedTable!.name}</p>
                     </div>
                   </button>
                 ))}

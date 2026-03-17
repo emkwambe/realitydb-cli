@@ -46,7 +46,7 @@ const TABLE_SUGGESTIONS: Record<string, ColumnSuggestion[]> = {
 };
 
 const DEFAULT_SUGGESTIONS: ColumnSuggestion[] = [
-  { name: 'name', type: 'string', strategy: 'random_string' },
+  { name: 'name', type: 'name', strategy: 'name' },
   { name: 'status', type: 'enum', strategy: 'enum', options: { values: ['active', 'inactive', 'pending'], weights: [60, 20, 20] } },
   { name: 'created_at', type: 'timestamp', strategy: 'past_date' },
 ];
@@ -89,6 +89,9 @@ export function inferColumnDefaults(columnName: string): { type: DataType; strat
   if (lower.includes('phone')) return { type: 'phone', strategy: 'phone' };
   if (lower.includes('price') || lower.includes('amount') || lower.includes('cost') || lower.includes('total')) {
     return { type: 'decimal', strategy: 'decimal', options: { min: 1, max: 5000 } };
+  }
+  if (lower.includes('name')) {
+    return lower.includes('company') ? { type: 'name', strategy: 'company_name' } : { type: 'name', strategy: 'name' };
   }
   return null;
 }

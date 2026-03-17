@@ -67,7 +67,7 @@ export default function Sidebar() {
       <div className="p-4 border-b border-slate-100 bg-slate-50 sticky top-0 z-10">
         <h2 className="font-semibold text-slate-800 flex items-center gap-2">
           <Layout size={16} className="text-indigo-600" />
-          RealityDB Studio
+          Workspace
         </h2>
       </div>
 
