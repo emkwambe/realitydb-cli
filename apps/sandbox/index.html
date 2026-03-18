@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RealityDB Sandbox — SQL in Your Browser</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0a0f;--surface:#12121a;--surface2:#1a1a28;--border:#1e1e2e;--border2:#2a2a3e;--text:#e0e0e8;--muted:#8888a0;--accent:#6366f1;--accent-glow:rgba(99,102,241,0.15);--green:#22c55e;--red:#ef4444;--yellow:#eab308;--font-mono:'Cascadia Code','Fira Code','JetBrains Mono','SF Mono',monospace;--font-sans:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+body{font-family:var(--font-sans);background:var(--bg);color:var(--text);line-height:1.6;min-height:100vh;display:flex;flex-direction:column}
+a{color:var(--accent);text-decoration:none}
+button{font-family:inherit;cursor:pointer}
+
+/* Nav */
+nav{border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;background:var(--surface);flex-shrink:0}
+.logo{font-weight:700;font-size:1.1rem;color:var(--text);display:flex;align-items:center;gap:8px}
+.logo span{color:var(--accent)}
+.logo .badge{font-size:0.65rem;background:var(--accent-glow);color:var(--accent);padding:2px 8px;border-radius:10px;font-weight:600}
+.nav-links{display:flex;gap:16px;align-items:center}
+.nav-links a{color:var(--muted);font-size:0.85rem}
+.nav-links a:hover{color:var(--text)}
+
+/* Layout */
+.app{display:flex;flex:1;overflow:hidden}
+
+/* Sidebar */
+.sidebar{width:260px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden}
+.sidebar-header{padding:16px;border-bottom:1px solid var(--border)}
+.sidebar-header h3{font-size:0.85rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px}
+
+/* Template cards */
+.template-card{padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.2s}
+.template-card:hover{background:var(--surface2)}
+.template-card.active{background:var(--accent-glow);border-left:3px solid var(--accent)}
+.template-card h4{font-size:0.9rem;margin-bottom:2px;display:flex;align-items:center;gap:8px}
+.template-card h4 .emoji{font-size:1rem}
+.template-card p{font-size:0.75rem;color:var(--muted)}
+.template-card .meta{font-size:0.7rem;color:var(--muted);margin-top:4px;display:flex;gap:12px}
+.template-card .meta span{display:flex;align-items:center;gap:3px}
+
+/* Schema panel */
+.schema-section{flex:1;overflow-y:auto;padding:8px 0}
+.schema-section h3{font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;padding:12px 16px 6px}
+.schema-table{padding:4px 16px}
+.schema-table-name{font-size:0.85rem;font-weight:600;color:var(--accent);cursor:pointer;padding:6px 0;display:flex;justify-content:space-between;align-items:center}
+.schema-table-name:hover{text-decoration:underline}
+.schema-table-name .row-count{font-size:0.7rem;color:var(--muted);font-weight:400}
+.schema-cols{padding:0 0 8px 12px;display:none}
+.schema-cols.open{display:block}
+.schema-col{font-size:0.75rem;color:var(--muted);padding:2px 0;font-family:var(--font-mono);display:flex;gap:8px}
+.schema-col .col-name{color:var(--text)}
+.schema-col .col-type{color:var(--muted)}
+.schema-col .pk{color:var(--yellow);font-size:0.6rem;font-weight:700}
+.schema-col .fk{color:var(--green);font-size:0.6rem;font-weight:700}
+
+/* Main */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+
+/* Editor area */
+.editor-area{display:flex;flex-direction:column;border-bottom:1px solid var(--border)}
+.editor-toolbar{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;background:var(--surface);border-bottom:1px solid var(--border)}
+.editor-toolbar .left{display:flex;align-items:center;gap:12px}
+.editor-toolbar .label{font-size:0.8rem;color:var(--muted)}
+.run-btn{background:var(--green);color:#000;border:none;padding:6px 16px;border-radius:6px;font-size:0.85rem;font-weight:600;display:flex;align-items:center;gap:6px;transition:opacity 0.2s}
+.run-btn:hover{opacity:0.9}
+.run-btn:disabled{opacity:0.5;cursor:not-allowed}
+.clear-btn{background:transparent;color:var(--muted);border:1px solid var(--border);padding:6px 12px;border-radius:6px;font-size:0.8rem;transition:all 0.2s}
+.clear-btn:hover{border-color:var(--muted);color:var(--text)}
+.editor-wrap{position:relative}
+textarea#sql-editor{width:100%;min-height:120px;max-height:300px;resize:vertical;background:var(--bg);color:var(--text);border:none;padding:16px;font-family:var(--font-mono);font-size:0.9rem;line-height:1.6;outline:none;tab-size:2}
+textarea#sql-editor::placeholder{color:#444}
+
+/* Results */
+.results-area{flex:1;overflow:auto;display:flex;flex-direction:column}
+.results-toolbar{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
+.results-toolbar .info{font-size:0.8rem;color:var(--muted)}
+.results-toolbar .timing{font-size:0.75rem;color:var(--green);font-family:var(--font-mono)}
+.csv-btn{background:transparent;color:var(--accent);border:1px solid var(--accent);padding:4px 12px;border-radius:4px;font-size:0.75rem;transition:all 0.2s}
+.csv-btn:hover{background:var(--accent-glow)}
+
+.results-content{flex:1;overflow:auto;padding:0}
+.results-table{width:100%;border-collapse:collapse;font-size:0.82rem}
+.results-table th{background:var(--surface2);color:var(--muted);text-align:left;padding:8px 12px;border-bottom:1px solid var(--border);font-weight:600;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;position:sticky;top:0;z-index:1}
+.results-table td{padding:6px 12px;border-bottom:1px solid var(--border);font-family:var(--font-mono);font-size:0.8rem;white-space:nowrap;max-width:300px;overflow:hidden;text-overflow:ellipsis}
+.results-table tr:hover td{background:var(--surface2)}
+.null-val{color:#555;font-style:italic}
+
+/* Messages */
+.msg{padding:40px;text-align:center;color:var(--muted);flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px}
+.msg .icon{font-size:2rem}
+.msg h3{font-size:1rem;color:var(--text)}
+.msg p{font-size:0.85rem;max-width:400px}
+.error-msg{background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);color:var(--red);padding:12px 16px;margin:12px;border-radius:8px;font-size:0.85rem;font-family:var(--font-mono)}
+
+/* Suggested queries */
+.suggestions{padding:16px;border-top:1px solid var(--border);background:var(--surface);flex-shrink:0}
+.suggestions h4{font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px}
+.suggestion-chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:4px 10px;border-radius:6px;font-size:0.75rem;font-family:var(--font-mono);cursor:pointer;transition:all 0.2s;white-space:nowrap}
+.chip:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-glow)}
+
+/* Loading overlay */
+.loading{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;z-index:1000;transition:opacity 0.3s}
+.loading.hidden{opacity:0;pointer-events:none}
+.spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading p{color:var(--muted);font-size:0.9rem}
+
+/* Responsive */
+@media(max-width:768px){
+.sidebar{width:100%;max-height:200px;border-right:none;border-bottom:1px solid var(--border)}
+.app{flex-direction:column}
+}
+</style>
+</head>
+<body>
+
+<nav>
+<div class="logo">Reality<span>DB</span> Sandbox <span class="badge">Browser SQL</span></div>
+<div class="nav-links">
+<a href="https://realitydb.dev">Home</a>
+<a href="https://studio.realitydb.dev">Studio</a>
+<a href="https://github.com/emkwambe/databox">GitHub</a>
+<a href="https://realitydb.dev/pricing">Pricing</a>
+</div>
+</nav>
+
+<div class="app">
+<div class="sidebar">
+<div class="sidebar-header">
+<h3>Templates</h3>
+</div>
+<div id="template-list"></div>
+<div class="schema-section" id="schema-panel">
+<h3>Schema</h3>
+<div id="schema-content"><p style="padding:16px;font-size:0.8rem;color:var(--muted)">Select a template to load schema</p></div>
+</div>
+</div>
+
+<div class="main">
+<div class="editor-area">
+<div class="editor-toolbar">
+<div class="left">
+<span class="label">SQL Editor</span>
+<span class="label" style="font-size:0.7rem;color:#555">Ctrl+Enter to run</span>
+</div>
+<div style="display:flex;gap:8px;align-items:center">
+<button class="clear-btn" onclick="clearEditor()">Clear</button>
+<button class="run-btn" id="run-btn" onclick="runQuery()" disabled>&#9654; Run</button>
+</div>
+</div>
+<div class="editor-wrap">
+<textarea id="sql-editor" placeholder="SELECT * FROM ..." spellcheck="false"></textarea>
+</div>
+</div>
+
+<div class="results-area">
+<div class="results-toolbar" id="results-toolbar" style="display:none">
+<span class="info" id="results-info"></span>
+<div style="display:flex;gap:8px;align-items:center">
+<span class="timing" id="results-timing"></span>
+<button class="csv-btn" id="csv-btn" onclick="exportCSV()" style="display:none">Export CSV</button>
+</div>
+</div>
+<div class="results-content" id="results-content">
+<div class="msg">
+<div class="icon">&#128640;</div>
+<h3>Welcome to RealityDB Sandbox</h3>
+<p>Select a template from the sidebar to load realistic data into an in-browser PostgreSQL database. Then write SQL to explore it.</p>
+<p style="font-size:0.75rem;color:#555">Powered by PGLite — PostgreSQL compiled to WebAssembly. Zero installation. Runs entirely in your browser.</p>
+</div>
+</div>
+<div class="suggestions" id="suggestions" style="display:none">
+<h4>Try these queries</h4>
+<div class="suggestion-chips" id="suggestion-chips"></div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="loading" id="loading">
+<div class="spinner"></div>
+<p id="loading-msg">Initializing PostgreSQL in your browser...</p>
+</div>
+
+<script type="module">
+import { PGlite } from 'https://cdn.jsdelivr.net/npm/@electric-sql/pglite@0.2.17/dist/index.js';
+
+let db = null;
+let currentTemplate = null;
+let lastResults = null;
+
+const templates = {
+  saas: {
+    name: 'SaaS Platform',
+    emoji: '💳',
+    desc: 'Orgs, users, subscriptions, payments',
+    tables: 4,
+    rows: 170,
+    difficulty: 'Beginner',
+    file: 'data/saas.sql',
+    suggestions: [
+      "SELECT * FROM organizations LIMIT 10;",
+      "SELECT plan, COUNT(*) as count FROM subscriptions GROUP BY plan;",
+      "SELECT status, COUNT(*) FROM subscriptions GROUP BY status;",
+      "SELECT o.name, COUNT(u.id) as user_count FROM organizations o LEFT JOIN users u ON u.org_id = o.id GROUP BY o.name ORDER BY user_count DESC;",
+      "SELECT s.status, AVG(p.amount) as avg_payment FROM subscriptions s JOIN payments p ON p.subscription_id = s.id GROUP BY s.status;",
+      "SELECT * FROM subscriptions WHERE status = 'cancelled' AND next_billing_at IS NOT NULL;",
+      "SELECT * FROM payments WHERE status = 'failed';",
+    ]
+  },
+  ecommerce: {
+    name: 'E-Commerce',
+    emoji: '🛒',
+    desc: 'Customers, products, orders, shipments',
+    tables: 5,
+    rows: 200,
+    difficulty: 'Intermediate',
+    file: 'data/ecommerce.sql',
+    suggestions: [
+      "SELECT * FROM customers LIMIT 10;",
+      "SELECT status, COUNT(*) FROM orders GROUP BY status;",
+      "SELECT carrier, COUNT(*) FROM shipments GROUP BY carrier;",
+      "SELECT c.name, COUNT(o.id) as order_count, SUM(o.total) as total_spent FROM customers c JOIN orders o ON o.customer_id = c.id GROUP BY c.name ORDER BY total_spent DESC;",
+      "SELECT p.name, SUM(oi.quantity) as units_sold FROM products p JOIN order_items oi ON oi.product_id = p.id GROUP BY p.name ORDER BY units_sold DESC;",
+      "SELECT * FROM orders WHERE status IN ('cancelled','returned') AND shipped_at IS NOT NULL;",
+      "SELECT o.status, s.status as ship_status, COUNT(*) FROM orders o LEFT JOIN shipments s ON s.order_id = o.id GROUP BY o.status, s.status;",
+    ]
+  },
+  fintech: {
+    name: 'FinTech Banking',
+    emoji: '🏦',
+    desc: 'Customers, accounts, transactions, alerts',
+    tables: 4,
+    rows: 180,
+    difficulty: 'Intermediate',
+    file: 'data/fintech.sql',
+    suggestions: [
+      "SELECT * FROM customers LIMIT 10;",
+      "SELECT account_type, COUNT(*) FROM accounts GROUP BY account_type;",
+      "SELECT type, COUNT(*), ROUND(AVG(amount)::numeric, 2) as avg_amount FROM transactions GROUP BY type;",
+      "SELECT status, COUNT(*) FROM transactions GROUP BY status;",
+      "SELECT * FROM transactions WHERE status = 'reversed' AND settled_at IS NOT NULL;",
+      "SELECT c.name, COUNT(a.id) as acct_count FROM customers c JOIN accounts a ON a.customer_id = c.id GROUP BY c.name;",
+      "SELECT severity, COUNT(*) FROM fraud_alerts GROUP BY severity;",
+    ]
+  },
+  healthcare: {
+    name: 'Healthcare',
+    emoji: '🏥',
+    desc: 'Patients, appointments, encounters, billing',
+    tables: 4,
+    rows: 170,
+    difficulty: 'Advanced',
+    file: 'data/healthcare.sql',
+    suggestions: [
+      "SELECT * FROM patients LIMIT 10;",
+      "SELECT status, COUNT(*) FROM appointments GROUP BY status;",
+      "SELECT type, COUNT(*) FROM encounters GROUP BY type;",
+      "SELECT * FROM appointments WHERE status = 'cancelled' AND completed_at IS NOT NULL;",
+      "SELECT p.name, COUNT(a.id) as visit_count FROM patients p JOIN appointments a ON a.patient_id = p.id GROUP BY p.name ORDER BY visit_count DESC;",
+      "SELECT status, ROUND(AVG(amount)::numeric, 2) as avg_bill FROM billing GROUP BY status;",
+      "SELECT gender, COUNT(*) FROM patients GROUP BY gender;",
+    ]
+  },
+  logistics: {
+    name: 'Logistics',
+    emoji: '🚚',
+    desc: 'Suppliers, purchase orders, shipments, inventory',
+    tables: 4,
+    rows: 160,
+    difficulty: 'Intermediate',
+    file: 'data/logistics.sql',
+    suggestions: [
+      "SELECT * FROM suppliers LIMIT 10;",
+      "SELECT country, COUNT(*) FROM suppliers GROUP BY country;",
+      "SELECT status, COUNT(*) FROM purchase_orders GROUP BY status;",
+      "SELECT * FROM purchase_orders WHERE status = 'cancelled' AND delivered_at IS NOT NULL;",
+      "SELECT s.name, COUNT(po.id) as order_count FROM suppliers s JOIN purchase_orders po ON po.supplier_id = s.id GROUP BY s.name ORDER BY order_count DESC;",
+      "SELECT warehouse, SUM(quantity) as total_stock FROM inventory GROUP BY warehouse ORDER BY total_stock DESC;",
+      "SELECT status, ROUND(AVG(total)::numeric, 2) as avg_total FROM purchase_orders GROUP BY status;",
+    ]
+  },
+  cybersecurity: {
+    name: 'Cyber Security',
+    emoji: '🛡️',
+    desc: 'Users, access logs, login attempts, alerts',
+    tables: 4,
+    rows: 220,
+    difficulty: 'Advanced',
+    file: 'data/cybersecurity.sql',
+    suggestions: [
+      "SELECT * FROM users LIMIT 10;",
+      "SELECT action, COUNT(*) FROM access_logs GROUP BY action;",
+      "SELECT status, COUNT(*) FROM login_attempts GROUP BY status;",
+      "SELECT severity, COUNT(*) FROM security_alerts GROUP BY severity;",
+      "SELECT * FROM security_alerts WHERE status = 'dismissed' AND resolved_at IS NOT NULL;",
+      "SELECT u.role, COUNT(la.id) as failed_logins FROM users u JOIN login_attempts la ON la.user_id = u.id WHERE la.status = 'failed' GROUP BY u.role;",
+      "SELECT type, COUNT(*) FROM security_alerts GROUP BY type ORDER BY count DESC;",
+    ]
+  },
+  ai_events: {
+    name: 'AI Event Stream',
+    emoji: '🤖',
+    desc: 'Users, events, inference logs, model alerts',
+    tables: 4,
+    rows: 200,
+    difficulty: 'Advanced',
+    file: 'data/ai_events.sql',
+    suggestions: [
+      "SELECT * FROM users LIMIT 10;",
+      "SELECT segment, COUNT(*) FROM users GROUP BY segment;",
+      "SELECT event_type, COUNT(*) FROM events GROUP BY event_type;",
+      "SELECT model, ROUND(AVG(latency_ms)::numeric, 1) as avg_latency FROM inference_logs GROUP BY model;",
+      "SELECT status, COUNT(*) FROM inference_logs GROUP BY status;",
+      "SELECT severity, COUNT(*) FROM model_alerts GROUP BY severity;",
+      "SELECT * FROM model_alerts WHERE status = 'dismissed' AND resolved_at IS NOT NULL;",
+    ]
+  }
+};
+
+// Render template list
+function renderTemplates() {
+  const list = document.getElementById('template-list');
+  list.innerHTML = Object.entries(templates).map(([key, t]) => `
+    <div class="template-card" data-key="${key}" onclick="selectTemplate('${key}')">
+      <h4><span class="emoji">${t.emoji}</span> ${t.name}</h4>
+      <p>${t.desc}</p>
+      <div class="meta">
+        <span>${t.tables} tables</span>
+        <span>~${t.rows} rows</span>
+        <span>${t.difficulty}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+// Select template
+window.selectTemplate = async function(key) {
+  const t = templates[key];
+  if (!t) return;
+  
+  currentTemplate = key;
+  
+  // Highlight active
+  document.querySelectorAll('.template-card').forEach(c => c.classList.remove('active'));
+  document.querySelector(`[data-key="${key}"]`)?.classList.add('active');
+  
+  // Show loading
+  const loading = document.getElementById('loading');
+  const loadingMsg = document.getElementById('loading-msg');
+  loading.classList.remove('hidden');
+  loadingMsg.textContent = `Loading ${t.name} template...`;
+  
+  try {
+    // Init fresh PGLite instance
+    if (db) {
+      try { db.close(); } catch(e) {}
+    }
+    loadingMsg.textContent = 'Starting PostgreSQL in your browser...';
+    db = new PGlite();
+    
+    // Fetch SQL
+    loadingMsg.textContent = `Fetching ${t.name} data...`;
+    const resp = await fetch(t.file);
+    if (!resp.ok) throw new Error(`Failed to load ${t.file}: ${resp.status}`);
+    const sql = await resp.text();
+    
+    // Execute
+    loadingMsg.textContent = `Seeding ${t.rows} rows across ${t.tables} tables...`;
+    await db.exec(sql);
+    
+    // Enable editor
+    document.getElementById('run-btn').disabled = false;
+    
+    // Render schema
+    await renderSchema();
+    
+    // Show suggestions
+    renderSuggestions(t.suggestions);
+    
+    // Clear results
+    document.getElementById('results-content').innerHTML = `
+      <div class="msg">
+        <div class="icon">${t.emoji}</div>
+        <h3>${t.name} loaded</h3>
+        <p>${t.tables} tables, ~${t.rows} rows of realistic data with lifecycle rules, temporal dependencies, and weighted distributions.</p>
+        <p style="font-size:0.75rem;color:#555">Click a table name in the schema panel or try a suggested query below.</p>
+      </div>
+    `;
+    document.getElementById('results-toolbar').style.display = 'none';
+    
+    loading.classList.add('hidden');
+  } catch (err) {
+    loading.classList.add('hidden');
+    document.getElementById('results-content').innerHTML = `<div class="error-msg">Error loading template: ${err.message}</div>`;
+  }
+};
+
+// Render schema from PGLite introspection
+async function renderSchema() {
+  if (!db) return;
+  const res = await db.query(`
+    SELECT table_name FROM information_schema.tables 
+    WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+    ORDER BY table_name
+  `);
+  
+  let html = '';
+  for (const row of res.rows) {
+    const tbl = row.table_name;
+    const cols = await db.query(`
+      SELECT column_name, data_type, is_nullable,
+        (SELECT COUNT(*) > 0 FROM information_schema.table_constraints tc 
+         JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name
+         WHERE tc.table_name = c.table_name AND kcu.column_name = c.column_name AND tc.constraint_type = 'PRIMARY KEY') as is_pk
+      FROM information_schema.columns c 
+      WHERE table_schema = 'public' AND table_name = '${tbl}'
+      ORDER BY ordinal_position
+    `);
+    const countRes = await db.query(`SELECT COUNT(*) as cnt FROM "${tbl}"`);
+    const count = countRes.rows[0].cnt;
+    
+    html += `<div class="schema-table">
+      <div class="schema-table-name" onclick="toggleCols(this); queryTable('${tbl}')">
+        ${tbl} <span class="row-count">${count} rows</span>
+      </div>
+      <div class="schema-cols">
+        ${cols.rows.map(c => `
+          <div class="schema-col">
+            ${c.is_pk ? '<span class="pk">PK</span>' : ''}
+            <span class="col-name">${c.column_name}</span>
+            <span class="col-type">${c.data_type}</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>`;
+  }
+  
+  document.getElementById('schema-content').innerHTML = html;
+}
+
+window.toggleCols = function(el) {
+  const cols = el.nextElementSibling;
+  cols.classList.toggle('open');
+};
+
+window.queryTable = function(table) {
+  const editor = document.getElementById('sql-editor');
+  editor.value = `SELECT * FROM ${table} LIMIT 20;`;
+  runQuery();
+};
+
+// Run query
+window.runQuery = async function() {
+  if (!db) return;
+  const editor = document.getElementById('sql-editor');
+  const sql = editor.value.trim();
+  if (!sql) return;
+  
+  const start = performance.now();
+  
+  try {
+    const res = await db.query(sql);
+    const elapsed = (performance.now() - start).toFixed(1);
+    
+    if (res.rows && res.rows.length > 0) {
+      lastResults = res;
+      const cols = Object.keys(res.rows[0]);
+      
+      let tableHTML = `<table class="results-table"><thead><tr>${cols.map(c => `<th>${c}</th>`).join('')}</tr></thead><tbody>`;
+      for (const row of res.rows) {
+        tableHTML += '<tr>';
+        for (const col of cols) {
+          const val = row[col];
+          if (val === null || val === undefined) {
+            tableHTML += `<td><span class="null-val">NULL</span></td>`;
+          } else {
+            tableHTML += `<td>${escapeHtml(String(val))}</td>`;
+          }
+        }
+        tableHTML += '</tr>';
+      }
+      tableHTML += '</tbody></table>';
+      
+      document.getElementById('results-content').innerHTML = tableHTML;
+      document.getElementById('results-toolbar').style.display = 'flex';
+      document.getElementById('results-info').textContent = `${res.rows.length} row${res.rows.length !== 1 ? 's' : ''}`;
+      document.getElementById('results-timing').textContent = `${elapsed}ms`;
+      document.getElementById('csv-btn').style.display = 'block';
+    } else {
+      document.getElementById('results-content').innerHTML = `<div class="msg"><div class="icon">&#10003;</div><h3>Query executed</h3><p>No rows returned. ${elapsed}ms</p></div>`;
+      document.getElementById('results-toolbar').style.display = 'none';
+      document.getElementById('csv-btn').style.display = 'none';
+      lastResults = null;
+    }
+  } catch (err) {
+    document.getElementById('results-content').innerHTML = `<div class="error-msg">${escapeHtml(err.message)}</div>`;
+    document.getElementById('results-toolbar').style.display = 'none';
+    lastResults = null;
+  }
+};
+
+function escapeHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Suggestions
+function renderSuggestions(queries) {
+  const panel = document.getElementById('suggestions');
+  const chips = document.getElementById('suggestion-chips');
+  panel.style.display = 'block';
+  chips.innerHTML = queries.map(q => `<span class="chip" onclick="useSuggestion(this)">${escapeHtml(q)}</span>`).join('');
+}
+
+window.useSuggestion = function(el) {
+  document.getElementById('sql-editor').value = el.textContent;
+  runQuery();
+};
+
+// CSV export
+window.exportCSV = function() {
+  if (!lastResults || !lastResults.rows.length) return;
+  const cols = Object.keys(lastResults.rows[0]);
+  let csv = cols.join(',') + '\n';
+  for (const row of lastResults.rows) {
+    csv += cols.map(c => {
+      const v = row[c];
+      if (v === null || v === undefined) return '';
+      const s = String(v);
+      return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g,'""')}"` : s;
+    }).join(',') + '\n';
+  }
+  const blob = new Blob([csv], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `realitydb-${currentTemplate}-results.csv`;
+  a.click();
+};
+
+// Clear
+window.clearEditor = function() {
+  document.getElementById('sql-editor').value = '';
+  document.getElementById('sql-editor').focus();
+};
+
+// Keyboard shortcuts
+document.getElementById('sql-editor').addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    e.preventDefault();
+    runQuery();
+  }
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const el = e.target;
+    const start = el.selectionStart;
+    el.value = el.value.substring(0, start) + '  ' + el.value.substring(el.selectionEnd);
+    el.selectionStart = el.selectionEnd = start + 2;
+  }
+});
+
+// Init
+renderTemplates();
+document.getElementById('loading').classList.add('hidden');
+</script>
+</body>
+</html>
