@@ -5,9 +5,10 @@ interface Props {
   value: string;
   onChange: (value: string) => void;
   onRun: (sql: string) => void;
+  onExplain: () => void;
 }
 
-export function SQLEditor({ value, onChange, onRun }: Props) {
+export function SQLEditor({ value, onChange, onRun, onExplain }: Props) {
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
 
   const handleMount: OnMount = useCallback(
@@ -51,6 +52,12 @@ export function SQLEditor({ value, onChange, onRun }: Props) {
         <span className="text-xs font-mono text-[var(--muted)]">SQL Editor</span>
         <div className="flex items-center gap-2">
           <span className="text-[10px] text-[var(--muted)]">Ctrl+Enter to run</span>
+          <button
+            onClick={onExplain}
+            className="px-3 py-1 bg-amber/10 text-amber text-xs rounded hover:bg-amber/20 transition-colors font-medium"
+          >
+            Explain
+          </button>
           <button
             onClick={() => {
               if (value.trim()) onRun(value);
