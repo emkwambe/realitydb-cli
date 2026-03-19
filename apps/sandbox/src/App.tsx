@@ -58,6 +58,24 @@ export default function App() {
     }
   }, []);
 
+  const handleExplain = useCallback(async () => {
+    if (!editorValue.trim()) return;
+    const explainSQL = `EXPLAIN (ANALYZE, FORMAT JSON) ${editorValue}`;
+    const res = await runQuery(explainSQL);
+    if (res.error) {
+      setResult({
+        columns: [],
+        rows: [],
+        rowCount: 0,
+        duration: res.duration,
+        error: 'Execution plan not available for this query. PGLite has limited EXPLAIN support.',
+      });
+    } else {
+      setResult(res);
+    }
+    setQueryTime(res.duration);
+  }, [editorValue]);
+
   const handleSuggestionClick = useCallback(
     (sql: string) => {
       setEditorValue(sql);
@@ -122,10 +140,11 @@ export default function App() {
                 value={editorValue}
                 onChange={setEditorValue}
                 onRun={handleRunQuery}
+                onExplain={handleExplain}
               />
             </div>
             <div className="flex-1 overflow-hidden">
-              <ResultsPanel result={result} />
+              <ResultsPanel result={result} schema={schema} />
             </div>
           </div>
           <div className="w-full md:w-72 border-l border-[var(--border)] overflow-y-auto shrink-0">
