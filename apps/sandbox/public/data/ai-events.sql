@@ -1,0 +1,123 @@
+-- AI/ML events platform schema and sample data
+CREATE TABLE models (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR(255) NOT NULL,
+  version VARCHAR(50) NOT NULL,
+  framework VARCHAR(100) NOT NULL,
+  task_type VARCHAR(100) NOT NULL,
+  parameters_millions NUMERIC(10,1) NOT NULL,
+  status VARCHAR(50) NOT NULL DEFAULT 'active',
+  created_at TIMESTAMP NOT NULL DEFAULT now()
+);
+
+CREATE TABLE experiments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  model_id UUID NOT NULL REFERENCES models(id),
+  name VARCHAR(255) NOT NULL,
+  dataset VARCHAR(255) NOT NULL,
+  status VARCHAR(50) NOT NULL DEFAULT 'completed',
+  accuracy NUMERIC(5,4),
+  loss NUMERIC(8,6),
+  epochs INTEGER NOT NULL,
+  learning_rate NUMERIC(10,8) NOT NULL,
+  started_at TIMESTAMP NOT NULL,
+  completed_at TIMESTAMP
+);
+
+CREATE TABLE deployments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  model_id UUID NOT NULL REFERENCES models(id),
+  environment VARCHAR(50) NOT NULL,
+  endpoint_url VARCHAR(255) NOT NULL,
+  status VARCHAR(50) NOT NULL DEFAULT 'active',
+  requests_per_day INTEGER NOT NULL DEFAULT 0,
+  avg_latency_ms NUMERIC(8,2) NOT NULL,
+  deployed_at TIMESTAMP NOT NULL DEFAULT now()
+);
+
+CREATE TABLE events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  deployment_id UUID NOT NULL REFERENCES deployments(id),
+  event_type VARCHAR(50) NOT NULL,
+  input_tokens INTEGER NOT NULL,
+  output_tokens INTEGER NOT NULL,
+  latency_ms NUMERIC(8,2) NOT NULL,
+  status_code INTEGER NOT NULL DEFAULT 200,
+  error_message TEXT,
+  created_at TIMESTAMP NOT NULL DEFAULT now()
+);
+
+-- Models (8)
+INSERT INTO models (id, name, version, framework, task_type, parameters_millions, status, created_at) VALUES
+('aa000000-0000-0000-0000-000000000001', 'SentinelLM', 'v2.3.1', 'PyTorch', 'text_generation', 7000.0, 'active', '2024-01-15 10:00:00'),
+('aa000000-0000-0000-0000-000000000002', 'VisionNet-Pro', 'v1.8.0', 'TensorFlow', 'image_classification', 350.0, 'active', '2024-02-01 09:00:00'),
+('aa000000-0000-0000-0000-000000000003', 'DocuParse', 'v3.1.0', 'PyTorch', 'document_extraction', 1200.0, 'active', '2024-02-20 11:00:00'),
+('aa000000-0000-0000-0000-000000000004', 'AudioWhisper-X', 'v2.0.0', 'PyTorch', 'speech_recognition', 1550.0, 'active', '2024-03-10 08:00:00'),
+('aa000000-0000-0000-0000-000000000005', 'CodeAssist', 'v4.2.0', 'JAX', 'code_generation', 13000.0, 'active', '2024-04-01 10:00:00'),
+('aa000000-0000-0000-0000-000000000006', 'TranslatePro', 'v1.5.2', 'PyTorch', 'translation', 600.0, 'active', '2024-04-15 09:00:00'),
+('aa000000-0000-0000-0000-000000000007', 'SentiGraph', 'v2.1.0', 'TensorFlow', 'sentiment_analysis', 110.0, 'deprecated', '2024-01-10 08:00:00'),
+('aa000000-0000-0000-0000-000000000008', 'FraudDetect-ML', 'v3.0.1', 'scikit-learn', 'anomaly_detection', 0.5, 'active', '2024-05-01 10:00:00');
+
+-- Experiments (15)
+INSERT INTO experiments (id, model_id, name, dataset, status, accuracy, loss, epochs, learning_rate, started_at, completed_at) VALUES
+('bb000000-0000-0000-0000-000000000001', 'aa000000-0000-0000-0000-000000000001', 'SentinelLM fine-tune on medical corpus', 'MedQA-2024', 'completed', 0.8945, 0.312400, 3, 0.00002000, '2024-06-01 08:00:00', '2024-06-03 22:00:00'),
+('bb000000-0000-0000-0000-000000000002', 'aa000000-0000-0000-0000-000000000001', 'SentinelLM instruction tuning v2', 'OpenAssistant-2', 'completed', 0.9120, 0.254100, 5, 0.00001000, '2024-06-15 06:00:00', '2024-06-19 18:00:00'),
+('bb000000-0000-0000-0000-000000000003', 'aa000000-0000-0000-0000-000000000002', 'VisionNet ImageNet benchmark', 'ImageNet-1k', 'completed', 0.9234, 0.198700, 90, 0.00010000, '2024-05-10 10:00:00', '2024-05-14 08:00:00'),
+('bb000000-0000-0000-0000-000000000004', 'aa000000-0000-0000-0000-000000000002', 'VisionNet medical imaging', 'ChestX-ray14', 'completed', 0.8812, 0.345200, 50, 0.00005000, '2024-06-20 09:00:00', '2024-06-22 14:00:00'),
+('bb000000-0000-0000-0000-000000000005', 'aa000000-0000-0000-0000-000000000003', 'DocuParse invoice extraction', 'SROIE-2024', 'completed', 0.9567, 0.124800, 30, 0.00003000, '2024-05-25 08:00:00', '2024-05-27 10:00:00'),
+('bb000000-0000-0000-0000-000000000006', 'aa000000-0000-0000-0000-000000000003', 'DocuParse contract analysis', 'CUAD-v2', 'completed', 0.9312, 0.187600, 25, 0.00002000, '2024-07-01 10:00:00', '2024-07-03 06:00:00'),
+('bb000000-0000-0000-0000-000000000007', 'aa000000-0000-0000-0000-000000000004', 'AudioWhisper multilingual', 'CommonVoice-15', 'completed', 0.9678, 0.089400, 20, 0.00003000, '2024-06-10 06:00:00', '2024-06-13 20:00:00'),
+('bb000000-0000-0000-0000-000000000008', 'aa000000-0000-0000-0000-000000000005', 'CodeAssist Python benchmark', 'HumanEval-Plus', 'completed', 0.8890, 0.278900, 2, 0.00001500, '2024-07-10 08:00:00', '2024-07-14 16:00:00'),
+('bb000000-0000-0000-0000-000000000009', 'aa000000-0000-0000-0000-000000000005', 'CodeAssist multi-language', 'MultiPL-E', 'completed', 0.8456, 0.341200, 3, 0.00001000, '2024-08-01 06:00:00', '2024-08-05 22:00:00'),
+('bb000000-0000-0000-0000-000000000010', 'aa000000-0000-0000-0000-000000000006', 'TranslatePro EN-ES evaluation', 'WMT-2024-ENES', 'completed', 0.9423, 0.156700, 15, 0.00004000, '2024-07-15 09:00:00', '2024-07-17 11:00:00'),
+('bb000000-0000-0000-0000-000000000011', 'aa000000-0000-0000-0000-000000000006', 'TranslatePro EN-ZH evaluation', 'WMT-2024-ENZH', 'completed', 0.8910, 0.267300, 20, 0.00003000, '2024-08-10 08:00:00', '2024-08-13 14:00:00'),
+('bb000000-0000-0000-0000-000000000012', 'aa000000-0000-0000-0000-000000000007', 'SentiGraph Twitter analysis', 'TweetEval-2024', 'completed', 0.8234, 0.412500, 10, 0.00005000, '2024-03-01 10:00:00', '2024-03-02 06:00:00'),
+('bb000000-0000-0000-0000-000000000013', 'aa000000-0000-0000-0000-000000000008', 'FraudDetect credit card v3', 'IEEE-CIS-Fraud', 'completed', 0.9891, 0.032100, 100, 0.00100000, '2024-08-20 09:00:00', '2024-08-20 14:00:00'),
+('bb000000-0000-0000-0000-000000000014', 'aa000000-0000-0000-0000-000000000001', 'SentinelLM legal domain adapt', 'CaseLaw-50k', 'running', NULL, NULL, 4, 0.00001500, '2024-09-25 06:00:00', NULL),
+('bb000000-0000-0000-0000-000000000015', 'aa000000-0000-0000-0000-000000000005', 'CodeAssist Rust specialization', 'RustBench-2024', 'failed', 0.5120, 1.245000, 1, 0.00005000, '2024-09-10 08:00:00', '2024-09-10 12:00:00');
+
+-- Deployments (10)
+INSERT INTO deployments (id, model_id, environment, endpoint_url, status, requests_per_day, avg_latency_ms, deployed_at) VALUES
+('cc000000-0000-0000-0000-000000000001', 'aa000000-0000-0000-0000-000000000001', 'production', 'https://api.platform.ai/v2/sentinel/generate', 'active', 145000, 320.50, '2024-06-20 14:00:00'),
+('cc000000-0000-0000-0000-000000000002', 'aa000000-0000-0000-0000-000000000001', 'staging', 'https://staging.platform.ai/v2/sentinel/generate', 'active', 2500, 345.20, '2024-06-18 10:00:00'),
+('cc000000-0000-0000-0000-000000000003', 'aa000000-0000-0000-0000-000000000002', 'production', 'https://api.platform.ai/v1/vision/classify', 'active', 89000, 85.30, '2024-05-15 09:00:00'),
+('cc000000-0000-0000-0000-000000000004', 'aa000000-0000-0000-0000-000000000003', 'production', 'https://api.platform.ai/v3/docuparse/extract', 'active', 52000, 210.40, '2024-06-01 11:00:00'),
+('cc000000-0000-0000-0000-000000000005', 'aa000000-0000-0000-0000-000000000004', 'production', 'https://api.platform.ai/v2/whisper/transcribe', 'active', 34000, 1520.80, '2024-06-15 08:00:00'),
+('cc000000-0000-0000-0000-000000000006', 'aa000000-0000-0000-0000-000000000005', 'production', 'https://api.platform.ai/v4/codeassist/complete', 'active', 210000, 450.60, '2024-07-20 10:00:00'),
+('cc000000-0000-0000-0000-000000000007', 'aa000000-0000-0000-0000-000000000005', 'staging', 'https://staging.platform.ai/v4/codeassist/complete', 'active', 5800, 478.10, '2024-07-18 09:00:00'),
+('cc000000-0000-0000-0000-000000000008', 'aa000000-0000-0000-0000-000000000006', 'production', 'https://api.platform.ai/v1/translate', 'active', 67000, 180.20, '2024-07-20 14:00:00'),
+('cc000000-0000-0000-0000-000000000009', 'aa000000-0000-0000-0000-000000000007', 'production', 'https://api.platform.ai/v2/sentiment/analyze', 'inactive', 0, 45.60, '2024-03-05 10:00:00'),
+('cc000000-0000-0000-0000-000000000010', 'aa000000-0000-0000-0000-000000000008', 'production', 'https://api.platform.ai/v3/fraud/detect', 'active', 1250000, 12.40, '2024-08-25 09:00:00');
+
+-- Events (30)
+INSERT INTO events (id, deployment_id, event_type, input_tokens, output_tokens, latency_ms, status_code, error_message, created_at) VALUES
+('dd000000-0000-0000-0000-000000000001', 'cc000000-0000-0000-0000-000000000001', 'inference', 256, 512, 298.40, 200, NULL, '2024-09-20 08:00:01'),
+('dd000000-0000-0000-0000-000000000002', 'cc000000-0000-0000-0000-000000000001', 'inference', 1024, 2048, 845.20, 200, NULL, '2024-09-20 08:00:15'),
+('dd000000-0000-0000-0000-000000000003', 'cc000000-0000-0000-0000-000000000001', 'inference', 512, 1024, 456.80, 200, NULL, '2024-09-20 08:01:02'),
+('dd000000-0000-0000-0000-000000000004', 'cc000000-0000-0000-0000-000000000001', 'inference', 2048, 4096, 1520.30, 200, NULL, '2024-09-20 08:01:30'),
+('dd000000-0000-0000-0000-000000000005', 'cc000000-0000-0000-0000-000000000001', 'inference', 128, 256, 185.60, 200, NULL, '2024-09-20 08:02:00'),
+('dd000000-0000-0000-0000-000000000006', 'cc000000-0000-0000-0000-000000000001', 'inference', 4096, 1024, 2340.10, 500, 'CUDA out of memory: tried to allocate 2.5 GiB', '2024-09-20 08:02:45'),
+('dd000000-0000-0000-0000-000000000007', 'cc000000-0000-0000-0000-000000000001', 'inference', 768, 1536, 542.70, 200, NULL, '2024-09-20 08:03:10'),
+('dd000000-0000-0000-0000-000000000008', 'cc000000-0000-0000-0000-000000000003', 'inference', 1, 5, 72.30, 200, NULL, '2024-09-20 09:00:00'),
+('dd000000-0000-0000-0000-000000000009', 'cc000000-0000-0000-0000-000000000003', 'inference', 1, 5, 68.10, 200, NULL, '2024-09-20 09:00:01'),
+('dd000000-0000-0000-0000-000000000010', 'cc000000-0000-0000-0000-000000000003', 'inference', 1, 5, 95.40, 200, NULL, '2024-09-20 09:00:02'),
+('dd000000-0000-0000-0000-000000000011', 'cc000000-0000-0000-0000-000000000003', 'inference', 1, 5, 312.80, 429, 'Rate limit exceeded. Retry after 30 seconds.', '2024-09-20 09:00:03'),
+('dd000000-0000-0000-0000-000000000012', 'cc000000-0000-0000-0000-000000000004', 'inference', 3500, 800, 198.50, 200, NULL, '2024-09-20 10:15:00'),
+('dd000000-0000-0000-0000-000000000013', 'cc000000-0000-0000-0000-000000000004', 'inference', 5200, 1200, 245.30, 200, NULL, '2024-09-20 10:15:30'),
+('dd000000-0000-0000-0000-000000000014', 'cc000000-0000-0000-0000-000000000004', 'inference', 8000, 2000, 410.60, 200, NULL, '2024-09-20 10:16:00'),
+('dd000000-0000-0000-0000-000000000015', 'cc000000-0000-0000-0000-000000000004', 'inference', 12000, 500, 189.20, 400, 'Invalid document format: expected PDF, received TIFF', '2024-09-20 10:16:30'),
+('dd000000-0000-0000-0000-000000000016', 'cc000000-0000-0000-0000-000000000005', 'inference', 48000, 200, 1450.20, 200, NULL, '2024-09-20 11:00:00'),
+('dd000000-0000-0000-0000-000000000017', 'cc000000-0000-0000-0000-000000000005', 'inference', 96000, 500, 2890.40, 200, NULL, '2024-09-20 11:05:00'),
+('dd000000-0000-0000-0000-000000000018', 'cc000000-0000-0000-0000-000000000005', 'inference', 160000, 800, 4200.10, 504, 'Gateway timeout: upstream service did not respond within 5000ms', '2024-09-20 11:10:00'),
+('dd000000-0000-0000-0000-000000000019', 'cc000000-0000-0000-0000-000000000006', 'inference', 384, 512, 380.50, 200, NULL, '2024-09-20 12:00:00'),
+('dd000000-0000-0000-0000-000000000020', 'cc000000-0000-0000-0000-000000000006', 'inference', 512, 1024, 465.20, 200, NULL, '2024-09-20 12:00:15'),
+('dd000000-0000-0000-0000-000000000021', 'cc000000-0000-0000-0000-000000000006', 'inference', 1024, 2048, 720.80, 200, NULL, '2024-09-20 12:00:30'),
+('dd000000-0000-0000-0000-000000000022', 'cc000000-0000-0000-0000-000000000006', 'inference', 256, 768, 410.30, 200, NULL, '2024-09-20 12:01:00'),
+('dd000000-0000-0000-0000-000000000023', 'cc000000-0000-0000-0000-000000000006', 'inference', 2048, 4096, 1280.60, 200, NULL, '2024-09-20 12:01:30'),
+('dd000000-0000-0000-0000-000000000024', 'cc000000-0000-0000-0000-000000000008', 'inference', 450, 600, 165.40, 200, NULL, '2024-09-20 13:00:00'),
+('dd000000-0000-0000-0000-000000000025', 'cc000000-0000-0000-0000-000000000008', 'inference', 820, 950, 198.20, 200, NULL, '2024-09-20 13:00:10'),
+('dd000000-0000-0000-0000-000000000026', 'cc000000-0000-0000-0000-000000000008', 'inference', 300, 400, 142.80, 200, NULL, '2024-09-20 13:00:20'),
+('dd000000-0000-0000-0000-000000000027', 'cc000000-0000-0000-0000-000000000010', 'inference', 50, 1, 8.40, 200, NULL, '2024-09-20 14:00:00'),
+('dd000000-0000-0000-0000-000000000028', 'cc000000-0000-0000-0000-000000000010', 'inference', 50, 1, 9.10, 200, NULL, '2024-09-20 14:00:00'),
+('dd000000-0000-0000-0000-000000000029', 'cc000000-0000-0000-0000-000000000010', 'inference', 50, 1, 15.30, 200, NULL, '2024-09-20 14:00:01'),
+('dd000000-0000-0000-0000-000000000030', 'cc000000-0000-0000-0000-000000000010', 'inference', 50, 1, 245.80, 503, 'Service temporarily unavailable: model replica restarting', '2024-09-20 14:00:01');
