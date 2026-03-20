@@ -262,4 +262,51 @@ export const templates: Template[] = [
       },
     ],
   },
+  {
+    id: 'sql-traps',
+    name: 'SQL Debugging Challenge',
+    description: 'Intentionally tricky data that exposes common SQL mistakes. Learn by debugging.',
+    icon: '\u{1FAA4}',
+    category: 'LEARNING',
+    tables: ['customers', 'orders', 'products', 'reviews'],
+    rowsPerTable: 175,
+    suggestedQueries: [
+      {
+        label: 'Trap 1: Count orders per customer',
+        sql: `SELECT c.first_name, c.last_name, COUNT(*) as order_count\nFROM customers c\nJOIN orders o ON o.customer_id = c.id\nGROUP BY c.first_name, c.last_name\nORDER BY order_count DESC`,
+        difficulty: 'intermediate',
+        concept: 'JOIN trap \u2014 try LEFT JOIN and COUNT(o.id) instead',
+      },
+      {
+        label: 'Trap 2: Average order amount',
+        sql: `SELECT status, ROUND(AVG(total)::numeric, 2) as avg_amount\nFROM orders\nGROUP BY status\nORDER BY avg_amount DESC`,
+        difficulty: 'intermediate',
+        concept: 'Aggregation trap \u2014 cancelled=$0, returned=negative',
+      },
+      {
+        label: 'Trap 3: Find unshipped orders',
+        sql: `SELECT COUNT(*) as unshipped FROM orders WHERE shipped_at != NULL`,
+        difficulty: 'beginner',
+        concept: 'NULL trap \u2014 use IS NULL not != NULL',
+      },
+      {
+        label: 'Trap 4: Spending by customer name',
+        sql: `SELECT c.first_name || ' ' || c.last_name as name, SUM(o.total) as spent\nFROM customers c\nJOIN orders o ON o.customer_id = c.id\nGROUP BY c.first_name, c.last_name\nORDER BY spent DESC\nLIMIT 10`,
+        difficulty: 'advanced',
+        concept: 'Duplicate name trap \u2014 GROUP BY id not name',
+      },
+      {
+        label: 'Trap 5: Monthly revenue',
+        sql: `SELECT DATE_TRUNC('month', created_at)::date as month, SUM(total) as revenue\nFROM orders\nWHERE status = 'delivered'\nGROUP BY 1\nORDER BY 1`,
+        difficulty: 'advanced',
+        concept: 'Temporal trap \u2014 missing months with $0 revenue',
+      },
+      {
+        label: 'Products never ordered',
+        sql: `SELECT p.name, p.category, p.price\nFROM products p\nLEFT JOIN orders o ON o.product_id = p.id\nWHERE o.id IS NULL`,
+        difficulty: 'intermediate',
+        concept: 'LEFT JOIN + IS NULL pattern',
+      },
+    ],
+  },
 ];
