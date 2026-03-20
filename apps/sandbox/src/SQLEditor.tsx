@@ -1,5 +1,6 @@
 import Editor, { type OnMount } from '@monaco-editor/react';
 import { useRef, useCallback } from 'react';
+import type { AppMode } from './ModeToggle';
 
 interface Props {
   value: string;
@@ -8,10 +9,16 @@ interface Props {
   onExplain: () => void;
   onCheckAnswer?: () => void;
   showCheckButton?: boolean;
+  mode?: AppMode;
+  attemptCount?: number;
+  maxAttempts?: number;
 }
 
-export function SQLEditor({ value, onChange, onRun, onExplain, onCheckAnswer, showCheckButton }: Props) {
+export function SQLEditor({ value, onChange, onRun, onExplain, onCheckAnswer, showCheckButton, mode = 'training', attemptCount = 0, maxAttempts = 3 }: Props) {
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
+
+  const isAssessment = mode === 'assessment';
+  const attemptsExhausted = isAssessment && attemptCount >= maxAttempts;
 
   const handleMount: OnMount = useCallback(
     (editor, monaco) => {
@@ -54,19 +61,33 @@ export function SQLEditor({ value, onChange, onRun, onExplain, onCheckAnswer, sh
         <span className="text-xs font-mono text-[var(--muted)]">SQL Editor</span>
         <div className="flex items-center gap-2">
           <span className="text-[10px] text-[var(--muted)]">Ctrl+Enter to run</span>
-          <button
-            onClick={onExplain}
-            className="px-3 py-1 bg-amber/10 text-amber text-xs rounded hover:bg-amber/20 transition-colors font-medium"
-          >
-            Explain
-          </button>
-          {showCheckButton && onCheckAnswer && (
+          {!isAssessment && (
             <button
-              onClick={onCheckAnswer}
-              className="px-3 py-1 bg-[#22c55e]/10 text-[#22c55e] text-xs rounded hover:bg-[#22c55e]/20 transition-colors font-medium"
+              onClick={onExplain}
+              className="px-3 py-1 bg-amber/10 text-amber text-xs rounded hover:bg-amber/20 transition-colors font-medium"
             >
-              Check Answer
+              Explain
             </button>
+          )}
+          {showCheckButton && onCheckAnswer && (
+            <>
+              {isAssessment && (
+                <span className={`text-[10px] font-mono ${attemptsExhausted ? 'text-red-400' : 'text-[#eab308]'}`}>
+                  Attempt {Math.min(attemptCount + 1, maxAttempts)}/{maxAttempts}
+                </span>
+              )}
+              <button
+                onClick={onCheckAnswer}
+                disabled={attemptsExhausted}
+                className={`px-3 py-1 text-xs rounded transition-colors font-medium ${
+                  attemptsExhausted
+                    ? 'bg-[var(--border)] text-[var(--muted)] cursor-not-allowed opacity-50'
+                    : 'bg-[#22c55e]/10 text-[#22c55e] hover:bg-[#22c55e]/20'
+                }`}
+              >
+                Check Answer
+              </button>
+            </>
           )}
           <button
             onClick={() => {

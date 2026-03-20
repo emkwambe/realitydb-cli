@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import type { SuggestedQuery } from './templates';
+import type { AppMode } from './ModeToggle';
+import type { ChallengeScore } from './App';
 
 interface HistoryEntry {
   sql: string;
@@ -13,6 +15,8 @@ interface Props {
   history: HistoryEntry[];
   onSelect: (sql: string) => void;
   onSelectChallenge?: (query: SuggestedQuery) => void;
+  mode?: AppMode;
+  challengeScores?: Map<string, ChallengeScore>;
 }
 
 const DIFFICULTY_COLORS: Record<string, string> = {
@@ -21,51 +25,82 @@ const DIFFICULTY_COLORS: Record<string, string> = {
   advanced: 'bg-purple/10 text-purple',
 };
 
-export function QuerySuggestions({ queries, history, onSelect, onSelectChallenge }: Props) {
+const GRADE_COLORS: Record<string, string> = {
+  A: 'bg-green/10 text-green',
+  B: 'bg-cyan-400/10 text-cyan-400',
+  C: 'bg-amber/10 text-amber',
+  D: 'bg-red-400/10 text-red-400',
+  F: 'bg-red-400/10 text-red-400',
+};
+
+export function QuerySuggestions({ queries, history, onSelect, onSelectChallenge, mode = 'training', challengeScores }: Props) {
   const [historyOpen, setHistoryOpen] = useState(true);
+  const isAssessment = mode === 'assessment';
 
   return (
     <div className="p-3 flex flex-col gap-4">
       <div>
         <h2 className="text-xs font-mono font-semibold text-[var(--muted)] uppercase tracking-wider mb-3 flex items-center gap-1.5">
-          <span>💡</span> Suggested Queries
+          <span>&#x1F4A1;</span> Suggested Queries
         </h2>
         <div className="space-y-2">
-          {queries.map((query, i) => (
-            <button
-              key={i}
-              onClick={() => {
-                if (query.checkable && onSelectChallenge) {
-                  onSelectChallenge(query);
-                } else {
-                  onSelect(query.sql);
-                }
-              }}
-              className={`w-full bg-bg-card border rounded-lg p-3 text-left hover:border-accent/40 transition-all group ${
-                query.checkable ? 'border-amber/20' : 'border-[var(--border)]'
-              }`}
-            >
-              <div className="flex items-start justify-between gap-2 mb-1.5">
-                <span className="text-xs text-white font-medium group-hover:text-accent transition-colors">
-                  {query.checkable && <span className="mr-1" title="Checkable challenge">&#x1F3AF;</span>}
-                  {query.label}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span
-                  className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${DIFFICULTY_COLORS[query.difficulty] || ''}`}
-                >
-                  {query.difficulty}
-                </span>
-                <span className="text-[10px] text-[var(--muted)] font-mono">{query.concept}</span>
-                {query.checkable && (
-                  <span className="ml-auto px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber/10 text-amber">
-                    checkable
+          {queries.map((query, i) => {
+            const scoreData = isAssessment && challengeScores ? challengeScores.get(query.label) : undefined;
+            const isLocked = isAssessment && scoreData && scoreData.attempts >= 3;
+
+            return (
+              <button
+                key={i}
+                onClick={() => {
+                  if (isLocked) return;
+                  if (query.checkable && onSelectChallenge) {
+                    onSelectChallenge(query);
+                  } else {
+                    onSelect(query.sql);
+                  }
+                }}
+                className={`w-full bg-bg-card border rounded-lg p-3 text-left transition-all group ${
+                  isLocked
+                    ? 'border-[var(--border)] opacity-60 cursor-not-allowed'
+                    : query.checkable ? 'border-amber/20 hover:border-accent/40' : 'border-[var(--border)] hover:border-accent/40'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2 mb-1.5">
+                  <span className={`text-xs font-medium transition-colors ${isLocked ? 'text-[var(--muted)]' : 'text-white group-hover:text-accent'}`}>
+                    {query.checkable && (
+                      <span className="mr-1" title={isLocked ? 'Submitted' : 'Checkable challenge'}>
+                        {isLocked ? '\u{1F512}' : '\u{1F3AF}'}
+                      </span>
+                    )}
+                    {query.label}
                   </span>
-                )}
-              </div>
-            </button>
-          ))}
+                  {isAssessment && scoreData && (
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold shrink-0 ${GRADE_COLORS[scoreData.grade] || ''}`}>
+                      {scoreData.grade}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${DIFFICULTY_COLORS[query.difficulty] || ''}`}
+                  >
+                    {query.difficulty}
+                  </span>
+                  <span className="text-[10px] text-[var(--muted)] font-mono">{query.concept}</span>
+                  {query.checkable && !isAssessment && (
+                    <span className="ml-auto px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber/10 text-amber">
+                      checkable
+                    </span>
+                  )}
+                  {isAssessment && scoreData && (
+                    <span className="ml-auto text-[10px] text-[var(--muted)] font-mono">
+                      {scoreData.score}/100
+                    </span>
+                  )}
+                </div>
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -76,7 +111,7 @@ export function QuerySuggestions({ queries, history, onSelect, onSelectChallenge
             className="text-xs font-mono font-semibold text-[var(--muted)] uppercase tracking-wider mb-2 flex items-center gap-1.5 hover:text-white transition-colors"
           >
             <span className={`text-[10px] transition-transform ${historyOpen ? 'rotate-90' : ''}`}>
-              ▶
+              &#x25B6;
             </span>
             History ({history.length})
           </button>
@@ -90,7 +125,7 @@ export function QuerySuggestions({ queries, history, onSelect, onSelectChallenge
                 >
                   <p className="text-[11px] font-mono text-gray-400 truncate">{entry.sql}</p>
                   <p className="text-[10px] text-[var(--muted)]">
-                    {entry.rowCount} rows · {entry.duration}ms
+                    {entry.rowCount} rows &middot; {entry.duration}ms
                   </p>
                 </button>
               ))}
@@ -104,10 +139,10 @@ export function QuerySuggestions({ queries, history, onSelect, onSelectChallenge
           Tips
         </h3>
         <ul className="text-[11px] text-[var(--muted)] space-y-1.5">
-          <li>• Use <kbd className="px-1 py-0.5 bg-bg-elevated rounded text-[10px]">Ctrl+Enter</kbd> to run queries</li>
-          <li>• Click a table name in the schema panel to preview its data</li>
-          <li>• Click any suggested query to auto-fill and run it</li>
-          <li>• Results are limited to 200 rows for display</li>
+          <li>&bull; Use <kbd className="px-1 py-0.5 bg-bg-elevated rounded text-[10px]">Ctrl+Enter</kbd> to run queries</li>
+          <li>&bull; Click a table name in the schema panel to preview its data</li>
+          <li>&bull; Click any suggested query to auto-fill and run it</li>
+          <li>&bull; Results are limited to 200 rows for display</li>
         </ul>
       </div>
     </div>
