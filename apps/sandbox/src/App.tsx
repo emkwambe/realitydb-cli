@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { TemplateGallery } from './TemplateGallery';
 import { SchemaPanel } from './SchemaPanel';
 import { SQLEditor } from './SQLEditor';
@@ -6,8 +6,10 @@ import { ResultsPanel } from './ResultsPanel';
 import { ExplainPanel } from './ExplainPanel';
 import type { ExplainMode } from './ExplainPanel';
 import { QuerySuggestions } from './QuerySuggestions';
+import { QueryStats } from './QueryStats';
 import { GradePanel } from './GradePanel';
 import { QueryDiff } from './QueryDiff';
+import { TransformationViewer } from './TransformationViewer';
 import { gradeQuery } from './GradingEngine';
 import type { GradingResult } from './GradingEngine';
 import { ModeToggle } from './ModeToggle';
@@ -21,6 +23,8 @@ import { initSandbox, runQuery, getSchemaInfo, resetSandbox } from './sandbox';
 import { templates } from './templates';
 import type { QueryResult, TableInfo } from './sandbox';
 import type { Template, SuggestedQuery } from './templates';
+import { parseSQL } from './sqlParser';
+import type { QueryLineage } from './SchemaERD';
 
 interface HistoryEntry {
   sql: string;
@@ -71,6 +75,10 @@ export default function App() {
   const [nlError, setNlError] = useState<string | null>(null);
   const [aiInfo, setAiInfo] = useState<{ explanation: string; confidence: 'high' | 'medium' | 'low' } | null>(null);
 
+  // Transformation viewer & lineage state
+  const [showSteps, setShowSteps] = useState(false);
+  const [lastRunSQL, setLastRunSQL] = useState('');
+
   // Mode & Assessment state
   const [mode, setMode] = useState<AppMode>('training');
   const [assessmentState, setAssessmentState] = useState<AssessmentState>({
@@ -86,6 +94,55 @@ export default function App() {
 
   // Track whether URL has been processed
   const urlProcessed = useRef(false);
+
+  // Compute query lineage for ERD highlighting
+  const queryLineage = useMemo((): QueryLineage | null => {
+    if (!lastRunSQL || !schema.length) return null;
+    try {
+      const parsed = parseSQL(lastRunSQL);
+      if (parsed.tables.length === 0) return null;
+
+      const schemaTableNames = new Set(schema.map((t) => t.name));
+      const touchedTables = new Set<string>();
+      const touchedColumns = new Map<string, Set<string>>();
+
+      for (const ref of parsed.tables) {
+        if (schemaTableNames.has(ref.name)) {
+          touchedTables.add(ref.name);
+        }
+      }
+
+      for (const col of parsed.columns) {
+        if (col.column === '*') {
+          // SELECT * touches all columns in all referenced tables
+          for (const t of touchedTables) {
+            const tableSchema = schema.find((s) => s.name === t);
+            if (tableSchema) {
+              touchedColumns.set(t, new Set(tableSchema.columns.map((c) => c.name)));
+            }
+          }
+        } else if (col.table && schemaTableNames.has(col.table)) {
+          const existing = touchedColumns.get(col.table) || new Set<string>();
+          existing.add(col.column);
+          touchedColumns.set(col.table, existing);
+        } else if (!col.table) {
+          // Try to find which table this column belongs to
+          for (const t of touchedTables) {
+            const tableSchema = schema.find((s) => s.name === t);
+            if (tableSchema?.columns.some((c) => c.name === col.column)) {
+              const existing = touchedColumns.get(t) || new Set<string>();
+              existing.add(col.column);
+              touchedColumns.set(t, existing);
+            }
+          }
+        }
+      }
+
+      return { touchedTables, touchedColumns, joinPaths: parsed.joinPaths };
+    } catch {
+      return null;
+    }
+  }, [lastRunSQL, schema]);
 
   // Count checkable challenges for current template
   const checkableChallenges = activeTemplate?.suggestedQueries.filter((q) => q.checkable) ?? [];
@@ -129,9 +186,11 @@ export default function App() {
     setGradeResult(null);
     setShowDiff(false);
     setActiveChallenge(null);
+    setShowSteps(false);
     const res = await runQuery(sql);
     setResult(res);
     setQueryTime(res.duration);
+    setLastRunSQL(sql.trim());
     if (!res.error) {
       setHistory((prev) => [
         { sql: sql.trim(), rowCount: res.rowCount, duration: res.duration, timestamp: Date.now() },
@@ -326,6 +385,14 @@ export default function App() {
     setGradeResult(null);
   }, [activeChallenge, checkableChallenges, assessmentState, handleSelectChallenge]);
 
+  const handleSteps = useCallback(() => {
+    if (!editorValue.trim()) return;
+    setShowSteps(true);
+    setExplainResult(null);
+    setGradeResult(null);
+    setResult(null);
+  }, [editorValue]);
+
   const handleTableClick = useCallback(
     (tableName: string) => {
       const sql = `SELECT * FROM ${tableName} LIMIT 100;`;
@@ -353,6 +420,8 @@ export default function App() {
       const res = await runQuery(result.sql);
       setResult(res);
       setQueryTime(res.duration);
+      setLastRunSQL(result.sql.trim());
+      setShowSteps(false);
       setExplainResult(null);
       setGradeResult(null);
       setActiveChallenge(null);
@@ -385,6 +454,8 @@ export default function App() {
     setActiveChallenge(null);
     setGradeResult(null);
     setShowDiff(false);
+    setShowSteps(false);
+    setLastRunSQL('');
     setMode('training');
     setAssessmentState({ startTime: 0, challengeScores: new Map(), completed: false });
     setAttemptCount(0);
@@ -446,6 +517,7 @@ export default function App() {
               const res = await runQuery(decodedSql);
               setResult(res);
               setQueryTime(res.duration);
+              setLastRunSQL(decodedSql.trim());
               if (!res.error) {
                 setHistory([{
                   sql: decodedSql.trim(),
@@ -607,7 +679,7 @@ export default function App() {
       ) : (
         <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
           <div className="w-full md:w-64 border-r border-[var(--border)] overflow-hidden shrink-0">
-            <SchemaPanel schema={schema} onTableClick={handleTableClick} />
+            <SchemaPanel schema={schema} onTableClick={handleTableClick} lineage={queryLineage} />
           </div>
           <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
             {mode === 'training' && (
@@ -633,6 +705,7 @@ export default function App() {
                 onChange={setEditorValue}
                 onRun={handleRunQuery}
                 onExplain={handleExplain}
+                onSteps={handleSteps}
                 onCheckAnswer={handleCheckAnswer}
                 showCheckButton={!!activeChallenge}
                 mode={mode}
@@ -675,6 +748,11 @@ export default function App() {
                     />
                   )}
                 </div>
+              ) : showSteps ? (
+                <TransformationViewer
+                  sql={editorValue}
+                  onClose={() => setShowSteps(false)}
+                />
               ) : explainResult ? (
                 <ExplainPanel
                   data={explainResult.data}
@@ -696,6 +774,11 @@ export default function App() {
               mode={mode}
               challengeScores={assessmentState.challengeScores}
             />
+            {history.length >= 2 && (
+              <div className="px-3 pb-3">
+                <QueryStats history={history} />
+              </div>
+            )}
           </div>
         </div>
       )}

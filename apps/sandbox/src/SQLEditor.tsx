@@ -7,6 +7,7 @@ interface Props {
   onChange: (value: string) => void;
   onRun: (sql: string) => void;
   onExplain: () => void;
+  onSteps?: () => void;
   onCheckAnswer?: () => void;
   showCheckButton?: boolean;
   mode?: AppMode;
@@ -14,7 +15,7 @@ interface Props {
   maxAttempts?: number;
 }
 
-export function SQLEditor({ value, onChange, onRun, onExplain, onCheckAnswer, showCheckButton, mode = 'training', attemptCount = 0, maxAttempts = 3 }: Props) {
+export function SQLEditor({ value, onChange, onRun, onExplain, onSteps, onCheckAnswer, showCheckButton, mode = 'training', attemptCount = 0, maxAttempts = 3 }: Props) {
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
 
   const isAssessment = mode === 'assessment';
@@ -62,12 +63,22 @@ export function SQLEditor({ value, onChange, onRun, onExplain, onCheckAnswer, sh
         <div className="flex items-center gap-2">
           <span className="text-[10px] text-[var(--muted)]">Ctrl+Enter to run</span>
           {!isAssessment && (
-            <button
-              onClick={onExplain}
-              className="px-3 py-1 bg-amber/10 text-amber text-xs rounded hover:bg-amber/20 transition-colors font-medium"
-            >
-              Explain
-            </button>
+            <>
+              <button
+                onClick={onExplain}
+                className="px-3 py-1 bg-amber/10 text-amber text-xs rounded hover:bg-amber/20 transition-colors font-medium"
+              >
+                Explain
+              </button>
+              {onSteps && (
+                <button
+                  onClick={onSteps}
+                  className="px-3 py-1 bg-purple-500/10 text-purple-400 text-xs rounded hover:bg-purple-500/20 transition-colors font-medium"
+                >
+                  Steps
+                </button>
+              )}
+            </>
           )}
           {showCheckButton && onCheckAnswer && (
             <>
