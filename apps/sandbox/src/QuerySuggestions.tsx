@@ -12,6 +12,7 @@ interface Props {
   queries: SuggestedQuery[];
   history: HistoryEntry[];
   onSelect: (sql: string) => void;
+  onSelectChallenge?: (query: SuggestedQuery) => void;
 }
 
 const DIFFICULTY_COLORS: Record<string, string> = {
@@ -20,7 +21,7 @@ const DIFFICULTY_COLORS: Record<string, string> = {
   advanced: 'bg-purple/10 text-purple',
 };
 
-export function QuerySuggestions({ queries, history, onSelect }: Props) {
+export function QuerySuggestions({ queries, history, onSelect, onSelectChallenge }: Props) {
   const [historyOpen, setHistoryOpen] = useState(true);
 
   return (
@@ -33,11 +34,20 @@ export function QuerySuggestions({ queries, history, onSelect }: Props) {
           {queries.map((query, i) => (
             <button
               key={i}
-              onClick={() => onSelect(query.sql)}
-              className="w-full bg-bg-card border border-[var(--border)] rounded-lg p-3 text-left hover:border-accent/40 transition-all group"
+              onClick={() => {
+                if (query.checkable && onSelectChallenge) {
+                  onSelectChallenge(query);
+                } else {
+                  onSelect(query.sql);
+                }
+              }}
+              className={`w-full bg-bg-card border rounded-lg p-3 text-left hover:border-accent/40 transition-all group ${
+                query.checkable ? 'border-amber/20' : 'border-[var(--border)]'
+              }`}
             >
               <div className="flex items-start justify-between gap-2 mb-1.5">
                 <span className="text-xs text-white font-medium group-hover:text-accent transition-colors">
+                  {query.checkable && <span className="mr-1" title="Checkable challenge">&#x1F3AF;</span>}
                   {query.label}
                 </span>
               </div>
@@ -48,6 +58,11 @@ export function QuerySuggestions({ queries, history, onSelect }: Props) {
                   {query.difficulty}
                 </span>
                 <span className="text-[10px] text-[var(--muted)] font-mono">{query.concept}</span>
+                {query.checkable && (
+                  <span className="ml-auto px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber/10 text-amber">
+                    checkable
+                  </span>
+                )}
               </div>
             </button>
           ))}
