@@ -131,7 +131,7 @@ export default function App() {
         </div>
       ) : (
         <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-          <div className="w-full md:w-64 border-r border-[var(--border)] overflow-y-auto shrink-0">
+          <div className="w-full md:w-64 border-r border-[var(--border)] overflow-hidden shrink-0">
             <SchemaPanel schema={schema} onTableClick={handleTableClick} />
           </div>
           <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
