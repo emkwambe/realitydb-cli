@@ -3,6 +3,8 @@ import { TemplateGallery } from './TemplateGallery';
 import { SchemaPanel } from './SchemaPanel';
 import { SQLEditor } from './SQLEditor';
 import { ResultsPanel } from './ResultsPanel';
+import { ExplainPanel } from './ExplainPanel';
+import type { ExplainMode } from './ExplainPanel';
 import { QuerySuggestions } from './QuerySuggestions';
 import { getSQLForTemplate } from './datapacks';
 import { initSandbox, runQuery, getSchemaInfo, resetSandbox } from './sandbox';
@@ -25,6 +27,8 @@ export default function App() {
   const [result, setResult] = useState<QueryResult | null>(null);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [queryTime, setQueryTime] = useState<number | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [explainResult, setExplainResult] = useState<{ data: any; mode: ExplainMode; duration: number } | null>(null);
 
   const handleSelectTemplate = useCallback(async (template: Template) => {
     setLoading(true);
@@ -35,6 +39,7 @@ export default function App() {
       setSchema(schemaInfo);
       setActiveTemplate(template);
       setResult(null);
+      setExplainResult(null);
       setEditorValue('');
       setHistory([]);
       setQueryTime(null);
@@ -47,6 +52,7 @@ export default function App() {
 
   const handleRunQuery = useCallback(async (sql: string) => {
     if (!sql.trim()) return;
+    setExplainResult(null);
     const res = await runQuery(sql);
     setResult(res);
     setQueryTime(res.duration);
@@ -60,20 +66,57 @@ export default function App() {
 
   const handleExplain = useCallback(async () => {
     if (!editorValue.trim()) return;
-    const explainSQL = `EXPLAIN (ANALYZE, FORMAT JSON) ${editorValue}`;
-    const res = await runQuery(explainSQL);
-    if (res.error) {
-      setResult({
-        columns: [],
-        rows: [],
-        rowCount: 0,
-        duration: res.duration,
-        error: 'Execution plan not available for this query. PGLite has limited EXPLAIN support.',
-      });
-    } else {
-      setResult(res);
+    setExplainResult(null);
+
+    // Fallback 1: EXPLAIN (ANALYZE, FORMAT JSON)
+    const res1 = await runQuery(`EXPLAIN (ANALYZE, FORMAT JSON) ${editorValue}`);
+    if (!res1.error && res1.rows.length > 0) {
+      try {
+        const raw = res1.rows[0];
+        const jsonVal = raw['QUERY PLAN'] ?? raw[Object.keys(raw)[0]];
+        const parsed = typeof jsonVal === 'string' ? JSON.parse(jsonVal) : jsonVal;
+        const plan = Array.isArray(parsed) ? parsed[0] : parsed;
+        setExplainResult({ data: plan, mode: 'analyze', duration: res1.duration });
+        setQueryTime(res1.duration);
+        return;
+      } catch { /* parse failed, try next fallback */ }
     }
-    setQueryTime(res.duration);
+
+    // Fallback 2: EXPLAIN (FORMAT JSON) — plan only, no actual stats
+    const res2 = await runQuery(`EXPLAIN (FORMAT JSON) ${editorValue}`);
+    if (!res2.error && res2.rows.length > 0) {
+      try {
+        const raw = res2.rows[0];
+        const jsonVal = raw['QUERY PLAN'] ?? raw[Object.keys(raw)[0]];
+        const parsed = typeof jsonVal === 'string' ? JSON.parse(jsonVal) : jsonVal;
+        const plan = Array.isArray(parsed) ? parsed[0] : parsed;
+        setExplainResult({ data: plan, mode: 'plan-only', duration: res2.duration });
+        setQueryTime(res2.duration);
+        return;
+      } catch { /* parse failed, try next fallback */ }
+    }
+
+    // Fallback 3: EXPLAIN (text format)
+    const res3 = await runQuery(`EXPLAIN ${editorValue}`);
+    if (!res3.error && res3.rows.length > 0) {
+      const textLines = res3.rows.map((r) => {
+        const val = r['QUERY PLAN'] ?? r[Object.keys(r)[0]];
+        return String(val);
+      });
+      setExplainResult({ data: textLines.join('\n'), mode: 'text', duration: res3.duration });
+      setQueryTime(res3.duration);
+      return;
+    }
+
+    // All fallbacks failed
+    setResult({
+      columns: [],
+      rows: [],
+      rowCount: 0,
+      duration: res1.duration,
+      error: 'Execution plans are not fully supported in the browser sandbox. For full EXPLAIN ANALYZE, use RealityDB CLI with a PostgreSQL database.',
+    });
+    setQueryTime(res1.duration);
   }, [editorValue]);
 
   const handleSuggestionClick = useCallback(
@@ -98,6 +141,7 @@ export default function App() {
     setActiveTemplate(null);
     setSchema([]);
     setResult(null);
+    setExplainResult(null);
     setEditorValue('');
     setHistory([]);
     setQueryTime(null);
@@ -144,7 +188,16 @@ export default function App() {
               />
             </div>
             <div className="flex-1 overflow-hidden">
-              <ResultsPanel result={result} schema={schema} />
+              {explainResult ? (
+                <ExplainPanel
+                  data={explainResult.data}
+                  mode={explainResult.mode}
+                  duration={explainResult.duration}
+                  onBack={() => setExplainResult(null)}
+                />
+              ) : (
+                <ResultsPanel result={result} schema={schema} />
+              )}
             </div>
           </div>
           <div className="w-full md:w-72 border-l border-[var(--border)] overflow-y-auto shrink-0">
