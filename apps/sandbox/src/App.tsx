@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { TemplateGallery } from './TemplateGallery';
 import { SchemaPanel } from './SchemaPanel';
 import { SQLEditor } from './SQLEditor';
@@ -9,6 +9,9 @@ import { QuerySuggestions } from './QuerySuggestions';
 import { GradePanel } from './GradePanel';
 import { gradeQuery } from './GradingEngine';
 import type { GradingResult } from './GradingEngine';
+import { ModeToggle } from './ModeToggle';
+import type { AppMode } from './ModeToggle';
+import { Timer, useTimer } from './Timer';
 import { getSQLForTemplate } from './datapacks';
 import { initSandbox, runQuery, getSchemaInfo, resetSandbox } from './sandbox';
 import { templates } from './templates';
@@ -20,6 +23,26 @@ interface HistoryEntry {
   rowCount: number;
   duration: number;
   timestamp: number;
+}
+
+export interface ChallengeScore {
+  score: number;
+  grade: string;
+  attempts: number;
+}
+
+export interface AssessmentState {
+  startTime: number;
+  challengeScores: Map<string, ChallengeScore>;
+  completed: boolean;
+}
+
+function generateShareURL(templateId: string, sql: string, mode: AppMode): string {
+  const params = new URLSearchParams();
+  params.set('template', templateId);
+  params.set('sql', btoa(sql));
+  if (mode === 'assessment') params.set('mode', 'assessment');
+  return `${window.location.origin}${window.location.pathname}#${params.toString()}`;
 }
 
 export default function App() {
@@ -36,6 +59,26 @@ export default function App() {
   const [gradeResult, setGradeResult] = useState<GradingResult | null>(null);
   const [grading, setGrading] = useState(false);
 
+  // Mode & Assessment state
+  const [mode, setMode] = useState<AppMode>('training');
+  const [assessmentState, setAssessmentState] = useState<AssessmentState>({
+    startTime: 0,
+    challengeScores: new Map(),
+    completed: false,
+  });
+  const [attemptCount, setAttemptCount] = useState(0);
+  const [showAssessmentSummary, setShowAssessmentSummary] = useState(false);
+
+  // Timer
+  const timer = useTimer();
+
+  // Track whether URL has been processed
+  const urlProcessed = useRef(false);
+
+  // Count checkable challenges for current template
+  const checkableChallenges = activeTemplate?.suggestedQueries.filter((q) => q.checkable) ?? [];
+  const totalCheckable = checkableChallenges.length;
+
   const handleSelectTemplate = useCallback(async (template: Template) => {
     setLoading(true);
     try {
@@ -51,12 +94,21 @@ export default function App() {
       setQueryTime(null);
       setActiveChallenge(null);
       setGradeResult(null);
+      setAttemptCount(0);
+      setShowAssessmentSummary(false);
+      // Reset assessment state for new template
+      setAssessmentState({
+        startTime: 0,
+        challengeScores: new Map(),
+        completed: false,
+      });
+      timer.reset();
     } catch (e) {
       console.error('Failed to load template:', e);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [timer]);
 
   const handleRunQuery = useCallback(async (sql: string) => {
     if (!sql.trim()) return;
@@ -138,17 +190,42 @@ export default function App() {
   );
 
   const handleSelectChallenge = useCallback((query: SuggestedQuery) => {
+    // In assessment mode, check if already submitted
+    if (mode === 'assessment') {
+      const existing = assessmentState.challengeScores.get(query.label);
+      if (existing && existing.attempts >= 3) return; // locked
+    }
+
     setActiveChallenge(query);
     setGradeResult(null);
     setResult(null);
     setExplainResult(null);
+    setShowAssessmentSummary(false);
+    // Reset attempt count for this challenge
+    const existing = assessmentState.challengeScores.get(query.label);
+    setAttemptCount(existing?.attempts ?? 0);
     // Fill editor with challenge comment, not the answer
     const comment = `-- CHALLENGE: ${query.label.replace(/^Challenge:\s*/i, '')}\n-- Concept: ${query.concept}\n-- Write your query below:\n\n`;
     setEditorValue(comment);
-  }, []);
+
+    // Start timer in assessment mode
+    if (mode === 'assessment' && !timer.running) {
+      if (assessmentState.startTime === 0) {
+        setAssessmentState((prev) => ({ ...prev, startTime: Date.now() }));
+      }
+      timer.start();
+    }
+  }, [mode, assessmentState, timer]);
 
   const handleCheckAnswer = useCallback(async () => {
     if (!activeChallenge || !editorValue.trim()) return;
+
+    // In assessment mode, check attempt limits
+    if (mode === 'assessment') {
+      const existing = assessmentState.challengeScores.get(activeChallenge.label);
+      if (existing && existing.attempts >= 3) return;
+    }
+
     setGrading(true);
     setResult(null);
     setExplainResult(null);
@@ -162,10 +239,45 @@ export default function App() {
         activeChallenge.correctHint
       );
       setGradeResult(result);
+
+      const newAttempts = attemptCount + 1;
+      setAttemptCount(newAttempts);
+
+      if (mode === 'assessment') {
+        setAssessmentState((prev) => {
+          const newScores = new Map(prev.challengeScores);
+          const existing = newScores.get(activeChallenge.label);
+          // In assessment, lock score after first submission (or update if retrying within limit)
+          if (!existing || newAttempts <= 3) {
+            newScores.set(activeChallenge.label, {
+              score: result.score,
+              grade: result.grade,
+              attempts: newAttempts,
+            });
+          }
+          // Check if all challenges are completed
+          const allDone = checkableChallenges.every(
+            (c) => newScores.has(c.label) && (newScores.get(c.label)!.attempts >= 3 || newScores.get(c.label)!.score >= 70)
+          );
+          return {
+            ...prev,
+            challengeScores: newScores,
+            completed: allDone || newScores.size === totalCheckable,
+          };
+        });
+      }
     } finally {
       setGrading(false);
     }
-  }, [activeChallenge, editorValue]);
+  }, [activeChallenge, editorValue, mode, assessmentState, attemptCount, checkableChallenges, totalCheckable]);
+
+  // Check if assessment is complete and show summary
+  useEffect(() => {
+    if (mode === 'assessment' && assessmentState.completed && !showAssessmentSummary) {
+      timer.pause();
+      setShowAssessmentSummary(true);
+    }
+  }, [mode, assessmentState.completed, showAssessmentSummary, timer]);
 
   const handleTryAgain = useCallback(() => {
     setGradeResult(null);
@@ -179,6 +291,23 @@ export default function App() {
     setActiveChallenge(null);
     handleRunQuery(activeChallenge.sql);
   }, [activeChallenge, handleRunQuery]);
+
+  const handleNextChallenge = useCallback(() => {
+    if (!activeChallenge) return;
+    // Find the next unsubmitted challenge
+    const currentIdx = checkableChallenges.findIndex((c) => c.label === activeChallenge.label);
+    for (let i = 1; i <= checkableChallenges.length; i++) {
+      const next = checkableChallenges[(currentIdx + i) % checkableChallenges.length];
+      const existing = assessmentState.challengeScores.get(next.label);
+      if (!existing || existing.attempts < 3) {
+        handleSelectChallenge(next);
+        return;
+      }
+    }
+    // All done
+    setActiveChallenge(null);
+    setGradeResult(null);
+  }, [activeChallenge, checkableChallenges, assessmentState, handleSelectChallenge]);
 
   const handleTableClick = useCallback(
     (tableName: string) => {
@@ -200,14 +329,95 @@ export default function App() {
     setQueryTime(null);
     setActiveChallenge(null);
     setGradeResult(null);
+    setMode('training');
+    setAssessmentState({ startTime: 0, challengeScores: new Map(), completed: false });
+    setAttemptCount(0);
+    setShowAssessmentSummary(false);
+    timer.reset();
+  }, [timer]);
+
+  const handleModeChange = useCallback((newMode: AppMode) => {
+    setMode(newMode);
+    // Reset assessment state when switching modes
+    setAssessmentState({ startTime: 0, challengeScores: new Map(), completed: false });
+    setAttemptCount(0);
+    setShowAssessmentSummary(false);
+    setGradeResult(null);
+    timer.reset();
+  }, [timer]);
+
+  const handleShare = useCallback(() => {
+    if (!activeTemplate) return;
+    const url = generateShareURL(activeTemplate.id, editorValue, mode);
+    navigator.clipboard.writeText(url);
+  }, [activeTemplate, editorValue, mode]);
+
+  // URL decoding on load
+  useEffect(() => {
+    if (urlProcessed.current) return;
+    const hash = window.location.hash.slice(1);
+    if (!hash) return;
+    urlProcessed.current = true;
+
+    const params = new URLSearchParams(hash);
+    const templateId = params.get('template');
+    const sqlEncoded = params.get('sql');
+    const urlMode = params.get('mode');
+
+    if (templateId) {
+      const template = templates.find((t) => t.id === templateId);
+      if (template) {
+        const decodedSql = sqlEncoded ? atob(sqlEncoded) : '';
+        if (urlMode === 'assessment') setMode('assessment');
+
+        (async () => {
+          setLoading(true);
+          try {
+            const sql = await getSQLForTemplate(template.id);
+            await initSandbox(template.id, sql);
+            const schemaInfo = await getSchemaInfo();
+            setSchema(schemaInfo);
+            setActiveTemplate(template);
+            if (decodedSql) {
+              setEditorValue(decodedSql);
+              // Auto-run the shared query
+              const res = await runQuery(decodedSql);
+              setResult(res);
+              setQueryTime(res.duration);
+              if (!res.error) {
+                setHistory([{
+                  sql: decodedSql.trim(),
+                  rowCount: res.rowCount,
+                  duration: res.duration,
+                  timestamp: Date.now(),
+                }]);
+              }
+            }
+          } catch (e) {
+            console.error('Failed to load shared query:', e);
+          } finally {
+            setLoading(false);
+          }
+        })();
+      }
+    }
   }, []);
 
   const totalRows = schema.reduce((sum, t) => sum + t.rowCount, 0);
 
+  // Assessment summary calculation
+  const assessmentScores = Array.from(assessmentState.challengeScores.values());
+  const avgScore = assessmentScores.length > 0
+    ? Math.round(assessmentScores.reduce((sum, s) => sum + s.score, 0) / assessmentScores.length)
+    : 0;
+  const elapsedTime = assessmentState.startTime > 0
+    ? Math.floor((Date.now() - assessmentState.startTime) / 1000)
+    : 0;
+
   if (!activeTemplate) {
     return (
       <div className="min-h-screen bg-bg">
-        <Header onReset={handleReset} activeTemplate={null} templates={templates} onSelectTemplate={handleSelectTemplate} />
+        <Header onReset={handleReset} activeTemplate={null} templates={templates} onSelectTemplate={handleSelectTemplate} mode={mode} onModeChange={handleModeChange} timerRunning={false} timerComponent={null} />
         <TemplateGallery templates={templates} onSelect={handleSelectTemplate} loading={loading} />
       </div>
     );
@@ -220,12 +430,116 @@ export default function App() {
         activeTemplate={activeTemplate}
         templates={templates}
         onSelectTemplate={handleSelectTemplate}
+        mode={mode}
+        onModeChange={handleModeChange}
+        timerRunning={mode === 'assessment' && timer.running}
+        timerComponent={
+          mode === 'assessment' && (timer.running || assessmentState.startTime > 0) ? (
+            <Timer running={timer.running} onElapsed={timer.setElapsed} />
+          ) : null
+        }
       />
       {loading ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <div className="animate-spin w-8 h-8 border-2 border-accent border-t-transparent rounded-full mx-auto mb-3" />
             <p className="text-[var(--muted)] text-sm">Loading database...</p>
+          </div>
+        </div>
+      ) : showAssessmentSummary ? (
+        <div className="flex-1 overflow-auto p-6">
+          <div className="max-w-xl mx-auto space-y-4">
+            <div className="bg-bg-card border border-[#eab308]/30 rounded-lg p-6 text-center">
+              <h2 className="text-lg font-semibold text-[#eab308] mb-1">Assessment Complete</h2>
+              <p className="text-xs text-[var(--muted)] mb-4">All challenges have been submitted</p>
+              <div className="flex items-center justify-center gap-6 mb-4">
+                <div>
+                  <span className="text-3xl font-mono font-bold text-white">{avgScore}</span>
+                  <span className="text-sm text-[var(--muted)]">/100</span>
+                  <p className="text-[10px] text-[var(--muted)] mt-1">Average Score</p>
+                </div>
+                <div>
+                  <span className="text-3xl font-mono font-bold text-white">
+                    {String(Math.floor(elapsedTime / 60)).padStart(2, '0')}:{String(elapsedTime % 60).padStart(2, '0')}
+                  </span>
+                  <p className="text-[10px] text-[var(--muted)] mt-1">Time Taken</p>
+                </div>
+              </div>
+            </div>
+            <div className="bg-bg-card border border-[var(--border)] rounded-lg p-4 space-y-3">
+              <h3 className="text-xs font-mono font-semibold text-[var(--muted)] uppercase tracking-wider">
+                Per-Challenge Results
+              </h3>
+              {checkableChallenges.map((challenge) => {
+                const scoreData = assessmentState.challengeScores.get(challenge.label);
+                return (
+                  <div key={challenge.label} className="flex items-center justify-between py-2 border-b border-[var(--border)]/30 last:border-0">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-white truncate">{challenge.label}</p>
+                      <p className="text-[10px] text-[var(--muted)]">{challenge.concept}</p>
+                    </div>
+                    {scoreData ? (
+                      <div className="flex items-center gap-2 ml-3">
+                        <span className="text-xs font-mono text-[var(--muted)]">{scoreData.score}/100</span>
+                        <span className={`text-xs font-mono font-bold px-1.5 py-0.5 rounded ${
+                          scoreData.grade === 'A' ? 'bg-green/10 text-green'
+                            : scoreData.grade === 'B' ? 'bg-cyan-400/10 text-cyan-400'
+                            : scoreData.grade === 'C' ? 'bg-amber/10 text-amber'
+                            : 'bg-red-400/10 text-red-400'
+                        }`}>
+                          {scoreData.grade}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-[var(--muted)]">Not attempted</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {/* After summary, show hints and Query Diff */}
+            <div className="bg-bg-card border border-[var(--border)] rounded-lg p-4 space-y-3">
+              <h3 className="text-xs font-mono font-semibold text-[var(--muted)] uppercase tracking-wider">
+                Hints &amp; Feedback
+              </h3>
+              {checkableChallenges.map((challenge) => (
+                <div key={challenge.label} className="py-2 border-b border-[var(--border)]/30 last:border-0">
+                  <p className="text-xs text-white font-medium mb-1">{challenge.label}</p>
+                  {challenge.trapHint && (
+                    <p className="text-[11px] text-amber mb-1">
+                      <span className="font-semibold">Trap hint:</span> {challenge.trapHint}
+                    </p>
+                  )}
+                  {challenge.correctHint && (
+                    <p className="text-[11px] text-green">
+                      <span className="font-semibold">Correct approach:</span> {challenge.correctHint}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => {
+                  setShowAssessmentSummary(false);
+                  setAssessmentState({ startTime: 0, challengeScores: new Map(), completed: false });
+                  setAttemptCount(0);
+                  timer.reset();
+                }}
+                className="px-4 py-2 bg-bg-card border border-[var(--border)] text-sm text-white rounded-lg hover:border-accent/40 transition-colors"
+              >
+                Retry Assessment
+              </button>
+              <button
+                onClick={() => {
+                  setShowAssessmentSummary(false);
+                  handleModeChange('training');
+                }}
+                className="px-4 py-2 bg-[#22c55e]/10 text-[#22c55e] border border-[#22c55e]/30 text-sm rounded-lg hover:bg-[#22c55e]/20 transition-colors"
+              >
+                Switch to Training Mode
+              </button>
+            </div>
           </div>
         </div>
       ) : (
@@ -242,6 +556,9 @@ export default function App() {
                 onExplain={handleExplain}
                 onCheckAnswer={handleCheckAnswer}
                 showCheckButton={!!activeChallenge}
+                mode={mode}
+                attemptCount={attemptCount}
+                maxAttempts={3}
               />
             </div>
             <div className="flex-1 overflow-hidden">
@@ -257,6 +574,15 @@ export default function App() {
                   result={gradeResult}
                   onTryAgain={handleTryAgain}
                   onShowAnswer={handleShowAnswer}
+                  onNextChallenge={handleNextChallenge}
+                  mode={mode}
+                  assessmentCompleted={assessmentState.completed}
+                  hasMoreChallenges={
+                    checkableChallenges.some((c) => {
+                      const s = assessmentState.challengeScores.get(c.label);
+                      return !s || s.attempts < 3;
+                    })
+                  }
                 />
               ) : explainResult ? (
                 <ExplainPanel
@@ -266,7 +592,7 @@ export default function App() {
                   onBack={() => setExplainResult(null)}
                 />
               ) : (
-                <ResultsPanel result={result} schema={schema} />
+                <ResultsPanel result={result} schema={schema} onShare={handleShare} />
               )}
             </div>
           </div>
@@ -276,6 +602,8 @@ export default function App() {
               history={history}
               onSelect={handleSuggestionClick}
               onSelectChallenge={handleSelectChallenge}
+              mode={mode}
+              challengeScores={assessmentState.challengeScores}
             />
           </div>
         </div>
@@ -303,11 +631,19 @@ function Header({
   activeTemplate,
   templates: templateList,
   onSelectTemplate,
+  mode,
+  onModeChange,
+  timerRunning: _timerRunning,
+  timerComponent,
 }: {
   onReset: () => void;
   activeTemplate: Template | null;
   templates: Template[];
   onSelectTemplate: (t: Template) => void;
+  mode: AppMode;
+  onModeChange: (m: AppMode) => void;
+  timerRunning: boolean;
+  timerComponent: React.ReactNode;
 }) {
   return (
     <header className="h-12 border-b border-[var(--border)] bg-bg-elevated flex items-center px-4 gap-3 shrink-0">
@@ -332,6 +668,8 @@ function Header({
               </option>
             ))}
           </select>
+          <ModeToggle mode={mode} onModeChange={onModeChange} />
+          {timerComponent}
           <button
             onClick={onReset}
             className="ml-auto text-xs text-[var(--muted)] hover:text-white border border-[var(--border)] rounded px-2.5 py-1 transition-colors"

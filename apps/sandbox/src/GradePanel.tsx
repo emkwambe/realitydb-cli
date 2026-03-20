@@ -1,10 +1,15 @@
 import { useState } from 'react';
 import type { GradingResult } from './GradingEngine';
+import type { AppMode } from './ModeToggle';
 
 interface Props {
   result: GradingResult;
   onTryAgain: () => void;
   onShowAnswer: () => void;
+  onNextChallenge?: () => void;
+  mode?: AppMode;
+  assessmentCompleted?: boolean;
+  hasMoreChallenges?: boolean;
 }
 
 function scoreColor(score: number, max: number): string {
@@ -40,9 +45,15 @@ function ProgressBar({ score, max, color }: { score: number; max: number; color:
   );
 }
 
-export function GradePanel({ result, onTryAgain, onShowAnswer }: Props) {
+export function GradePanel({ result, onTryAgain, onShowAnswer, onNextChallenge, mode = 'training', assessmentCompleted = false, hasMoreChallenges = false }: Props) {
   const [showAnswer, setShowAnswer] = useState(false);
   const { score, grade, breakdown, overallFeedback, trapTriggered } = result;
+
+  const isAssessment = mode === 'assessment';
+  // In assessment mode, show trapHint only after assessment is fully completed
+  const showTrapFeedback = trapTriggered && (!isAssessment || assessmentCompleted);
+  const showCorrectFeedback = !trapTriggered && score >= 90 && (!isAssessment || assessmentCompleted);
+  const showGenericFeedback = !trapTriggered && score < 90 && (!isAssessment || assessmentCompleted);
 
   const dimensions = [
     { label: 'Columns', ...breakdown.columns },
@@ -76,6 +87,11 @@ export function GradePanel({ result, onTryAgain, onShowAnswer }: Props) {
               >
                 {grade}
               </span>
+              {isAssessment && !assessmentCompleted && (
+                <span className="text-[10px] text-[#eab308] bg-[#eab308]/10 px-1.5 py-0.5 rounded">
+                  Score locked
+                </span>
+              )}
             </div>
           </div>
           <ProgressBar score={score} max={100} color={overallBarColor(score)} />
@@ -95,7 +111,7 @@ export function GradePanel({ result, onTryAgain, onShowAnswer }: Props) {
                 </span>
               </div>
               <ProgressBar score={dim.score} max={dim.max} color={scoreColor(dim.score, dim.max)} />
-              {dim.feedback && (
+              {(!isAssessment || assessmentCompleted) && dim.feedback && (
                 <p className="text-[11px] text-[var(--muted)] mt-1">{dim.feedback}</p>
               )}
             </div>
@@ -103,7 +119,7 @@ export function GradePanel({ result, onTryAgain, onShowAnswer }: Props) {
         </div>
 
         {/* Trap / Correct Feedback */}
-        {trapTriggered && (
+        {showTrapFeedback && (
           <div className="bg-amber/5 border border-amber/30 rounded-lg p-4">
             <div className="flex items-center gap-2 mb-2">
               <span className="text-base">&#x1FAA4;</span>
@@ -113,7 +129,7 @@ export function GradePanel({ result, onTryAgain, onShowAnswer }: Props) {
           </div>
         )}
 
-        {!trapTriggered && score >= 90 && (
+        {showCorrectFeedback && (
           <div className="bg-green/5 border border-green/30 rounded-lg p-4">
             <div className="flex items-center gap-2 mb-2">
               <span className="text-base">&#x2705;</span>
@@ -123,35 +139,78 @@ export function GradePanel({ result, onTryAgain, onShowAnswer }: Props) {
           </div>
         )}
 
-        {!trapTriggered && score < 90 && (
+        {showGenericFeedback && (
           <div className="bg-bg-card border border-[var(--border)] rounded-lg p-4">
             <p className="text-sm text-gray-300">{overallFeedback}</p>
           </div>
         )}
 
+        {/* Assessment mode: no hints shown yet message */}
+        {isAssessment && !assessmentCompleted && (
+          <div className="bg-[#eab308]/5 border border-[#eab308]/20 rounded-lg p-3">
+            <p className="text-[11px] text-[#eab308]">
+              Hints and detailed feedback will be available after all challenges are submitted.
+            </p>
+          </div>
+        )}
+
         {/* Actions */}
         <div className="flex items-center gap-3">
-          <button
-            onClick={onTryAgain}
-            className="px-4 py-2 bg-bg-card border border-[var(--border)] text-sm text-white rounded-lg hover:border-accent/40 transition-colors"
-          >
-            Try Again
-          </button>
-          <button
-            onClick={() => {
-              if (showAnswer) {
-                onShowAnswer();
-              }
-              setShowAnswer(true);
-            }}
-            className={`px-4 py-2 text-sm rounded-lg transition-colors ${
-              showAnswer
-                ? 'bg-accent/10 text-accent border border-accent/30 hover:bg-accent/20'
-                : 'bg-bg-card border border-[var(--border)] text-[var(--muted)] hover:text-white hover:border-accent/40'
-            }`}
-          >
-            {showAnswer ? 'Run Correct Answer' : 'Show Correct Answer'}
-          </button>
+          {isAssessment ? (
+            <>
+              {hasMoreChallenges && onNextChallenge && (
+                <button
+                  onClick={onNextChallenge}
+                  className="px-4 py-2 bg-[#eab308]/10 text-[#eab308] border border-[#eab308]/30 text-sm rounded-lg hover:bg-[#eab308]/20 transition-colors font-medium"
+                >
+                  Next Challenge
+                </button>
+              )}
+              {assessmentCompleted && (
+                <button
+                  onClick={() => {
+                    if (showAnswer) {
+                      onShowAnswer();
+                    }
+                    setShowAnswer(true);
+                  }}
+                  className={`px-4 py-2 text-sm rounded-lg transition-colors ${
+                    showAnswer
+                      ? 'bg-accent/10 text-accent border border-accent/30 hover:bg-accent/20'
+                      : 'bg-bg-card border border-[var(--border)] text-[var(--muted)] hover:text-white hover:border-accent/40'
+                  }`}
+                >
+                  {showAnswer ? 'Run Correct Answer' : 'Show Correct Answer'}
+                </button>
+              )}
+            </>
+          ) : (
+            <>
+              <button
+                onClick={onTryAgain}
+                className="px-4 py-2 bg-bg-card border border-[var(--border)] text-sm text-white rounded-lg hover:border-accent/40 transition-colors"
+              >
+                Try Again
+              </button>
+              {score < 70 && (
+                <button
+                  onClick={() => {
+                    if (showAnswer) {
+                      onShowAnswer();
+                    }
+                    setShowAnswer(true);
+                  }}
+                  className={`px-4 py-2 text-sm rounded-lg transition-colors ${
+                    showAnswer
+                      ? 'bg-accent/10 text-accent border border-accent/30 hover:bg-accent/20'
+                      : 'bg-bg-card border border-[var(--border)] text-[var(--muted)] hover:text-white hover:border-accent/40'
+                  }`}
+                >
+                  {showAnswer ? 'Run Correct Answer' : 'Show Correct Answer'}
+                </button>
+              )}
+            </>
+          )}
         </div>
 
         {/* Correct Answer Preview */}

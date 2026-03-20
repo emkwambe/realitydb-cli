@@ -8,6 +8,7 @@ type ViewMode = 'table' | 'chart' | 'split';
 interface Props {
   result: QueryResult | null;
   schema: TableInfo[];
+  onShare?: () => void;
 }
 
 const MAX_DISPLAY_ROWS = 200;
@@ -32,8 +33,10 @@ function formatValue(value: unknown): { text: string; className: string } {
   return { text: str, className: 'text-gray-400' };
 }
 
-export function ResultsPanel({ result, schema }: Props) {
+export function ResultsPanel({ result, schema, onShare }: Props) {
   const [viewMode, setViewMode] = useState<ViewMode | null>(null);
+  const [shareLabel, setShareLabel] = useState<'Share' | 'Copied!'>('Share');
+  const [showToast, setShowToast] = useState(false);
 
   const detection = useMemo(() => {
     if (!result || result.error || result.rows.length === 0) return { type: 'none' as const };
@@ -61,6 +64,15 @@ export function ResultsPanel({ result, schema }: Props) {
     navigator.clipboard.writeText([header, ...rows].join('\n'));
   }, [result]);
 
+  const handleShare = useCallback(() => {
+    if (!onShare) return;
+    onShare();
+    setShareLabel('Copied!');
+    setShowToast(true);
+    setTimeout(() => setShareLabel('Share'), 2000);
+    setTimeout(() => setShowToast(false), 3000);
+  }, [onShare]);
+
   if (!result) {
     return (
       <div className="h-full flex items-center justify-center text-[var(--muted)] text-sm">
@@ -85,7 +97,7 @@ export function ResultsPanel({ result, schema }: Props) {
       <div className="h-full flex flex-col">
         <div className="px-3 py-1.5 border-b border-[var(--border)] bg-bg-elevated flex items-center gap-3">
           <span className="text-xs font-mono text-[var(--muted)]">
-            Results · 0 rows · {result.duration}ms
+            Results &middot; 0 rows &middot; {result.duration}ms
           </span>
         </div>
         <div className="flex-1 flex items-center justify-center text-[var(--muted)] text-sm">
@@ -147,7 +159,7 @@ export function ResultsPanel({ result, schema }: Props) {
   );
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col relative">
       <div className="px-3 py-1.5 border-b border-[var(--border)] bg-bg-elevated flex items-center gap-3">
         <div className="flex items-center gap-1 mr-2">
           {(['table', 'chart', 'split'] as const).map((mode) => {
@@ -176,7 +188,7 @@ export function ResultsPanel({ result, schema }: Props) {
           </span>
         )}
         <span className="text-xs font-mono text-[var(--muted)] ml-auto">
-          {result.rowCount} rows · {result.duration}ms
+          {result.rowCount} rows &middot; {result.duration}ms
         </span>
         {truncated && (
           <span className="text-[10px] text-amber">
@@ -189,6 +201,19 @@ export function ResultsPanel({ result, schema }: Props) {
         >
           Copy CSV
         </button>
+        {onShare && (
+          <button
+            onClick={handleShare}
+            className="text-[10px] text-[var(--muted)] hover:text-white border border-[var(--border)] rounded px-2 py-0.5 transition-colors flex items-center gap-1"
+          >
+            {shareLabel === 'Copied!' ? (
+              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+            ) : (
+              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
+            )}
+            {shareLabel}
+          </button>
+        )}
       </div>
       <div className="flex-1 overflow-hidden">
         {effectiveView === 'table' && tableContent}
@@ -200,6 +225,14 @@ export function ResultsPanel({ result, schema }: Props) {
           </div>
         )}
       </div>
+      {/* Share toast */}
+      {showToast && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-bg-card border border-[var(--border)] rounded-lg px-4 py-2 shadow-xl z-50 animate-in fade-in">
+          <p className="text-xs text-white">
+            Link copied! Anyone with this link will see your query and results.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
