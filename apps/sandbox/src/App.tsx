@@ -7,6 +7,7 @@ import { ExplainPanel } from './ExplainPanel';
 import type { ExplainMode } from './ExplainPanel';
 import { QuerySuggestions } from './QuerySuggestions';
 import { GradePanel } from './GradePanel';
+import { QueryDiff } from './QueryDiff';
 import { gradeQuery } from './GradingEngine';
 import type { GradingResult } from './GradingEngine';
 import { ModeToggle } from './ModeToggle';
@@ -61,6 +62,7 @@ export default function App() {
   const [activeChallenge, setActiveChallenge] = useState<SuggestedQuery | null>(null);
   const [gradeResult, setGradeResult] = useState<GradingResult | null>(null);
   const [grading, setGrading] = useState(false);
+  const [showDiff, setShowDiff] = useState(false);
 
   // NL→SQL state
   const [nlHistory, setNLHistory] = useState<NLHistoryEntry[]>([]);
@@ -104,6 +106,7 @@ export default function App() {
       setQueryTime(null);
       setActiveChallenge(null);
       setGradeResult(null);
+      setShowDiff(false);
       setAttemptCount(0);
       setShowAssessmentSummary(false);
       // Reset assessment state for new template
@@ -124,6 +127,7 @@ export default function App() {
     if (!sql.trim()) return;
     setExplainResult(null);
     setGradeResult(null);
+    setShowDiff(false);
     setActiveChallenge(null);
     const res = await runQuery(sql);
     setResult(res);
@@ -208,6 +212,7 @@ export default function App() {
 
     setActiveChallenge(query);
     setGradeResult(null);
+    setShowDiff(false);
     setResult(null);
     setExplainResult(null);
     setShowAssessmentSummary(false);
@@ -291,6 +296,7 @@ export default function App() {
 
   const handleTryAgain = useCallback(() => {
     setGradeResult(null);
+    setShowDiff(false);
     // Keep the challenge active, just clear the grade
   }, []);
 
@@ -298,6 +304,7 @@ export default function App() {
     if (!activeChallenge) return;
     setEditorValue(activeChallenge.sql);
     setGradeResult(null);
+    setShowDiff(false);
     setActiveChallenge(null);
     handleRunQuery(activeChallenge.sql);
   }, [activeChallenge, handleRunQuery]);
@@ -377,6 +384,7 @@ export default function App() {
     setQueryTime(null);
     setActiveChallenge(null);
     setGradeResult(null);
+    setShowDiff(false);
     setMode('training');
     setAssessmentState({ startTime: 0, challengeScores: new Map(), completed: false });
     setAttemptCount(0);
@@ -396,6 +404,7 @@ export default function App() {
     setAttemptCount(0);
     setShowAssessmentSummary(false);
     setGradeResult(null);
+    setShowDiff(false);
     timer.reset();
   }, [timer]);
 
@@ -640,20 +649,32 @@ export default function App() {
                   </div>
                 </div>
               ) : gradeResult ? (
-                <GradePanel
-                  result={gradeResult}
-                  onTryAgain={handleTryAgain}
-                  onShowAnswer={handleShowAnswer}
-                  onNextChallenge={handleNextChallenge}
-                  mode={mode}
-                  assessmentCompleted={assessmentState.completed}
-                  hasMoreChallenges={
-                    checkableChallenges.some((c) => {
-                      const s = assessmentState.challengeScores.get(c.label);
-                      return !s || s.attempts < 3;
-                    })
-                  }
-                />
+                <div className="h-full flex flex-col overflow-hidden">
+                  <div className="flex-1 overflow-hidden">
+                    <GradePanel
+                      result={gradeResult}
+                      onTryAgain={handleTryAgain}
+                      onShowAnswer={handleShowAnswer}
+                      onNextChallenge={handleNextChallenge}
+                      onViewDiff={() => setShowDiff(true)}
+                      mode={mode}
+                      assessmentCompleted={assessmentState.completed}
+                      hasMoreChallenges={
+                        checkableChallenges.some((c) => {
+                          const s = assessmentState.challengeScores.get(c.label);
+                          return !s || s.attempts < 3;
+                        })
+                      }
+                    />
+                  </div>
+                  {showDiff && gradeResult.studentResult && gradeResult.referenceResult && (
+                    <QueryDiff
+                      studentResult={gradeResult.studentResult}
+                      referenceResult={gradeResult.referenceResult}
+                      onClose={() => setShowDiff(false)}
+                    />
+                  )}
+                </div>
               ) : explainResult ? (
                 <ExplainPanel
                   data={explainResult.data}

@@ -7,6 +7,7 @@ interface Props {
   onTryAgain: () => void;
   onShowAnswer: () => void;
   onNextChallenge?: () => void;
+  onViewDiff?: () => void;
   mode?: AppMode;
   assessmentCompleted?: boolean;
   hasMoreChallenges?: boolean;
@@ -45,7 +46,7 @@ function ProgressBar({ score, max, color }: { score: number; max: number; color:
   );
 }
 
-export function GradePanel({ result, onTryAgain, onShowAnswer, onNextChallenge, mode = 'training', assessmentCompleted = false, hasMoreChallenges = false }: Props) {
+export function GradePanel({ result, onTryAgain, onShowAnswer, onNextChallenge, onViewDiff, mode = 'training', assessmentCompleted = false, hasMoreChallenges = false }: Props) {
   const [showAnswer, setShowAnswer] = useState(false);
   const { score, grade, breakdown, overallFeedback, trapTriggered } = result;
 
@@ -54,6 +55,8 @@ export function GradePanel({ result, onTryAgain, onShowAnswer, onNextChallenge, 
   const showTrapFeedback = trapTriggered && (!isAssessment || assessmentCompleted);
   const showCorrectFeedback = !trapTriggered && score >= 90 && (!isAssessment || assessmentCompleted);
   const showGenericFeedback = !trapTriggered && score < 90 && (!isAssessment || assessmentCompleted);
+  const canViewDiff = onViewDiff && result.studentResult && result.referenceResult &&
+    (!isAssessment || assessmentCompleted);
 
   const dimensions = [
     { label: 'Columns', ...breakdown.columns },
@@ -166,6 +169,14 @@ export function GradePanel({ result, onTryAgain, onShowAnswer, onNextChallenge, 
                   Next Challenge
                 </button>
               )}
+              {canViewDiff && (
+                <button
+                  onClick={onViewDiff}
+                  className="px-4 py-2 bg-[#22d3ee]/10 text-[#22d3ee] border border-[#22d3ee]/30 text-sm rounded-lg hover:bg-[#22d3ee]/20 transition-colors font-medium"
+                >
+                  View Diff
+                </button>
+              )}
               {assessmentCompleted && (
                 <button
                   onClick={() => {
@@ -192,6 +203,14 @@ export function GradePanel({ result, onTryAgain, onShowAnswer, onNextChallenge, 
               >
                 Try Again
               </button>
+              {canViewDiff && (
+                <button
+                  onClick={onViewDiff}
+                  className="px-4 py-2 bg-[#22d3ee]/10 text-[#22d3ee] border border-[#22d3ee]/30 text-sm rounded-lg hover:bg-[#22d3ee]/20 transition-colors font-medium"
+                >
+                  View Diff
+                </button>
+              )}
               {score < 70 && (
                 <button
                   onClick={() => {

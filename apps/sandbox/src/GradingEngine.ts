@@ -14,6 +14,8 @@ export interface GradingResult {
   breakdown: GradingBreakdown;
   overallFeedback: string;
   trapTriggered: boolean;
+  studentResult?: { columns: string[]; rows: any[][] };
+  referenceResult?: { columns: string[]; rows: any[][] };
 }
 
 const CLAUSE_PATTERNS: Record<string, RegExp> = {
@@ -356,11 +358,21 @@ export async function gradeQuery(
     }
   }
 
+  // Convert rows to array format for QueryDiff
+  const studentRowsArray = studentResult.rows.map((row) =>
+    studentResult.columns.map((col) => row[col])
+  );
+  const refRowsArray = refResult.rows.map((row) =>
+    refResult.columns.map((col) => row[col])
+  );
+
   return {
     score,
     grade,
     breakdown: { columns, rowCount, resultMatch, sortOrder, clauses },
     overallFeedback,
     trapTriggered,
+    studentResult: { columns: studentResult.columns, rows: studentRowsArray },
+    referenceResult: { columns: refResult.columns, rows: refRowsArray },
   };
 }
