@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import type { TableInfo } from './sandbox';
 import { SchemaERD } from './SchemaERD';
+import type { QueryLineage } from './SchemaERD';
 
 interface Props {
   schema: TableInfo[];
   onTableClick: (tableName: string) => void;
+  lineage?: QueryLineage | null;
 }
 
 const TYPE_SHORT: Record<string, string> = {
@@ -32,7 +34,7 @@ function shortType(type: string): string {
 
 type ViewMode = 'list' | 'erd';
 
-export function SchemaPanel({ schema, onTableClick }: Props) {
+export function SchemaPanel({ schema, onTableClick, lineage }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<ViewMode>('list');
 
@@ -133,7 +135,7 @@ export function SchemaPanel({ schema, onTableClick }: Props) {
         </div>
       ) : (
         <div className="flex-1 min-h-[400px]">
-          <SchemaERD schema={erdSchema} onTableClick={onTableClick} />
+          <SchemaERD schema={erdSchema} onTableClick={onTableClick} lineage={lineage} />
         </div>
       )}
     </div>
