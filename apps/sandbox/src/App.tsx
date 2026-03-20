@@ -12,6 +12,9 @@ import type { GradingResult } from './GradingEngine';
 import { ModeToggle } from './ModeToggle';
 import type { AppMode } from './ModeToggle';
 import { Timer, useTimer } from './Timer';
+import { NLQueryPanel } from './NLQueryPanel';
+import type { NLHistoryEntry } from './NLQueryPanel';
+import { generateSQL } from './aiService';
 import { getSQLForTemplate } from './datapacks';
 import { initSandbox, runQuery, getSchemaInfo, resetSandbox } from './sandbox';
 import { templates } from './templates';
@@ -58,6 +61,13 @@ export default function App() {
   const [activeChallenge, setActiveChallenge] = useState<SuggestedQuery | null>(null);
   const [gradeResult, setGradeResult] = useState<GradingResult | null>(null);
   const [grading, setGrading] = useState(false);
+
+  // NL→SQL state
+  const [nlHistory, setNLHistory] = useState<NLHistoryEntry[]>([]);
+  const [nlLoading, setNLLoading] = useState(false);
+  const [nlQueryCount, setNlQueryCount] = useState(0);
+  const [nlError, setNlError] = useState<string | null>(null);
+  const [aiInfo, setAiInfo] = useState<{ explanation: string; confidence: 'high' | 'medium' | 'low' } | null>(null);
 
   // Mode & Assessment state
   const [mode, setMode] = useState<AppMode>('training');
@@ -318,6 +328,44 @@ export default function App() {
     [handleRunQuery]
   );
 
+  const handleNLSubmit = useCallback(async (question: string) => {
+    if (!activeTemplate || nlLoading) return;
+    setNLLoading(true);
+    setNlError(null);
+    setAiInfo(null);
+    try {
+      const result = await generateSQL(question, schema, activeTemplate.name);
+      setEditorValue(result.sql);
+      setAiInfo({ explanation: result.explanation, confidence: result.confidence });
+      setNlQueryCount(prev => prev + 1);
+      setNLHistory(prev => [
+        { question, sql: result.sql, timestamp: Date.now() },
+        ...prev.slice(0, 9),
+      ]);
+      // Auto-run
+      const res = await runQuery(result.sql);
+      setResult(res);
+      setQueryTime(res.duration);
+      setExplainResult(null);
+      setGradeResult(null);
+      setActiveChallenge(null);
+      if (!res.error) {
+        setHistory(prev => [
+          { sql: result.sql.trim(), rowCount: res.rowCount, duration: res.duration, timestamp: Date.now() },
+          ...prev,
+        ]);
+      }
+    } catch (e) {
+      setNlError(e instanceof Error ? e.message : 'An unexpected error occurred.');
+    } finally {
+      setNLLoading(false);
+    }
+  }, [activeTemplate, schema, nlLoading]);
+
+  const handleDismissAiInfo = useCallback(() => {
+    setAiInfo(null);
+  }, []);
+
   const handleReset = useCallback(async () => {
     await resetSandbox();
     setActiveTemplate(null);
@@ -333,6 +381,11 @@ export default function App() {
     setAssessmentState({ startTime: 0, challengeScores: new Map(), completed: false });
     setAttemptCount(0);
     setShowAssessmentSummary(false);
+    setNLHistory([]);
+    setNLLoading(false);
+    setNlQueryCount(0);
+    setNlError(null);
+    setAiInfo(null);
     timer.reset();
   }, [timer]);
 
@@ -548,6 +601,23 @@ export default function App() {
             <SchemaPanel schema={schema} onTableClick={handleTableClick} />
           </div>
           <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+            {mode === 'training' && (
+              <NLQueryPanel
+                templateId={activeTemplate.id}
+                loading={nlLoading}
+                queryCount={nlQueryCount}
+                history={nlHistory}
+                aiInfo={aiInfo}
+                onSubmit={handleNLSubmit}
+                onDismissInfo={handleDismissAiInfo}
+              />
+            )}
+            {nlError && mode === 'training' && (
+              <div className="px-3 py-1.5 bg-red-400/10 border-b border-red-400/20 text-xs text-red-400 flex items-center justify-between">
+                <span>{nlError}</span>
+                <button onClick={() => setNlError(null)} className="text-red-400/60 hover:text-red-400 ml-2">x</button>
+              </div>
+            )}
             <div className="h-[280px] shrink-0 border-b border-[var(--border)]">
               <SQLEditor
                 value={editorValue}
