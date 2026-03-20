@@ -6,11 +6,14 @@ import { ResultsPanel } from './ResultsPanel';
 import { ExplainPanel } from './ExplainPanel';
 import type { ExplainMode } from './ExplainPanel';
 import { QuerySuggestions } from './QuerySuggestions';
+import { GradePanel } from './GradePanel';
+import { gradeQuery } from './GradingEngine';
+import type { GradingResult } from './GradingEngine';
 import { getSQLForTemplate } from './datapacks';
 import { initSandbox, runQuery, getSchemaInfo, resetSandbox } from './sandbox';
 import { templates } from './templates';
 import type { QueryResult, TableInfo } from './sandbox';
-import type { Template } from './templates';
+import type { Template, SuggestedQuery } from './templates';
 
 interface HistoryEntry {
   sql: string;
@@ -29,6 +32,9 @@ export default function App() {
   const [queryTime, setQueryTime] = useState<number | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [explainResult, setExplainResult] = useState<{ data: any; mode: ExplainMode; duration: number } | null>(null);
+  const [activeChallenge, setActiveChallenge] = useState<SuggestedQuery | null>(null);
+  const [gradeResult, setGradeResult] = useState<GradingResult | null>(null);
+  const [grading, setGrading] = useState(false);
 
   const handleSelectTemplate = useCallback(async (template: Template) => {
     setLoading(true);
@@ -43,6 +49,8 @@ export default function App() {
       setEditorValue('');
       setHistory([]);
       setQueryTime(null);
+      setActiveChallenge(null);
+      setGradeResult(null);
     } catch (e) {
       console.error('Failed to load template:', e);
     } finally {
@@ -53,6 +61,8 @@ export default function App() {
   const handleRunQuery = useCallback(async (sql: string) => {
     if (!sql.trim()) return;
     setExplainResult(null);
+    setGradeResult(null);
+    setActiveChallenge(null);
     const res = await runQuery(sql);
     setResult(res);
     setQueryTime(res.duration);
@@ -127,6 +137,49 @@ export default function App() {
     [handleRunQuery]
   );
 
+  const handleSelectChallenge = useCallback((query: SuggestedQuery) => {
+    setActiveChallenge(query);
+    setGradeResult(null);
+    setResult(null);
+    setExplainResult(null);
+    // Fill editor with challenge comment, not the answer
+    const comment = `-- CHALLENGE: ${query.label.replace(/^Challenge:\s*/i, '')}\n-- Concept: ${query.concept}\n-- Write your query below:\n\n`;
+    setEditorValue(comment);
+  }, []);
+
+  const handleCheckAnswer = useCallback(async () => {
+    if (!activeChallenge || !editorValue.trim()) return;
+    setGrading(true);
+    setResult(null);
+    setExplainResult(null);
+    try {
+      const result = await gradeQuery(
+        editorValue,
+        activeChallenge.sql,
+        activeChallenge.requiredClauses,
+        activeChallenge.checkOrder,
+        activeChallenge.trapHint,
+        activeChallenge.correctHint
+      );
+      setGradeResult(result);
+    } finally {
+      setGrading(false);
+    }
+  }, [activeChallenge, editorValue]);
+
+  const handleTryAgain = useCallback(() => {
+    setGradeResult(null);
+    // Keep the challenge active, just clear the grade
+  }, []);
+
+  const handleShowAnswer = useCallback(() => {
+    if (!activeChallenge) return;
+    setEditorValue(activeChallenge.sql);
+    setGradeResult(null);
+    setActiveChallenge(null);
+    handleRunQuery(activeChallenge.sql);
+  }, [activeChallenge, handleRunQuery]);
+
   const handleTableClick = useCallback(
     (tableName: string) => {
       const sql = `SELECT * FROM ${tableName} LIMIT 100;`;
@@ -145,6 +198,8 @@ export default function App() {
     setEditorValue('');
     setHistory([]);
     setQueryTime(null);
+    setActiveChallenge(null);
+    setGradeResult(null);
   }, []);
 
   const totalRows = schema.reduce((sum, t) => sum + t.rowCount, 0);
@@ -185,10 +240,25 @@ export default function App() {
                 onChange={setEditorValue}
                 onRun={handleRunQuery}
                 onExplain={handleExplain}
+                onCheckAnswer={handleCheckAnswer}
+                showCheckButton={!!activeChallenge}
               />
             </div>
             <div className="flex-1 overflow-hidden">
-              {explainResult ? (
+              {grading ? (
+                <div className="h-full flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="animate-spin w-8 h-8 border-2 border-[#22c55e] border-t-transparent rounded-full mx-auto mb-3" />
+                    <p className="text-[var(--muted)] text-sm">Grading your query...</p>
+                  </div>
+                </div>
+              ) : gradeResult ? (
+                <GradePanel
+                  result={gradeResult}
+                  onTryAgain={handleTryAgain}
+                  onShowAnswer={handleShowAnswer}
+                />
+              ) : explainResult ? (
                 <ExplainPanel
                   data={explainResult.data}
                   mode={explainResult.mode}
@@ -205,6 +275,7 @@ export default function App() {
               queries={activeTemplate.suggestedQueries}
               history={history}
               onSelect={handleSuggestionClick}
+              onSelectChallenge={handleSelectChallenge}
             />
           </div>
         </div>

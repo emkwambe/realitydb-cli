@@ -6,9 +6,11 @@ interface Props {
   onChange: (value: string) => void;
   onRun: (sql: string) => void;
   onExplain: () => void;
+  onCheckAnswer?: () => void;
+  showCheckButton?: boolean;
 }
 
-export function SQLEditor({ value, onChange, onRun, onExplain }: Props) {
+export function SQLEditor({ value, onChange, onRun, onExplain, onCheckAnswer, showCheckButton }: Props) {
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
 
   const handleMount: OnMount = useCallback(
@@ -58,6 +60,14 @@ export function SQLEditor({ value, onChange, onRun, onExplain }: Props) {
           >
             Explain
           </button>
+          {showCheckButton && onCheckAnswer && (
+            <button
+              onClick={onCheckAnswer}
+              className="px-3 py-1 bg-[#22c55e]/10 text-[#22c55e] text-xs rounded hover:bg-[#22c55e]/20 transition-colors font-medium"
+            >
+              Check Answer
+            </button>
+          )}
           <button
             onClick={() => {
               if (value.trim()) onRun(value);
