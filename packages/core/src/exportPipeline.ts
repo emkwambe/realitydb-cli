@@ -2,7 +2,7 @@ import type { DataboxConfig } from '@databox/config';
 import type { ScenarioConfig, ScenarioResult } from '@databox/shared';
 import { createDatabaseClient, testConnection, closeConnection } from '@databox/db';
 import { createSeededRandom } from '@databox/shared';
-import { introspectDatabase } from '@databox/schema';
+import { introspectDatabase, generateCreateTableDDL } from '@databox/schema';
 import { generateDataset, generateTimelineDataset, exportToJson, exportToCsv, exportToSql } from '@databox/generators';
 import { composeScenarios, parseScheduleString, applyScheduledScenarios, buildScenarioReport, formatScenarioReportCI } from '@databox/generators';
 import { buildGenerationPlan } from './planning/index.js';
@@ -18,6 +18,7 @@ export interface ExportOptions {
   scenarios?: string;
   scenarioIntensity?: 'low' | 'medium' | 'high';
   scenarioSchedule?: string;
+  batchSize?: number;
 }
 
 export interface ExportResult {
@@ -113,7 +114,11 @@ export async function exportDataset(
         files = await exportToCsv(dataset, outputDir);
         break;
       case 'sql':
-        files = await exportToSql(dataset, outputDir, plan.tableOrder);
+        files = await exportToSql(dataset, outputDir, plan.tableOrder, {
+          ddl: generateCreateTableDDL(schema),
+          batchSize: options?.batchSize ?? 50,
+          templateName: plan.config.templateName,
+        });
         break;
       default:
         throw new Error(`Unknown export format: "${format}". Supported: json, csv, sql`);

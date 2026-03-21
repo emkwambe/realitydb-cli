@@ -3,7 +3,7 @@ import type { DomainTemplate } from '../types.js';
 export const healthcareTemplate: DomainTemplate = {
   name: 'healthcare',
   version: '2.0',
-  description: 'Healthcare system with patients, providers, encounters, diagnoses, billing, medications, and vitals',
+  description: 'Healthcare network with 13 tables: patients, providers, encounters, diagnoses, procedures, prescriptions, lab_orders, lab_results, vitals, billing, medications, insurance_claims, claim_payments',
   targetTables: ['patients', 'providers', 'encounters', 'diagnoses', 'billing', 'medications', 'vitals', 'procedures', 'prescriptions', 'lab_orders', 'lab_results', 'insurance_claims', 'claim_payments'],
   tableConfigs: new Map([
     ['patients', {

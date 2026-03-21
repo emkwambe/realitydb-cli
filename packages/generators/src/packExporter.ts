@@ -36,10 +36,11 @@ export function exportRealityPack(
   };
 
   const packDataset: PackDataset = { tables: {} };
-  for (const [tableName, table] of dataset.tables) {
+  // Use Array.from to guarantee all Map entries are captured during serialization
+  for (const [tableName, table] of Array.from(dataset.tables.entries())) {
     packDataset.tables[tableName] = {
-      columns: table.columns,
-      rows: table.rows,
+      columns: [...table.columns],
+      rows: table.rows.map((row) => ({ ...row })),
       rowCount: table.rowCount,
     };
   }

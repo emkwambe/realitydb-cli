@@ -3,7 +3,7 @@ import type { DomainTemplate } from '../types.js';
 export const ecommerceTemplate: DomainTemplate = {
   name: 'ecommerce',
   version: '2.0',
-  description: 'E-commerce store with categories, products, orders, and reviews',
+  description: 'E-commerce platform with 12 tables: customers, categories, products, orders, order_items, reviews, sessions, cart_items, payments, refunds, shipments, disputes',
   targetTables: ['customers', 'categories', 'products', 'orders', 'order_items', 'reviews', 'sessions', 'cart_items', 'payments', 'refunds', 'shipments', 'disputes'],
   tableConfigs: new Map([
     ['customers', {

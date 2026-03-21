@@ -3,7 +3,7 @@ import type { DomainTemplate } from '../types.js';
 export const educationTemplate: DomainTemplate = {
   name: 'education',
   version: '2.0',
-  description: 'K-12 school system with teachers, classes, students, grades, and attendance',
+  description: 'K-12 school system with 6 tables: teachers, classes, students, enrollments, grades, attendance',
   targetTables: ['teachers', 'classes', 'students', 'enrollments', 'grades', 'attendance'],
   tableConfigs: new Map([
     ['teachers', {

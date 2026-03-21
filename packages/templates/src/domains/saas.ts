@@ -3,7 +3,7 @@ import type { DomainTemplate } from '../types.js';
 export const saasTemplate: DomainTemplate = {
   name: 'saas',
   version: '2.0',
-  description: 'SaaS subscription business with organizations, users, plans, invoices, and payments',
+  description: 'SaaS platform with 10 tables: organizations, users, plans, features, plan_features, subscriptions, invoices, payments, sessions, events',
   targetTables: ['organizations', 'users', 'plans', 'features', 'plan_features', 'subscriptions', 'invoices', 'payments', 'sessions', 'events'],
   tableConfigs: new Map([
     ['organizations', {

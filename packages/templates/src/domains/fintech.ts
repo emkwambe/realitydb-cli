@@ -3,7 +3,7 @@ import type { DomainTemplate } from '../types.js';
 export const fintechTemplate: DomainTemplate = {
   name: 'fintech',
   version: '2.0',
-  description: 'Financial services with accounts, transactions, fraud alerts, settlements, and chargebacks',
+  description: 'Financial platform with 10 tables: accounts, transactions, transfers, cards, authorizations, settlements, fraud_alerts, fraud_investigations, chargebacks, compliance_checks',
   targetTables: ['accounts', 'transactions', 'fraud_alerts', 'settlements', 'chargebacks', 'transfers', 'cards', 'authorizations', 'fraud_investigations', 'compliance_checks'],
   tableConfigs: new Map([
     ['accounts', {

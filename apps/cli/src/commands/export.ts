@@ -17,6 +17,7 @@ export async function exportCommand(options: {
   scenario?: string;
   scenarioIntensity?: string;
   scenarioSchedule?: string;
+  batchSize?: string;
   ci?: boolean;
   configPath?: string;
 }): Promise<void> {
@@ -114,6 +115,8 @@ export async function exportCommand(options: {
       console.log('Generating dataset...');
     }
 
+    const batchSize = options.batchSize ? parseInt(options.batchSize, 10) : undefined;
+
     const result = await exportDataset(config, {
       format,
       outputDir,
@@ -124,6 +127,7 @@ export async function exportCommand(options: {
       scenarios: scenario,
       scenarioIntensity,
       scenarioSchedule: options.scenarioSchedule,
+      batchSize,
     });
 
     const durationMs = Math.round(performance.now() - start);

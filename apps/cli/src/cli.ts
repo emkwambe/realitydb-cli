@@ -109,6 +109,7 @@ export function run(argv: string[]): void {
     .option('--scenario <names>', 'Scenarios to apply (comma-separated)')
     .option('--scenario-intensity <level>', 'Scenario intensity (low|medium|high)', 'medium')
     .option('--scenario-schedule <schedule>', 'Timeline-scheduled scenarios (e.g., "fraud-spike:month-6,churn-spike:month-9")')
+    .option('--batch-size <number>', 'Rows per INSERT statement for SQL format (default: 50)')
     .action(async (cmdOpts) => {
       const opts = program.opts();
       await exportCommand({ ...cmdOpts, ci: opts.ci, configPath: opts.config });
