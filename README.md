@@ -4,7 +4,7 @@
 
 The only schema-aware engine that generates deterministic, production-scale environments for high-compliance engineering. Supports PostgreSQL and MySQL.
 
-**Designed for SOC2 · GDPR · HIPAA development pipelines**
+**Designed for SOC2 - GDPR - HIPAA development pipelines**
 
 [![npm version](https://img.shields.io/npm/v/realitydb.svg)](https://www.npmjs.com/package/realitydb)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
@@ -18,274 +18,280 @@ npm install -g realitydb
 # Interactive setup (recommended for first time)
 realitydb init
 
-# Or connect directly
-realitydb scan                                    # Inspect your schema
-realitydb seed --template saas --seed 42          # Populate with realistic data
-realitydb reset --confirm                         # Clear and start fresh
+# Or connect and seed in one command
+realitydb run --pack my-template.json --connection postgresql://user:pass@host:5432/db --records 5000
 ```
 
-## The Problem
+## Platform
 
-Cloning production data into development environments is a multi-million dollar liability. Every copy of customer PII is a breach waiting to happen. Empty databases mean broken dashboards, untestable features, and demos that look like prototypes.
+| Product | URL | Description |
+|---------|-----|-------------|
+| **CLI** | `npm install -g realitydb` | Generate production-realistic data from templates |
+| **Studio** | [studio.realitydb.dev](https://studio.realitydb.dev) | Visual schema designer with AI Schema Architect |
+| **Sandbox** | [sandbox.realitydb.dev](https://sandbox.realitydb.dev) | Browser-based SQL playground with auto-grading |
 
-## The Solution
+## Built-in Templates
 
-RealityDB reads your database schema, infers generation strategies for every column, and produces realistic synthetic data with correct foreign key relationships — in under a second. No real PII. Deterministic output. Works with any PostgreSQL or MySQL schema.
+| Template | Tables | Description |
+|----------|--------|-------------|
+| `saas` | 10 | SaaS platform: organizations, users, plans, features, subscriptions, invoices, payments, sessions, events |
+| `ecommerce` | 12 | E-commerce: customers, products, orders, payments, refunds, disputes, shipments, sessions, cart items, reviews |
+| `fintech` | 10 | Financial platform: accounts, transactions, transfers, cards, authorizations, settlements, fraud alerts, investigations, compliance |
+| `healthcare` | 13 | Healthcare network: patients, providers, encounters, diagnoses, procedures, prescriptions, labs, vitals, billing, insurance claims |
+| `education` | 6 | K-12 school system: teachers, classes, students, enrollments, grades, attendance |
 
+## Commands
+
+### Setup
+
+```bash
+# Interactive wizard - connect, scan, and seed in one step
+realitydb init
+
+# Scan your database schema
+realitydb scan
+
+# Analyze schema and suggest column strategies
+realitydb analyze
 ```
-$ realitydb seed --template saas --records 500 --seed 42
 
-Autonomous Schema Inference · 6 tables · 9 foreign keys
+### Data Generation
 
-  organizations: 150 rows (8 industries)
-  users:         500 rows (4 roles, 4 statuses)
-  plans:         50 rows  (5 tiers)
-  subscriptions: 600 rows (5 lifecycle states)
-  invoices:      1500 rows (5 billing statuses)
-  payments:      1500 rows (4 methods)
+```bash
+# Seed database with generated data
+realitydb seed --records 5000 --template saas
 
-Seed complete. 4,300 rows in 0.4s · deterministic · FK-safe
+# Seed with timeline simulation (growth over time)
+realitydb seed --records 10000 --template ecommerce --timeline 12-months
+
+# Seed with scenarios (fraud spikes, churn events)
+realitydb seed --records 5000 --template fintech --scenario fraud-spike --scenario-intensity high
+
+# Reset seeded data
+realitydb reset
 ```
 
-## Database Support
+### Schema-to-Data Pipeline
 
-| Database | Status | Connection String |
-|----------|--------|-------------------|
-| PostgreSQL | Full support | `postgres://user:pass@localhost:5432/mydb` |
-| MySQL | Full support | `mysql://user:pass@localhost:3306/mydb` |
+```bash
+# Create schema and seed from a Studio-exported template
+realitydb run --pack my-template.json --connection postgresql://user:pass@host/db --records 1000
 
-Auto-detected from connection string. No configuration needed.
+# Dry run - see what would be created
+realitydb run --pack my-template.json --connection postgresql://user:pass@host/db --dry-run
+```
+
+### Data Export
+
+```bash
+# Export as JSON
+realitydb export --format json --output ./data --template saas --records 5000
+
+# Export as CSV
+realitydb export --format csv --output ./data --template ecommerce --records 10000
+
+# Export as SQL (INSERT statements)
+realitydb export --format sql --output ./data --template healthcare --records 5000
+
+# Export with timeline
+realitydb export --format csv --template fintech --records 50000 --timeline 24-months
+```
+
+### Data Science Mode
+
+```bash
+# Generate large-scale datasets (no database required)
+realitydb generate --records 1000000 --format csv
+
+# Generate from your SQL schema
+realitydb generate --schema schema.sql --records 100000 --format parquet
+
+# Generate from JSON schema with distribution controls
+realitydb generate --schema custom.json --records 500000 --correlations --seed 42
+```
+
+### Reality Packs
+
+```bash
+# Capture live database state into a Reality Pack
+realitydb capture --output ./packs
+
+# Export generated data as Reality Pack
+realitydb pack export --template saas --records 5000 --name saas-demo --output ./packs
+
+# Load a Reality Pack into a database
+realitydb load ./packs/saas-demo.realitydb-pack.json
+
+# Share pack info
+realitydb share ./packs/saas-demo.realitydb-pack.json
+
+# Browse available packs
+realitydb packs
+```
+
+### Privacy & Compliance
+
+```bash
+# Detect and mask PII in your database
+realitydb mask --strategy redact
+
+# Audit log operations
+realitydb audit
+```
+
+### Templates & Scenarios
+
+```bash
+# List available templates
+realitydb templates
+
+# List available scenarios
+realitydb scenarios
+
+# Simulate system behavior
+realitydb simulate
+```
+
+### Classroom Mode
+
+```bash
+# Manage classroom courses and assignments
+realitydb classroom
+```
+
+## Dogfood Pipeline
+
+RealityDB generates its own Sandbox demo data:
+
+```bash
+# 1. Generate a Reality Pack
+realitydb pack export --template saas --records 1000 --output ./packs --name saas-sandbox
+
+# 2. Convert to PGLite-compatible SQL
+node tools/pack-to-sql.js ./packs/saas-sandbox.realitydb-pack.json ./public/data/saas.sql
+
+# 3. Deploy to Sandbox
+npm run build && wrangler pages deploy dist
+```
+
+Or use the one-command refresh script:
+
+```powershell
+.\tools\refresh-sandbox.ps1
+```
+
+## Custom Templates
+
+Create your own template JSON:
 
 ```json
 {
-  "database": {
-    "client": "postgres",
-    "connectionString": "postgres://user:pass@localhost:5432/mydb"
+  "name": "my-app",
+  "version": "1.0.0",
+  "tables": {
+    "users": {
+      "match": "users",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "email": { "strategy": "email" },
+        "full_name": { "strategy": "full_name" },
+        "role": {
+          "strategy": "enum",
+          "options": {
+            "values": ["admin", "member", "viewer"],
+            "weights": [10, 70, 20]
+          }
+        },
+        "created_at": { "strategy": "timestamp" }
+      }
+    }
   }
 }
 ```
 
-## Domain Intelligence
-
-Five industry templates with deep relational logic, lifecycle state machines, and statistically validated distributions.
-
-### SaaS — Multi-Tenant Subscription Logic
-
-Organization hierarchies · Role-based access · Tiered billing cycles · Invoice lifecycle · Payment method distribution
+Then run:
 
 ```bash
-realitydb seed --template saas --records 500 --seed 42
+realitydb run --pack my-app.json --connection postgresql://... --records 5000
 ```
 
-### E-commerce — Full-Cycle Marketplace Simulation
+### Available Strategies
 
-Hierarchical category trees · Product catalog with ratings · Order fulfillment pipelines · Review authenticity signals
+| Strategy | Output | Options |
+|----------|--------|---------|
+| `uuid` | UUID v4 | - |
+| `email` | Realistic email | - |
+| `full_name` | Full name (diverse) | - |
+| `first_name` | First name | - |
+| `last_name` | Last name | - |
+| `phone` | Phone number | - |
+| `address` | Street address | - |
+| `company_name` | Company name | - |
+| `text` | Random text | `mode: 'short' \| 'long'` |
+| `integer` | Integer | `min, max` |
+| `float` | Decimal | `min, max` |
+| `money` | Money amount | `min, max` |
+| `boolean` | true/false | - |
+| `timestamp` | ISO timestamp | `mode: 'past' \| 'recent' \| 'future'` |
+| `enum` | Weighted random | `values[], weights[]` |
+| `foreign_key` | FK reference | `table, column` |
 
-```bash
-realitydb seed --template ecommerce --records 500 --seed 42
-```
+### Supported Distributions
 
-### Education — Multi-Tier SIS Dependency Mapping
-
-Teacher-class-student relational chains · Grade distribution curves · Attendance state machines · Assignment type weighting
-
-```bash
-realitydb seed --template education --records 500 --seed 42
-```
-
-### Fintech — Audit-Ready Transactional Flows
-
-Fraud-alert simulation · Validated settlement logic · Deterministic chargebacks · 12-category transaction classification
-
-```bash
-realitydb seed --template fintech --records 500 --seed 42
-```
-
-### Healthcare — HIPAA-Compliant Longitudinal Data
-
-Clinical encounter coherence · Medication lifecycle tracking · Reproducible vitals history · Population-accurate blood type distribution
-
-```bash
-realitydb seed --template healthcare --records 500 --seed 42
-```
-
-## Core Capabilities
-
-### Autonomous Schema Inference
-
-Point RealityDB at any database — no template needed. It reads every table, column, foreign key, and constraint, then infers generation strategies automatically.
-
-```bash
-realitydb scan      # See what RealityDB discovers
-realitydb seed      # Generate data using inference alone
-```
-
-### Reproducible State Engine
-
-Same seed produces identical data across machines, environments, and time. Debug a specific data state. Share it with a teammate. Reproduce it in CI.
-
-```bash
-realitydb seed --seed 42    # Same output every time, everywhere
-```
-
-### Temporal Consistency & Audit Simulation
-
-Data spans months with S-curve growth. Timestamps are causally coherent — subscriptions start after user signups. Audit trails look real.
-
-```bash
-realitydb seed --template saas --timeline 12-months --seed 42
-```
-
-### Lifecycle Simulation
-
-Entities walk through realistic state machines. A "canceled" user has a failed payment, a canceled subscription, and a `canceled_at` timestamp — all consistent.
-
-```bash
-realitydb seed --template saas --lifecycle --seed 42
-```
-
-### Controlled Anomaly Injection
-
-Inject payment failures, churn spikes, fraud patterns, data quality issues, system outages, and migration artifacts at configurable intensity levels.
-
-```bash
-realitydb seed --template saas --scenario payment-failures --scenario-intensity high
-realitydb seed --template saas --scenario "fraud-spike,churn-spike" --scenario-intensity medium
-realitydb seed --template saas --timeline 12-months --scenario-schedule "fraud-spike:month-6,churn-spike:month-9"
-```
-
-| Scenario | Description |
-|----------|-------------|
-| `payment-failures` | Failed/declined payment patterns |
-| `churn-spike` | Subscription cancellation surge |
-| `fraud-spike` | Suspicious transaction patterns |
-| `data-quality` | Nulls, duplicates, encoding issues |
-| `seasonal-traffic` | Holiday/weekend traffic peaks |
-| `data-migration` | Format changes, encoding artifacts |
-| `system-outage` | Data gap followed by recovery burst |
-
-### PII Detection & Masking
-
-Scan existing databases for personally identifiable information. Three compliance modes with audit logs.
-
-```bash
-realitydb mask --dry-run                          # Preview PII detection
-realitydb mask --output ./masked --mode gdpr      # Export masked data
-realitydb mask --confirm --mode hipaa             # Mask in-place
-```
-
-### Environment Reproduction
-
-Capture a live database state into a portable Reality Pack. Share it. Load it on another machine. Bug reproduction in one command.
-
-```bash
-realitydb capture --name bug-4821
-realitydb load bug-4821.realitydb-pack.json --confirm
-```
-
-### Schema Analysis & Custom Templates
-
-Auto-generate a template from any schema, then enrich it with your domain knowledge.
-
-```bash
-realitydb analyze --output my-template.json       # Generate from schema
-realitydb seed --template ./my-template.json      # Use custom template
-```
-
-### DB-Free Generation
-
-Generate data without a database connection. Parse SQL schema files and export directly.
-
-```bash
-realitydb generate --records 1000000 --format csv --seed 42
-```
-
-## CI/CD Integration
-
-```yaml
-# .github/workflows/test.yml
-- name: Seed test data
-  run: npx realitydb seed --ci --template saas --records 500 --seed 42
-```
-
-The `--ci` flag outputs structured JSON and uses proper exit codes.
-
-## Init Wizard
-
-First-time setup with guided prompts:
-
-```bash
-realitydb init
-```
-
-The wizard walks you through:
-1. Database connection (PostgreSQL or MySQL)
-2. Schema discovery
-3. Template auto-detection
-4. Configuration file generation
-5. Optional first seed
+`normal`, `uniform`, `zipf`, `exponential`, `log-normal`
 
 ## Configuration
 
-Create `realitydb.config.json` (or run `realitydb init`):
+Create `.realitydb.json` in your project root:
 
 ```json
 {
   "database": {
     "client": "postgres",
-    "connectionString": "postgres://user:pass@localhost:5432/mydb"
+    "connectionString": "postgresql://user:pass@localhost:5432/mydb"
   },
   "seed": {
-    "defaultRecords": 100,
-    "batchSize": 500,
+    "defaultRecords": 1000,
     "randomSeed": 42
+  },
+  "template": "saas",
+  "export": {
+    "defaultFormat": "json",
+    "outputDir": "./.realitydb"
   }
 }
 ```
 
-MySQL:
+## CI/CD Mode
 
-```json
-{
-  "database": {
-    "client": "mysql",
-    "connectionString": "mysql://user:pass@localhost:3306/mydb"
-  }
-}
+All commands support `--ci` flag for JSON output and proper exit codes:
+
+```bash
+realitydb seed --records 5000 --template saas --ci
+# Returns JSON: { "success": true, "tables": 10, "totalRows": 26680, ... }
 ```
 
-## All Commands
+## Architecture
 
-| Command | Description |
-|---------|-------------|
-| `realitydb init` | Interactive setup wizard |
-| `realitydb scan` | Inspect database schema |
-| `realitydb seed` | Generate and insert realistic data |
-| `realitydb reset --confirm` | Clear all seeded data |
-| `realitydb export` | Export to JSON/CSV/SQL files |
-| `realitydb analyze` | Auto-detect column strategies |
-| `realitydb generate` | DB-free generation from SQL schema |
-| `realitydb mask` | PII detection and masking |
-| `realitydb capture` | Snapshot database to Reality Pack |
-| `realitydb load` | Load a Reality Pack |
-| `realitydb share` | Share Reality Pack info |
-| `realitydb pack export/import` | Reality Pack operations |
-| `realitydb templates` | List/init/validate templates |
-| `realitydb scenarios` | List/create scenarios |
-| `realitydb classroom` | SQL courses and exercises |
-| `realitydb simulate` | Behavior simulation and webhooks |
-
-## Requirements
-
-- Node.js 20+
-- PostgreSQL 14+ or MySQL 8+
-
-## Links
-
-- **Website:** [realitydb.dev](https://realitydb.dev)
-- **npm:** [npmjs.com/package/realitydb](https://www.npmjs.com/package/realitydb)
-- **GitHub:** [github.com/emkwambe/databox](https://github.com/emkwambe/databox)
+```
+packages/
+  config/       - Configuration loading
+  core/         - Generation planning, export pipelines
+  db/           - Database client (PostgreSQL, MySQL)
+  generators/   - Data generation engine, strategies
+  schema/       - Schema introspection and parsing
+  shared/       - Shared types and utilities
+  templates/    - Built-in domain templates
+apps/
+  cli/          - CLI entry point (15 commands)
+  studio/       - Visual schema designer (React)
+  sandbox/      - Browser SQL playground (React + PGLite)
+tools/
+  pack-to-sql.js         - Convert Reality Pack to SQL
+  generate-template-sql.js - Generate SQL from template
+  refresh-sandbox.ps1    - One-command Sandbox refresh
+```
 
 ## License
 
-MIT — [Mpingo Systems](https://github.com/emkwambe)
+MIT
