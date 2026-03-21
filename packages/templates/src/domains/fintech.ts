@@ -4,7 +4,7 @@ export const fintechTemplate: DomainTemplate = {
   name: 'fintech',
   version: '2.0',
   description: 'Financial services with accounts, transactions, fraud alerts, settlements, and chargebacks',
-  targetTables: ['accounts', 'transactions', 'fraud_alerts', 'settlements', 'chargebacks'],
+  targetTables: ['accounts', 'transactions', 'fraud_alerts', 'settlements', 'chargebacks', 'transfers', 'cards', 'authorizations', 'fraud_investigations', 'compliance_checks'],
   tableConfigs: new Map([
     ['accounts', {
       tableName: 'accounts',
@@ -72,7 +72,7 @@ export const fintechTemplate: DomainTemplate = {
         {
           columnName: 'closed_at',
           strategy: { kind: 'timestamp', options: { mode: 'past' } },
-          description: 'Nullable — null for active accounts',
+          description: 'Nullable ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â null for active accounts',
         },
       ],
     }],
@@ -193,7 +193,7 @@ export const fintechTemplate: DomainTemplate = {
         {
           columnName: 'resolved_at',
           strategy: { kind: 'timestamp', options: { mode: 'past' } },
-          description: 'Nullable — null for open/investigating alerts',
+          description: 'Nullable ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â null for open/investigating alerts',
         },
       ],
     }],
@@ -229,7 +229,7 @@ export const fintechTemplate: DomainTemplate = {
         {
           columnName: 'settled_at',
           strategy: { kind: 'timestamp', options: { mode: 'past' } },
-          description: 'Nullable — null for pending settlements',
+          description: 'Nullable ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â null for pending settlements',
         },
         {
           columnName: 'created_at',
@@ -273,8 +273,69 @@ export const fintechTemplate: DomainTemplate = {
         {
           columnName: 'resolved_at',
           strategy: { kind: 'timestamp', options: { mode: 'past' } },
-          description: 'Nullable — null for open/under_review chargebacks',
+          description: 'Nullable ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â null for open/under_review chargebacks',
         },
+      ],
+    }],
+    ['transfers', {
+      tableName: 'transfers',
+      matchPattern: ['transfers', '*transfer*'],
+      rowCountMultiplier: 5.0,
+      columnOverrides: [
+        { columnName: 'amount_cents', strategy: { kind: 'integer', options: { min: 100, max: 5000000 } } },
+        { columnName: 'status', strategy: { kind: 'enum', options: { values: ['completed', 'pending', 'failed', 'cancelled'], weights: [0.75, 0.12, 0.08, 0.05] } } },
+        { columnName: 'reference', strategy: { kind: 'text', options: { mode: 'short' } } },
+        { columnName: 'created_at', strategy: { kind: 'timestamp', options: { mode: 'past' } } },
+      ],
+    }],
+    ['cards', {
+      tableName: 'cards',
+      matchPattern: ['cards', '*card*'],
+      rowCountMultiplier: 2.5,
+      columnOverrides: [
+        { columnName: 'card_number_last_four', strategy: { kind: 'text', options: { mode: 'short' } } },
+        { columnName: 'card_type', strategy: { kind: 'enum', options: { values: ['debit', 'credit'], weights: [0.60, 0.40] } } },
+        { columnName: 'status', strategy: { kind: 'enum', options: { values: ['active', 'blocked', 'expired', 'cancelled'], weights: [0.75, 0.08, 0.12, 0.05] } } },
+        { columnName: 'daily_limit_cents', strategy: { kind: 'integer', options: { min: 50000, max: 1000000 } } },
+        { columnName: 'expires_at', strategy: { kind: 'timestamp', options: { mode: 'recent' } } },
+        { columnName: 'created_at', strategy: { kind: 'timestamp', options: { mode: 'past' } } },
+      ],
+    }],
+    ['authorizations', {
+      tableName: 'authorizations',
+      matchPattern: ['authorizations', '*authorization*', '*auth*'],
+      rowCountMultiplier: 8.0,
+      columnOverrides: [
+        { columnName: 'merchant_name', strategy: { kind: 'company_name' } },
+        { columnName: 'amount_cents', strategy: { kind: 'integer', options: { min: 100, max: 500000 } } },
+        { columnName: 'status', strategy: { kind: 'enum', options: { values: ['approved', 'declined', 'reversed'], weights: [0.85, 0.10, 0.05] } } },
+        { columnName: 'decline_reason', strategy: { kind: 'enum', options: { values: ['insufficient_funds', 'card_blocked', 'suspicious_activity', 'expired_card', 'limit_exceeded'], weights: [0.30, 0.20, 0.25, 0.10, 0.15] } } },
+        { columnName: 'authorized_at', strategy: { kind: 'timestamp', options: { mode: 'past' } } },
+        { columnName: 'created_at', strategy: { kind: 'timestamp', options: { mode: 'past' } } },
+      ],
+    }],
+    ['fraud_investigations', {
+      tableName: 'fraud_investigations',
+      matchPattern: ['fraud_investigations', '*investigation*'],
+      rowCountMultiplier: 0.2,
+      columnOverrides: [
+        { columnName: 'investigator_notes', strategy: { kind: 'text' } },
+        { columnName: 'outcome', strategy: { kind: 'enum', options: { values: ['confirmed_fraud', 'false_positive', 'inconclusive'], weights: [0.30, 0.50, 0.20] } } },
+        { columnName: 'amount_recovered_cents', strategy: { kind: 'integer', options: { min: 0, max: 500000 } } },
+        { columnName: 'closed_at', strategy: { kind: 'timestamp', options: { mode: 'recent' } } },
+        { columnName: 'created_at', strategy: { kind: 'timestamp', options: { mode: 'past' } } },
+      ],
+    }],
+    ['compliance_checks', {
+      tableName: 'compliance_checks',
+      matchPattern: ['compliance_checks', '*compliance*'],
+      rowCountMultiplier: 2.0,
+      columnOverrides: [
+        { columnName: 'check_type', strategy: { kind: 'enum', options: { values: ['kyc_verification', 'aml_screening', 'pep_check', 'sanctions_check'], weights: [0.35, 0.30, 0.20, 0.15] } } },
+        { columnName: 'result', strategy: { kind: 'enum', options: { values: ['pass', 'fail', 'review_needed'], weights: [0.70, 0.10, 0.20] } } },
+        { columnName: 'notes', strategy: { kind: 'text' } },
+        { columnName: 'performed_at', strategy: { kind: 'timestamp', options: { mode: 'past' } } },
+        { columnName: 'created_at', strategy: { kind: 'timestamp', options: { mode: 'past' } } },
       ],
     }],
   ]),
