@@ -1,16 +1,33 @@
 -- ═══════════════════════════════════════════════════════════════════
--- SQL DEBUGGING CHALLENGE
--- Designed-to-fail pedagogical data with 5 intentional query traps
--- Tables: customers(200), products(50), orders(300), reviews(150)
+-- SQL DEBUGGING CHALLENGE — EXPANDED
+-- Designed-to-fail pedagogical data with 10 intentional query traps
+-- Tables: suppliers(20), customers(500), products(100), orders(2000),
+--         order_items(5000), reviews(500), inventory_log(1500),
+--         customer_events(3000)
+-- Total: ~12,620 rows across 8 tables
 -- ═══════════════════════════════════════════════════════════════════
--- TRAP 1 (JOIN):     50 customers have ZERO orders — INNER JOIN loses them
--- TRAP 2 (NULL):     Cancelled orders have shipped_at = NULL — != NULL always false
--- TRAP 3 (AGG):      Cancelled total=$0, returned total=NEGATIVE — skews averages
--- TRAP 4 (NAME):     Two "John Smith" entries — GROUP BY name merges them
--- TRAP 5 (TEMPORAL): Feb 2024 & Aug 2024 have zero delivered orders — gaps in GROUP BY
+-- TRAP  1 (JOIN):          150 customers have ZERO orders — INNER JOIN loses them
+-- TRAP  2 (AGG):           Cancelled total=$0, returned total=NEGATIVE — skews averages
+-- TRAP  3 (NULL):          Cancelled/processing orders have shipped_at = NULL — != NULL always false
+-- TRAP  4 (NAME):          Two "John Smith" + two "Maria Garcia" — GROUP BY name merges them
+-- TRAP  5 (TEMPORAL):      Feb/Aug 2024 have zero delivered; 3-week gap Dec 15 – Jan 5
+-- TRAP  6 (OVER-DISCOUNT): ~100 order_items have discount_cents > subtotal
+-- TRAP  7 (FAKE REVIEW):   25 reviews have rating=5 but body says "terrible" / "broken"
+-- TRAP  8 (NULL vs ZERO):  3 suppliers have reliability_score = NULL (new, not bad)
+-- TRAP  9 (RUNNING TOTAL): Adjustment entries break inventory balance chain
+-- TRAP 10 (FUNNEL):        Event counts ≠ customer counts; users skip funnel stages
 -- ═══════════════════════════════════════════════════════════════════
 
 -- ─── SCHEMA ─────────────────────────────────────────────────────────
+
+CREATE TABLE suppliers (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  country VARCHAR(100) NOT NULL,
+  lead_time_days INTEGER NOT NULL,
+  reliability_score NUMERIC(3,2),
+  created_at TIMESTAMP NOT NULL DEFAULT now()
+);
 
 CREATE TABLE customers (
   id SERIAL PRIMARY KEY,
@@ -19,6 +36,8 @@ CREATE TABLE customers (
   email VARCHAR(255) NOT NULL UNIQUE,
   city VARCHAR(100),
   membership VARCHAR(50) NOT NULL DEFAULT 'standard',
+  loyalty_tier VARCHAR(20) NOT NULL DEFAULT 'none',
+  signup_source VARCHAR(50) NOT NULL DEFAULT 'organic',
   created_at TIMESTAMP NOT NULL DEFAULT now()
 );
 
@@ -28,17 +47,31 @@ CREATE TABLE products (
   category VARCHAR(100) NOT NULL,
   price NUMERIC(10,2) NOT NULL,
   stock_quantity INTEGER NOT NULL DEFAULT 0,
+  supplier_id INTEGER REFERENCES suppliers(id),
+  weight_grams INTEGER,
+  is_active BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMP NOT NULL DEFAULT now()
 );
 
 CREATE TABLE orders (
   id SERIAL PRIMARY KEY,
   customer_id INTEGER NOT NULL REFERENCES customers(id),
-  product_id INTEGER NOT NULL REFERENCES products(id),
   status VARCHAR(50) NOT NULL,
   total NUMERIC(10,2) NOT NULL,
+  discount_code VARCHAR(50),
+  shipping_cost_cents INTEGER NOT NULL DEFAULT 0,
   shipped_at TIMESTAMP,
   delivered_at TIMESTAMP,
+  created_at TIMESTAMP NOT NULL DEFAULT now()
+);
+
+CREATE TABLE order_items (
+  id SERIAL PRIMARY KEY,
+  order_id INTEGER NOT NULL REFERENCES orders(id),
+  product_id INTEGER NOT NULL REFERENCES products(id),
+  quantity INTEGER NOT NULL DEFAULT 1,
+  unit_price_cents INTEGER NOT NULL,
+  discount_cents INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMP NOT NULL DEFAULT now()
 );
 
@@ -46,16 +79,62 @@ CREATE TABLE reviews (
   id SERIAL PRIMARY KEY,
   order_id INTEGER NOT NULL REFERENCES orders(id),
   customer_id INTEGER NOT NULL REFERENCES customers(id),
+  product_id INTEGER NOT NULL REFERENCES products(id),
   rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
   body TEXT,
+  is_verified BOOLEAN NOT NULL DEFAULT true,
+  helpful_count INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMP NOT NULL DEFAULT now()
 );
 
--- ─── CUSTOMERS: 200 rows ───────────────────────────────────────────
--- Customers 151-200 have ZERO orders (JOIN trap)
--- Customers 42 and 137 are both "John Smith" (duplicate name trap)
+CREATE TABLE inventory_log (
+  id SERIAL PRIMARY KEY,
+  product_id INTEGER NOT NULL REFERENCES products(id),
+  change_type VARCHAR(50) NOT NULL,
+  quantity_change INTEGER NOT NULL,
+  balance_after INTEGER NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT now()
+);
 
-INSERT INTO customers (id, first_name, last_name, email, city, membership, created_at)
+CREATE TABLE customer_events (
+  id SERIAL PRIMARY KEY,
+  customer_id INTEGER NOT NULL REFERENCES customers(id),
+  event_type VARCHAR(50) NOT NULL,
+  session_id VARCHAR(100) NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT now()
+);
+
+-- ─── SUPPLIERS: 20 rows ──────────────────────────────────────────
+-- TRAP 8: Suppliers 18-20 have NULL reliability_score (new, not unreliable)
+
+INSERT INTO suppliers (id, name, country, lead_time_days, reliability_score, created_at)
+SELECT
+  i,
+  (ARRAY[
+    'Apex Electronics','Global Parts Co','Summit Manufacturing','Pacific Supply','Nordic Components',
+    'Atlas Industrial','Delta Wholesale','Prime Materials','Echo Logistics','Zenith Corp',
+    'Vertex Trading','Omega Supplies','Pioneer Goods','Cascade Imports','Sterling Exports',
+    'Quantum Parts','Titan Resources','Horizon Supply','Nova Distribution','Pinnacle Sourcing'
+  ])[i],
+  (ARRAY[
+    'US','China','Germany','Japan','UK','South Korea','Taiwan','India','Mexico','Canada',
+    'US','China','Germany','Japan','UK','South Korea','Taiwan','India','Mexico','Canada'
+  ])[i],
+  (ARRAY[7,14,21,10,18,12,15,25,8,11,9,20,16,13,22,14,17,30,6,19])[i],
+  CASE
+    WHEN i >= 18 THEN NULL
+    ELSE ROUND((0.60 + (((i * 7 + 3) % 35)::numeric / 100))::numeric, 2)
+  END,
+  '2022-06-01'::timestamp + (i * INTERVAL '15 days')
+FROM generate_series(1, 20) AS g(i);
+
+SELECT setval('suppliers_id_seq', 20);
+
+-- ─── CUSTOMERS: 500 rows ─────────────────────────────────────────
+-- Customers 351-500 have ZERO orders (30% — JOIN trap)
+-- TRAP 4: Two "John Smith" (ids 42, 137) + two "Maria Garcia" (ids 85, 195)
+
+INSERT INTO customers (id, first_name, last_name, email, city, membership, loyalty_tier, signup_source, created_at)
 SELECT
   i,
   (ARRAY[
@@ -75,107 +154,120 @@ SELECT
     'Jacksonville','San Jose','Indianapolis','Columbus','Charlotte',
     'Denver','Seattle','Portland','Nashville','Memphis'
   ])[((i * 11 + 2) % 20) + 1],
-  CASE
-    WHEN i % 5 < 3 THEN 'standard'
-    WHEN i % 5 = 3 THEN 'premium'
-    ELSE 'vip'
-  END,
-  '2023-06-01'::timestamp + (i * INTERVAL '2 days' + (i % 7) * INTERVAL '5 hours')
-FROM generate_series(1, 200) AS g(i);
+  CASE WHEN i % 5 < 3 THEN 'standard' WHEN i % 5 = 3 THEN 'premium' ELSE 'vip' END,
+  CASE WHEN i % 10 < 1 THEN 'gold' WHEN i % 10 < 3 THEN 'silver' WHEN i % 10 < 6 THEN 'bronze' ELSE 'none' END,
+  CASE WHEN i % 8 < 3 THEN 'organic' WHEN i % 8 < 5 THEN 'referral' WHEN i % 8 < 7 THEN 'paid_ad' ELSE 'social' END,
+  '2023-01-01'::timestamp + (i * INTERVAL '10 hours' + (i % 7) * INTERVAL '3 hours')
+FROM generate_series(1, 500) AS g(i);
 
--- TRAP 4: Two "John Smith" with different IDs, emails, and cities
+-- TRAP 4: Duplicate names — different IDs, emails, cities
 UPDATE customers SET first_name = 'John', last_name = 'Smith',
   email = 'john.smith.chi@example.com', city = 'Chicago' WHERE id = 42;
 UPDATE customers SET first_name = 'John', last_name = 'Smith',
   email = 'john.smith.den@example.com', city = 'Denver' WHERE id = 137;
+UPDATE customers SET first_name = 'Maria', last_name = 'Garcia',
+  email = 'maria.garcia.nyc@example.com', city = 'New York' WHERE id = 85;
+UPDATE customers SET first_name = 'Maria', last_name = 'Garcia',
+  email = 'maria.garcia.la@example.com', city = 'Los Angeles' WHERE id = 195;
 
-SELECT setval('customers_id_seq', 200);
+SELECT setval('customers_id_seq', 500);
 
--- ─── PRODUCTS: 50 rows ─────────────────────────────────────────────
--- Products 41-50 have ZERO orders (dead inventory for LEFT JOIN exercise)
+-- ─── PRODUCTS: 100 rows ──────────────────────────────────────────
+-- Products 86-100: zero orders (dead inventory, 15 products)
+-- Products 91-100: is_active = false (10% inactive)
 
-INSERT INTO products (id, name, category, price, stock_quantity, created_at)
+INSERT INTO products (id, name, category, price, stock_quantity, supplier_id, weight_grams, is_active, created_at)
 SELECT
   i,
   (ARRAY[
     'Wireless Headphones','USB-C Charging Hub','Adjustable Laptop Stand','Mechanical Keyboard',
     'LED Monitor Light','HD Webcam 1080p','Extended Mouse Pad','Cable Management Kit',
-    'Screen Protector Film','Fast Phone Charger',
+    'Screen Protector Film','Fast Phone Charger','Bluetooth Speaker Mini','Wireless Ergonomic Mouse',
+    'USB Flash Drive 64GB','HDMI Cable Premium','Portable Power Bank','Noise Cancelling Buds',
+    'Smart Plug WiFi','Digital Photo Frame','Webcam Ring Light','Laptop Cooling Pad',
     'Cotton T-Shirt','Denim Jacket','Running Shoes','Leather Wallet','Sunglasses Classic',
     'Wool Beanie Hat','Canvas Backpack','Silk Scarf','Athletic Shorts','Oxford Dress Shirt',
+    'Linen Pants','Rain Jacket','Fleece Hoodie','Leather Belt','Ankle Boots',
+    'Polo Shirt','Cargo Shorts','Winter Gloves','Baseball Cap','Dress Socks Pack',
     'Cast Iron Skillet','Bamboo Cutting Board','French Press Coffee','Steel Water Bottle','Ceramic Mug Set',
     'Digital Kitchen Timer','Mixing Bowl Set','Whistling Tea Kettle','Herb Garden Kit','Knife Sharpener',
+    'Air Purifier Compact','Scented Candle Set','Throw Blanket Plush','Desk Organizer','Ceramic Plant Pot',
+    'Wine Glass Set','Baking Sheet Duo','Spice Rack Bamboo','Welcome Door Mat','Picture Frame Set',
     'Yoga Mat Premium','Resistance Band Set','Speed Jump Rope','Foam Roller','Dumbbell Pair 10lb',
     'Cycling Gloves','Swim Goggles Pro','Tennis Ball Pack','Merino Hiking Socks','Microfiber Sport Towel',
+    'Pull Up Bar','Ab Wheel Roller','Boxing Hand Wraps','Lacrosse Ball Set','Climbing Chalk Bag',
+    'Running Armband','Yoga Block Set','Kettlebell 15lb','Agility Ladder','Sport Headband Pack',
     'SQL Cookbook','Data Science Guide','Python Programming','Database Internals','Clean Code',
-    'Design Patterns','Algorithm Manual','Statistics Intro','Machine Learning 101','Web Dev Handbook'
+    'Design Patterns','Algorithm Manual','Statistics Intro','Machine Learning 101','Web Dev Handbook',
+    'Cloud Architecture','DevOps Handbook','System Design Guide','Refactoring Legacy','Testing Best Practices',
+    'API Design Patterns','Kubernetes Primer','Data Engineering','Security Fundamentals','Blockchain Basics'
   ])[i],
   CASE
-    WHEN i <= 10 THEN 'Electronics'
-    WHEN i <= 20 THEN 'Clothing'
-    WHEN i <= 30 THEN 'Home & Kitchen'
-    WHEN i <= 40 THEN 'Sports'
+    WHEN i <= 20 THEN 'Electronics'
+    WHEN i <= 40 THEN 'Clothing'
+    WHEN i <= 60 THEN 'Home & Kitchen'
+    WHEN i <= 80 THEN 'Sports'
     ELSE 'Books'
   END,
-  ROUND(((((i * 1373 + 29) % 491) * 100 + 999)::numeric) / 100, 2),
+  ROUND(((((i * 1373 + 29) % 49001) + 999)::numeric) / 100, 2),
   (i * 7 + 13) % 200 + 5,
-  '2023-03-01'::timestamp + (i * INTERVAL '4 days')
-FROM generate_series(1, 50) AS g(i);
+  ((i - 1) % 20) + 1,
+  (i * 37 + 100) % 5000 + 50,
+  CASE WHEN i > 90 THEN false ELSE true END,
+  '2023-03-01'::timestamp + (i * INTERVAL '2 days')
+FROM generate_series(1, 100) AS g(i);
 
-SELECT setval('products_id_seq', 50);
+SELECT setval('products_id_seq', 100);
 
--- ─── ORDERS: 300 rows ──────────────────────────────────────────────
--- Month layout (Q4 gets 2x orders):
---   Jan 2024: orders 1-15     | Feb 2024: orders 16-30 (TRAP: no delivered)
---   Mar 2024: orders 31-45    | Apr 2024: orders 46-60
---   May 2024: orders 61-75    | Jun 2024: orders 76-90
---   Jul 2024: orders 91-105   | Aug 2024: orders 106-120 (TRAP: no delivered)
---   Sep 2024: orders 121-135  | Oct 2024: orders 136-150
---   Nov 2024: orders 151-180 (30 — Q4 spike)
---   Dec 2024: orders 181-210 (30 — Q4 spike)
---   Jan 2025: orders 211-225  | Feb 2025: orders 226-240
---   Mar 2025: orders 241-255  | Apr 2025: orders 256-270
---   May 2025: orders 271-285  | Jun 2025: orders 286-300
+-- ─── ORDERS: 2000 rows ───────────────────────────────────────────
+-- Month layout (18 months, Jan 2024 – Jun 2025):
+--   Months 1-9 (Jan–Sep 2024): 100 orders each = 900
+--   Month 10 (Oct 2024): 150 orders (Q4 ramp)
+--   Month 11 (Nov 2024): 200 orders (Q4 peak)
+--   Month 12 (Dec 2024): 150 orders, DAYS 1-14 ONLY (gap starts Dec 15)
+--   Month 13 (Jan 2025): 100 orders, DAYS 6-28 ONLY (gap ends Jan 5)
+--   Months 14-18 (Feb–Jun 2025): 100 orders each = 500
 --
--- Status rules:
---   cancelled → total = 0.00, shipped_at = NULL, delivered_at = NULL
---   returned  → total = NEGATIVE, shipped_at NOT NULL, delivered_at NOT NULL
---   Trap months (Feb, Aug 2024) → only cancelled/processing/returned (NO delivered)
+-- TRAP 2: cancelled=$0, returned=NEGATIVE
+-- TRAP 3: cancelled/processing have shipped_at=NULL
+-- TRAP 5: Feb(2) & Aug(8) 2024 have ZERO delivered; 3-week gap Dec 15 – Jan 5
 
 WITH base AS (
   SELECT
     i,
-    -- Month index: 1=Jan2024, 2=Feb2024, ..., 18=Jun2025
     CASE
-      WHEN i <= 150 THEN ((i - 1) / 15) + 1
-      WHEN i <= 180 THEN 11
-      WHEN i <= 210 THEN 12
-      ELSE ((i - 211) / 15) + 13
+      WHEN i <= 900  THEN ((i - 1) / 100) + 1
+      WHEN i <= 1050 THEN 10
+      WHEN i <= 1250 THEN 11
+      WHEN i <= 1400 THEN 12
+      WHEN i <= 1500 THEN 13
+      ELSE ((i - 1501) / 100) + 14
     END AS month_idx,
-    -- Day within month (spread across the month)
     CASE
-      WHEN i <= 150 THEN ((i - 1) % 15) * 2
-      WHEN i <= 180 THEN (i - 151)
-      WHEN i <= 210 THEN (i - 181)
-      ELSE ((i - 211) % 15) * 2
-    END AS day_in_month,
-    -- Customer: 1-150 only (151-200 have no orders = JOIN trap)
-    ((i * 7 + 3) % 150) + 1 AS cid,
-    -- Product: 1-40 only (41-50 have no orders = dead inventory)
-    ((i * 13 + 5) % 40) + 1 AS pid
-  FROM generate_series(1, 300) AS g(i)
+      WHEN i <= 900  THEN (i - 1) % 100
+      WHEN i <= 1050 THEN i - 901
+      WHEN i <= 1250 THEN i - 1051
+      WHEN i <= 1400 THEN i - 1251
+      WHEN i <= 1500 THEN i - 1401
+      ELSE (i - 1501) % 100
+    END AS row_in_month,
+    ((i * 7 + 3) % 350) + 1 AS cid
+  FROM generate_series(1, 2000) AS g(i)
 ),
-with_status AS (
+with_details AS (
   SELECT
     b.*,
     CASE
-      -- TRAP MONTHS (month 2 = Feb, month 8 = Aug): NO delivered or shipped
-      WHEN b.month_idx = 2 THEN
-        CASE WHEN b.i % 10 < 3 THEN 'cancelled' WHEN b.i % 10 < 5 THEN 'processing' ELSE 'returned' END
-      WHEN b.month_idx = 8 THEN
-        CASE WHEN b.i % 10 < 3 THEN 'cancelled' WHEN b.i % 10 < 5 THEN 'processing' ELSE 'returned' END
-      -- Normal months: ~40% delivered, ~15% shipped, ~15% processing, ~20% cancelled, ~10% returned
-      WHEN (b.i * 7 + 3) % 20 < 8 THEN 'delivered'
+      WHEN b.month_idx = 12 THEN (b.row_in_month % 14) + 1
+      WHEN b.month_idx = 13 THEN (b.row_in_month % 23) + 6
+      ELSE (b.row_in_month % 28) + 1
+    END AS day_in_month,
+    CASE
+      WHEN b.month_idx IN (2, 8) THEN
+        CASE WHEN b.i % 10 < 3 THEN 'cancelled'
+             WHEN b.i % 10 < 5 THEN 'processing'
+             ELSE 'returned' END
+      WHEN (b.i * 7 + 3) % 20 < 8  THEN 'delivered'
       WHEN (b.i * 7 + 3) % 20 < 11 THEN 'shipped'
       WHEN (b.i * 7 + 3) % 20 < 14 THEN 'processing'
       WHEN (b.i * 7 + 3) % 20 < 18 THEN 'cancelled'
@@ -185,51 +277,84 @@ with_status AS (
 ),
 with_dates AS (
   SELECT
-    s.*,
-    ('2024-01-01'::date + (s.month_idx - 1) * INTERVAL '1 month' + s.day_in_month * INTERVAL '1 day'
-      + (s.i % 12) * INTERVAL '1 hour')::timestamp AS base_date
-  FROM with_status s
+    d.*,
+    ('2024-01-01'::date + (d.month_idx - 1) * INTERVAL '1 month'
+      + (d.day_in_month - 1) * INTERVAL '1 day'
+      + (d.i % 12) * INTERVAL '1 hour')::timestamp AS base_date
+  FROM with_details d
 )
-INSERT INTO orders (id, customer_id, product_id, status, total, shipped_at, delivered_at, created_at)
+INSERT INTO orders (id, customer_id, status, total, discount_code, shipping_cost_cents, shipped_at, delivered_at, created_at)
 SELECT
-  d.i,
-  d.cid,
-  d.pid,
-  d.status,
-  -- TRAP 3: cancelled=$0, returned=NEGATIVE
+  i,
+  cid,
+  status,
   CASE
-    WHEN d.status = 'cancelled' THEN 0.00
-    WHEN d.status = 'returned'  THEN -ROUND(((d.i * 1373 + 29) % 49001 + 999)::numeric / 100, 2)
-    ELSE ROUND(((d.i * 1373 + 29) % 49001 + 999)::numeric / 100, 2)
+    WHEN status = 'cancelled' THEN 0.00
+    WHEN status = 'returned'  THEN -ROUND(((i * 1373 + 29) % 49001 + 999)::numeric / 100, 2)
+    ELSE ROUND(((i * 1373 + 29) % 49001 + 999)::numeric / 100, 2)
   END,
-  -- shipped_at: NULL for cancelled/processing; base_date + 1-3 days for others
+  CASE WHEN i % 5 = 0 THEN
+    (ARRAY['SAVE10','WELCOME20','FLASH15','VIP25','HOLIDAY30'])[((i / 5) % 5) + 1]
+  ELSE NULL END,
+  (i % 5 + 1) * 199,
   CASE
-    WHEN d.status IN ('shipped', 'delivered', 'returned')
-      THEN d.base_date + INTERVAL '1 day' + (d.i % 3) * INTERVAL '1 day'
+    WHEN status IN ('shipped','delivered','returned')
+      THEN base_date + INTERVAL '1 day' + (i % 3) * INTERVAL '1 day'
     ELSE NULL
   END,
-  -- delivered_at: only for delivered/returned; shipped_at + 2-5 days
   CASE
-    WHEN d.status IN ('delivered', 'returned')
-      THEN d.base_date + INTERVAL '4 days' + (d.i % 4) * INTERVAL '1 day'
+    WHEN status IN ('delivered','returned')
+      THEN base_date + INTERVAL '4 days' + (i % 4) * INTERVAL '1 day'
     ELSE NULL
   END,
-  d.base_date
-FROM with_dates d
-ORDER BY d.i;
+  base_date
+FROM with_dates
+ORDER BY i;
 
-SELECT setval('orders_id_seq', 300);
+SELECT setval('orders_id_seq', 2000);
 
--- ─── REVIEWS: 150 rows ─────────────────────────────────────────────
--- Only delivered and returned orders get reviews (NOT processing/shipped/cancelled)
+-- ─── ORDER ITEMS: 5000 rows ──────────────────────────────────────
+-- Distribution: orders 1-500 get 4 items, 501-1000 get 3, 1001-1500 get 2, 1501-2000 get 1
+-- Products 1-85 only (86-100 = dead inventory, zero order_items)
+-- TRAP 6: ~100 items get over-discounted (discount > subtotal)
+
+WITH items AS (
+  SELECT
+    i,
+    CASE
+      WHEN i <= 2000 THEN i
+      WHEN i <= 3500 THEN i - 2000
+      WHEN i <= 4500 THEN i - 3500
+      ELSE i - 4500
+    END AS oid,
+    ((i * 13 + 5) % 85) + 1 AS pid,
+    (i % 4) + 1 AS qty,
+    ((i * 1373 + 29) % 4000) + 500 AS upc,
+    CASE WHEN i % 4 = 0 THEN ((i * 7) % 300) + 50 ELSE 0 END AS dc
+  FROM generate_series(1, 5000) AS g(i)
+)
+INSERT INTO order_items (id, order_id, product_id, quantity, unit_price_cents, discount_cents, created_at)
+SELECT it.i, it.oid, it.pid, it.qty, it.upc, it.dc, o.created_at
+FROM items it
+JOIN orders o ON o.id = it.oid;
+
+-- TRAP 6: Over-discounting — discount exceeds subtotal for ~100 items
+UPDATE order_items SET discount_cents = unit_price_cents * quantity + (id % 500) + 100
+WHERE id % 50 = 7;
+
+SELECT setval('order_items_id_seq', 5000);
+
+-- ─── REVIEWS: 500 rows ───────────────────────────────────────────
+-- Only delivered/returned orders get reviews
 -- Rating distribution: 5★ 30%, 4★ 25%, 3★ 20%, 2★ 15%, 1★ 10%
--- 1-star reviews have significantly longer body text (complaint correlation)
+-- TRAP 7: 25 fake reviews (rating=5, body says "terrible"/"broken", is_verified=false)
 
 WITH eligible AS (
   SELECT
     ROW_NUMBER() OVER (ORDER BY o.id) AS rid,
     o.id AS oid,
     o.customer_id AS cid,
+    ((o.id * 13 + 5) % 85) + 1 AS pid,
     CASE
       WHEN (o.id * 7 + 3) % 20 < 6  THEN 5
       WHEN (o.id * 7 + 3) % 20 < 11 THEN 4
@@ -242,14 +367,11 @@ WITH eligible AS (
   FROM orders o
   WHERE o.status IN ('delivered', 'returned')
   ORDER BY o.id
-  LIMIT 150
+  LIMIT 500
 )
-INSERT INTO reviews (id, order_id, customer_id, rating, body, created_at)
+INSERT INTO reviews (id, order_id, customer_id, product_id, rating, body, is_verified, helpful_count, created_at)
 SELECT
-  rid,
-  oid,
-  cid,
-  rating,
+  rid, oid, cid, pid, rating,
   CASE rating
     WHEN 5 THEN (ARRAY[
       'Excellent! Exactly what I needed. Highly recommend to anyone looking for quality.',
@@ -272,12 +394,87 @@ SELECT
       'Not worth the price honestly. Feels cheaply made and probably will not last long.'
     ])[variant + 1]
     ELSE (ARRAY[
-      'Extremely disappointed with this purchase. The product arrived damaged and customer support was completely unhelpful throughout the entire process. After waiting two weeks for any kind of response, I was told they could not process a refund at all. The quality is far below what was advertised on the listing and I would absolutely not recommend this to anyone considering buying it. Complete waste of money and a terrible experience from start to finish.',
-      'Absolute waste of money and I regret this purchase entirely. The item broke within the very first week of normal use which is unacceptable. I have tried contacting the seller multiple times through every available channel but received zero response whatsoever. Save yourself the trouble and headache and buy from a reputable brand instead. This is by far the worst online shopping experience I have ever had in my entire life and I have been shopping online for over a decade.',
-      'Do not buy this product under any circumstances no matter how good the deal looks. It looks absolutely nothing like the pictures shown in the listing and the material quality is genuinely terrible upon close inspection. I requested a return immediately but the process has been an absolute nightmare from the very start with endless back and forth. Still waiting for my refund after three full weeks of daily emails and phone calls to their support team. Buyer beware because you will certainly regret this purchase.'
+      'Very disappointed with this purchase. Product arrived damaged and customer support was completely unhelpful throughout the process. Waited weeks for a response and still no resolution at all.',
+      'Absolute waste of money. The item broke within the first week of normal use. Tried contacting the seller multiple times through every channel but received zero response whatsoever.',
+      'Do not buy this product. It looks nothing like the pictures in the listing and the material quality is genuinely terrible. Return process has been an absolute nightmare from start to finish.'
     ])[variant + 1]
   END,
+  CASE WHEN rid % 5 = 0 THEN false ELSE true END,
+  (rid * 7 + 3) % 50,
   order_date + INTERVAL '5 days' + variant * INTERVAL '2 days'
 FROM eligible;
 
-SELECT setval('reviews_id_seq', 150);
+-- TRAP 7: Fake reviews — 5-star rating with clearly negative body text
+UPDATE reviews SET rating = 5, is_verified = false,
+  body = CASE (id % 5)
+    WHEN 0 THEN 'Terrible product, completely broken on arrival. Do not waste your money on this garbage.'
+    WHEN 1 THEN 'Worst purchase I have ever made. The quality is absolutely awful and disappointing.'
+    WHEN 2 THEN 'Broken after one single day of normal use. Total waste of money and time overall.'
+    WHEN 3 THEN 'Horrible quality. Cheaply made garbage that falls apart immediately upon any use.'
+    ELSE 'Absolutely the worst item I own. Nothing works as described. My biggest regret this year.'
+  END
+WHERE id % 20 = 0;
+
+SELECT setval('reviews_id_seq', 500);
+
+-- ─── INVENTORY LOG: 1500 rows ────────────────────────────────────
+-- 100 products × ~15 entries each
+-- TRAP 9: Adjustment entries have corrupted balance_after values
+
+WITH raw AS (
+  SELECT
+    i,
+    ((i - 1) / 15) + 1 AS pid,
+    CASE
+      WHEN (i - 1) % 15 = 0 THEN 'restock'
+      WHEN i % 7 = 0 THEN 'adjustment'
+      WHEN i % 5 = 0 THEN 'return'
+      WHEN i % 3 = 0 THEN 'restock'
+      ELSE 'sale'
+    END AS ct,
+    CASE
+      WHEN (i - 1) % 15 = 0 THEN 100
+      WHEN i % 7 = 0 THEN (i % 5) - 2
+      WHEN i % 5 = 0 THEN (i % 3) + 1
+      WHEN i % 3 = 0 THEN (i % 20) + 10
+      ELSE -(i % 5 + 1)
+    END AS qty_change,
+    '2024-01-01'::timestamp + (i * INTERVAL '4 hours') AS ts
+  FROM generate_series(1, 1500) AS g(i)
+),
+with_balance AS (
+  SELECT r.*,
+    SUM(r.qty_change) OVER (PARTITION BY r.pid ORDER BY r.i) AS running_bal
+  FROM raw r
+)
+INSERT INTO inventory_log (id, product_id, change_type, quantity_change, balance_after, created_at)
+SELECT i, pid, ct, qty_change, running_bal, ts FROM with_balance;
+
+-- TRAP 9: Corrupt balance_after on adjustment entries
+UPDATE inventory_log SET balance_after = balance_after + (id % 23) - 11
+WHERE change_type = 'adjustment';
+
+SELECT setval('inventory_log_id_seq', 1500);
+
+-- ─── CUSTOMER EVENTS: 3000 rows ──────────────────────────────────
+-- Funnel distribution: 45% page_view, 23% add_to_cart, 11% checkout_start,
+--   6% purchase, 15% abandon
+-- TRAP 10: Event counts ≠ unique customers per stage; users skip stages;
+--   naive COUNT(*) GROUP BY event_type gives wrong conversion rates
+
+INSERT INTO customer_events (id, customer_id, event_type, session_id, created_at)
+SELECT
+  i,
+  ((i * 7 + 3) % 500) + 1,
+  CASE
+    WHEN i % 100 < 45 THEN 'page_view'
+    WHEN i % 100 < 68 THEN 'add_to_cart'
+    WHEN i % 100 < 79 THEN 'checkout_start'
+    WHEN i % 100 < 85 THEN 'purchase'
+    ELSE 'abandon'
+  END,
+  'sess_' || (((i * 7 + 3) % 500) + 1) || '_' || (((i - 1) / 6) + 1),
+  '2024-01-01'::timestamp + (i * INTERVAL '8 minutes')
+FROM generate_series(1, 3000) AS g(i);
+
+SELECT setval('customer_events_id_seq', 3000);
