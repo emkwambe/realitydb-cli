@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { SuggestedQuery } from './templates';
 import type { AppMode } from './ModeToggle';
 import type { ChallengeScore } from './App';
+import type { StudentSession } from './ClassroomService';
 
 interface HistoryEntry {
   sql: string;
@@ -17,6 +18,8 @@ interface Props {
   onSelectChallenge?: (query: SuggestedQuery) => void;
   mode?: AppMode;
   challengeScores?: Map<string, ChallengeScore>;
+  classroomAssignedIndices?: number[] | null;
+  studentSession?: StudentSession | null;
 }
 
 const DIFFICULTY_COLORS: Record<string, string> = {
@@ -33,18 +36,39 @@ const GRADE_COLORS: Record<string, string> = {
   F: 'bg-red-400/10 text-red-400',
 };
 
-export function QuerySuggestions({ queries, history, onSelect, onSelectChallenge, mode = 'training', challengeScores }: Props) {
+export function QuerySuggestions({ queries, history, onSelect, onSelectChallenge, mode = 'training', challengeScores, classroomAssignedIndices, studentSession }: Props) {
   const [historyOpen, setHistoryOpen] = useState(true);
   const isAssessment = mode === 'assessment';
+  const isClassroomStudent = classroomAssignedIndices != null;
+
+  // Filter queries for classroom mode
+  const displayQueries = isClassroomStudent
+    ? classroomAssignedIndices.map(i => ({ query: queries[i], originalIndex: i })).filter(({ query }) => query != null)
+    : queries.map((query, i) => ({ query, originalIndex: i }));
+
+  const completedCount = isClassroomStudent && studentSession
+    ? classroomAssignedIndices.filter(i => studentSession.scores[String(i)]).length
+    : 0;
 
   return (
     <div className="p-3 flex flex-col gap-4">
       <div>
         <h2 className="text-xs font-mono font-semibold text-[var(--muted)] uppercase tracking-wider mb-3 flex items-center gap-1.5">
-          <span>&#x1F4A1;</span> Suggested Queries
+          {isClassroomStudent ? (
+            <>
+              <span>&#x1F3AF;</span> Assigned Challenges
+              <span className="ml-auto text-[10px] font-normal text-cyan-400">
+                {completedCount}/{classroomAssignedIndices.length} completed
+              </span>
+            </>
+          ) : (
+            <>
+              <span>&#x1F4A1;</span> Suggested Queries
+            </>
+          )}
         </h2>
         <div className="space-y-2">
-          {queries.map((query, i) => {
+          {displayQueries.map(({ query, originalIndex: i }) => {
             const scoreData = isAssessment && challengeScores ? challengeScores.get(query.label) : undefined;
             const isLocked = isAssessment && scoreData && scoreData.attempts >= 3;
 
@@ -95,6 +119,14 @@ export function QuerySuggestions({ queries, history, onSelect, onSelectChallenge
                   {isAssessment && scoreData && (
                     <span className="ml-auto text-[10px] text-[var(--muted)] font-mono">
                       {scoreData.score}/100
+                    </span>
+                  )}
+                  {isClassroomStudent && studentSession?.scores[String(i)] && (
+                    <span className="ml-auto flex items-center gap-1">
+                      <span className="text-green-400 text-xs">&#x2713;</span>
+                      <span className="text-[10px] text-[var(--muted)] font-mono">
+                        {studentSession.scores[String(i)].score}/100
+                      </span>
                     </span>
                   )}
                 </div>

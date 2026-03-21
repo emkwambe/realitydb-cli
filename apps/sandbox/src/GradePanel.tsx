@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import type { GradingResult } from './GradingEngine';
 import type { AppMode } from './ModeToggle';
+import type { StudentSession } from './ClassroomService';
+import type { SuggestedQuery } from './templates';
 
 interface Props {
   result: GradingResult;
@@ -11,6 +13,10 @@ interface Props {
   mode?: AppMode;
   assessmentCompleted?: boolean;
   hasMoreChallenges?: boolean;
+  classroomMode?: 'none' | 'professor' | 'student';
+  onSubmitToRoom?: () => Promise<void>;
+  studentSession?: StudentSession | null;
+  activeChallenge?: SuggestedQuery | null;
 }
 
 function scoreColor(score: number, max: number): string {
@@ -46,8 +52,10 @@ function ProgressBar({ score, max, color }: { score: number; max: number; color:
   );
 }
 
-export function GradePanel({ result, onTryAgain, onShowAnswer, onNextChallenge, onViewDiff, mode = 'training', assessmentCompleted = false, hasMoreChallenges = false }: Props) {
+export function GradePanel({ result, onTryAgain, onShowAnswer, onNextChallenge, onViewDiff, mode = 'training', assessmentCompleted = false, hasMoreChallenges = false, classroomMode, onSubmitToRoom, studentSession, activeChallenge }: Props) {
   const [showAnswer, setShowAnswer] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const { score, grade, breakdown, overallFeedback, trapTriggered } = result;
 
   const isAssessment = mode === 'assessment';
@@ -154,6 +162,30 @@ export function GradePanel({ result, onTryAgain, onShowAnswer, onNextChallenge, 
             <p className="text-[11px] text-[#eab308]">
               Hints and detailed feedback will be available after all challenges are submitted.
             </p>
+          </div>
+        )}
+
+        {/* Submit to Room (Classroom Student) */}
+        {classroomMode === 'student' && onSubmitToRoom && activeChallenge && !submitted && (
+          <button
+            onClick={async () => {
+              setSubmitting(true);
+              try {
+                await onSubmitToRoom();
+                setSubmitted(true);
+              } finally {
+                setSubmitting(false);
+              }
+            }}
+            disabled={submitting}
+            className="w-full px-4 py-2.5 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            {submitting ? 'Submitting...' : 'Submit to Room'}
+          </button>
+        )}
+        {submitted && (
+          <div className="w-full px-4 py-2.5 bg-green-500/10 border border-green-500/30 text-green-400 text-sm font-medium rounded-lg text-center">
+            &#x2713; Submitted to room
           </div>
         )}
 
