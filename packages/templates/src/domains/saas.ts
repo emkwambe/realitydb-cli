@@ -161,7 +161,7 @@ export const saasTemplate: DomainTemplate = {
         {
           columnName: 'trial_ends_at',
           strategy: { kind: 'timestamp', options: { mode: 'past' } },
-          description: 'Nullable Ã¢â‚¬â€ null for non-trial subscriptions',
+          description: 'Nullable ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â null for non-trial subscriptions',
         },
         {
           columnName: 'current_period_start',
@@ -179,7 +179,7 @@ export const saasTemplate: DomainTemplate = {
         {
           columnName: 'canceled_at',
           strategy: { kind: 'timestamp', options: { mode: 'past' } },
-          description: 'Nullable Ã¢â‚¬â€ should be null for active/trialing subscriptions',
+          description: 'Nullable ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â should be null for active/trialing subscriptions',
         },
       ],
     }],
@@ -220,7 +220,7 @@ export const saasTemplate: DomainTemplate = {
         {
           columnName: 'paid_at',
           strategy: { kind: 'timestamp', options: { mode: 'past' } },
-          description: 'Nullable Ã¢â‚¬â€ null for unpaid invoices',
+          description: 'Nullable ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â null for unpaid invoices',
         },
         {
           columnName: 'created_at',
@@ -277,7 +277,7 @@ export const saasTemplate: DomainTemplate = {
               weights: [0.35, 0.30, 0.20, 0.15],
             },
           },
-          description: 'Nullable Ã¢â‚¬â€ null for successful payments',
+          description: 'Nullable ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â null for successful payments',
         },
         {
           columnName: 'paid_at',
