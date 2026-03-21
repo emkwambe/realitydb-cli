@@ -25,6 +25,10 @@ import type { QueryResult, TableInfo } from './sandbox';
 import type { Template, SuggestedQuery } from './templates';
 import { parseSQL } from './sqlParser';
 import type { QueryLineage } from './SchemaERD';
+import { ClassroomPanel } from './ClassroomPanel';
+import { ProfessorDashboard } from './ProfessorDashboard';
+import { submitScore } from './ClassroomService';
+import type { Room, StudentSession } from './ClassroomService';
 
 interface HistoryEntry {
   sql: string;
@@ -91,6 +95,14 @@ export default function App() {
 
   // Timer
   const timer = useTimer();
+
+  // Classroom state
+  const [showClassroom, setShowClassroom] = useState(false);
+  const [classroomMode, setClassroomMode] = useState<'none' | 'professor' | 'student'>('none');
+  const [currentRoom, setCurrentRoom] = useState<Room | null>(null);
+  const [studentSession, setStudentSession] = useState<StudentSession | null>(null);
+  const [professorSecret, setProfessorSecret] = useState('');
+  const [showDashboard, setShowDashboard] = useState(false);
 
   // Track whether URL has been processed
   const urlProcessed = useRef(false);
@@ -442,6 +454,74 @@ export default function App() {
     setAiInfo(null);
   }, []);
 
+  // Classroom handlers
+  const handleRoomCreated = useCallback((room: Room, secret: string) => {
+    setCurrentRoom(room);
+    setProfessorSecret(secret);
+    setClassroomMode('professor');
+  }, []);
+
+  const handleStudentJoined = useCallback(async (room: Room, session: StudentSession) => {
+    setCurrentRoom(room);
+    setStudentSession(session);
+    setClassroomMode('student');
+    setShowClassroom(false);
+    // Auto-load the room's template
+    const template = templates.find(t => t.id === room.templateId);
+    if (template) {
+      await handleSelectTemplate(template);
+    }
+  }, [handleSelectTemplate]);
+
+  const handleViewDashboard = useCallback((roomId: string, secret: string) => {
+    setShowClassroom(false);
+    setShowDashboard(true);
+    setProfessorSecret(secret);
+    if (!currentRoom || currentRoom.id !== roomId) {
+      // Set room from the roomId
+      setCurrentRoom(prev => prev?.id === roomId ? prev : { ...prev!, id: roomId });
+    }
+  }, [currentRoom]);
+
+  const handleSubmitToRoom = useCallback(async () => {
+    if (!currentRoom || !studentSession || !activeChallenge || !gradeResult) return;
+    // Find the challenge index in the template
+    const idx = activeTemplate?.suggestedQueries.findIndex(q => q.label === activeChallenge.label);
+    if (idx === undefined || idx === -1) return;
+    await submitScore(
+      currentRoom.id,
+      studentSession.studentName,
+      String(idx),
+      gradeResult.score,
+      100,
+      attemptCount
+    );
+    // Update local session
+    setStudentSession(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        scores: {
+          ...prev.scores,
+          [String(idx)]: {
+            score: gradeResult.score,
+            maxScore: 100,
+            attempts: attemptCount,
+            submittedAt: new Date().toISOString(),
+          },
+        },
+      };
+    });
+  }, [currentRoom, studentSession, activeChallenge, gradeResult, activeTemplate, attemptCount]);
+
+  const handleLeaveRoom = useCallback(() => {
+    setClassroomMode('none');
+    setCurrentRoom(null);
+    setStudentSession(null);
+    setProfessorSecret('');
+    setShowDashboard(false);
+  }, []);
+
   const handleReset = useCallback(async () => {
     await resetSandbox();
     setActiveTemplate(null);
@@ -466,6 +546,12 @@ export default function App() {
     setNlError(null);
     setAiInfo(null);
     timer.reset();
+    setClassroomMode('none');
+    setCurrentRoom(null);
+    setStudentSession(null);
+    setProfessorSecret('');
+    setShowDashboard(false);
+    setShowClassroom(false);
   }, [timer]);
 
   const handleModeChange = useCallback((newMode: AppMode) => {
@@ -548,11 +634,36 @@ export default function App() {
     ? Math.floor((Date.now() - assessmentState.startTime) / 1000)
     : 0;
 
+  // Determine which challenges are assigned in classroom mode
+  const classroomAssignedIndices = classroomMode === 'student' && currentRoom ? currentRoom.challenges : null;
+
+  if (showDashboard && currentRoom) {
+    return (
+      <div className="h-screen flex flex-col bg-bg overflow-hidden">
+        <Header onReset={handleReset} activeTemplate={null} templates={templates} onSelectTemplate={handleSelectTemplate} mode={mode} onModeChange={handleModeChange} timerRunning={false} timerComponent={null} onClassroomClick={() => setShowClassroom(true)} classroomMode={classroomMode} currentRoom={currentRoom} onLeaveRoom={handleLeaveRoom} />
+        <ProfessorDashboard
+          roomId={currentRoom.id}
+          professorSecret={professorSecret}
+          onBack={() => setShowDashboard(false)}
+          onClosed={handleLeaveRoom}
+        />
+      </div>
+    );
+  }
+
   if (!activeTemplate) {
     return (
       <div className="min-h-screen bg-bg">
-        <Header onReset={handleReset} activeTemplate={null} templates={templates} onSelectTemplate={handleSelectTemplate} mode={mode} onModeChange={handleModeChange} timerRunning={false} timerComponent={null} />
+        <Header onReset={handleReset} activeTemplate={null} templates={templates} onSelectTemplate={handleSelectTemplate} mode={mode} onModeChange={handleModeChange} timerRunning={false} timerComponent={null} onClassroomClick={() => setShowClassroom(true)} classroomMode={classroomMode} currentRoom={currentRoom} onLeaveRoom={handleLeaveRoom} />
         <TemplateGallery templates={templates} onSelect={handleSelectTemplate} loading={loading} />
+        {showClassroom && (
+          <ClassroomPanel
+            onClose={() => setShowClassroom(false)}
+            onRoomCreated={handleRoomCreated}
+            onStudentJoined={handleStudentJoined}
+            onViewDashboard={handleViewDashboard}
+          />
+        )}
       </div>
     );
   }
@@ -572,6 +683,10 @@ export default function App() {
             <Timer running={timer.running} onElapsed={timer.setElapsed} />
           ) : null
         }
+        onClassroomClick={() => setShowClassroom(true)}
+        classroomMode={classroomMode}
+        currentRoom={currentRoom}
+        onLeaveRoom={handleLeaveRoom}
       />
       {loading ? (
         <div className="flex-1 flex items-center justify-center">
@@ -738,6 +853,10 @@ export default function App() {
                           return !s || s.attempts < 3;
                         })
                       }
+                      classroomMode={classroomMode}
+                      onSubmitToRoom={handleSubmitToRoom}
+                      studentSession={studentSession}
+                      activeChallenge={activeChallenge}
                     />
                   </div>
                   {showDiff && gradeResult.studentResult && gradeResult.referenceResult && (
@@ -773,6 +892,8 @@ export default function App() {
               onSelectChallenge={handleSelectChallenge}
               mode={mode}
               challengeScores={assessmentState.challengeScores}
+              classroomAssignedIndices={classroomAssignedIndices}
+              studentSession={studentSession}
             />
             {history.length >= 2 && (
               <div className="px-3 pb-3">
@@ -782,11 +903,24 @@ export default function App() {
           </div>
         </div>
       )}
+      {showClassroom && (
+        <ClassroomPanel
+          onClose={() => setShowClassroom(false)}
+          onRoomCreated={handleRoomCreated}
+          onStudentJoined={handleStudentJoined}
+          onViewDashboard={handleViewDashboard}
+        />
+      )}
       <footer className="h-8 border-t border-[var(--border)] bg-bg-elevated flex items-center px-4 text-xs text-[var(--muted)] gap-4 shrink-0">
         <span>{schema.length} tables</span>
         <span>{totalRows} rows</span>
         {queryTime !== null && <span>{queryTime}ms</span>}
         <span className="hidden sm:inline">PostgreSQL via PGLite (WASM)</span>
+        {classroomMode === 'student' && currentRoom && (
+          <span className="text-cyan-400">
+            Room: <span className="font-mono font-bold">{currentRoom.id}</span>
+          </span>
+        )}
         <a
           href="https://realitydb.dev"
           target="_blank"
@@ -809,6 +943,10 @@ function Header({
   onModeChange,
   timerRunning: _timerRunning,
   timerComponent,
+  onClassroomClick,
+  classroomMode,
+  currentRoom,
+  onLeaveRoom,
 }: {
   onReset: () => void;
   activeTemplate: Template | null;
@@ -818,6 +956,10 @@ function Header({
   onModeChange: (m: AppMode) => void;
   timerRunning: boolean;
   timerComponent: React.ReactNode;
+  onClassroomClick?: () => void;
+  classroomMode?: 'none' | 'professor' | 'student';
+  currentRoom?: Room | null;
+  onLeaveRoom?: () => void;
 }) {
   return (
     <header className="h-12 border-b border-[var(--border)] bg-bg-elevated flex items-center px-4 gap-3 shrink-0">
@@ -845,12 +987,34 @@ function Header({
           <ModeToggle mode={mode} onModeChange={onModeChange} />
           {timerComponent}
           <button
+            onClick={onClassroomClick}
+            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium rounded-md transition-colors"
+          >
+            &#x1F3EB; Classroom
+          </button>
+          {classroomMode === 'student' && currentRoom && onLeaveRoom && (
+            <button
+              onClick={onLeaveRoom}
+              className="px-2 py-1 text-[10px] text-red-400 border border-red-400/30 rounded hover:bg-red-400/10 transition-colors"
+            >
+              Leave Room
+            </button>
+          )}
+          <button
             onClick={onReset}
             className="ml-auto text-xs text-[var(--muted)] hover:text-white border border-[var(--border)] rounded px-2.5 py-1 transition-colors"
           >
             Reset
           </button>
         </>
+      )}
+      {!activeTemplate && onClassroomClick && (
+        <button
+          onClick={onClassroomClick}
+          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium rounded-md transition-colors"
+        >
+          &#x1F3EB; Classroom
+        </button>
       )}
       <div className={activeTemplate ? '' : 'ml-auto'} />
       <a
