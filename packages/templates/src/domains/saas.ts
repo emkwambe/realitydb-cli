@@ -4,7 +4,7 @@ export const saasTemplate: DomainTemplate = {
   name: 'saas',
   version: '2.0',
   description: 'SaaS subscription business with organizations, users, plans, invoices, and payments',
-  targetTables: ['organizations', 'users', 'plans', 'subscriptions', 'invoices', 'payments'],
+  targetTables: ['organizations', 'users', 'plans', 'features', 'plan_features', 'subscriptions', 'invoices', 'payments', 'sessions', 'events'],
   tableConfigs: new Map([
     ['organizations', {
       tableName: 'organizations',
@@ -161,7 +161,7 @@ export const saasTemplate: DomainTemplate = {
         {
           columnName: 'trial_ends_at',
           strategy: { kind: 'timestamp', options: { mode: 'past' } },
-          description: 'Nullable — null for non-trial subscriptions',
+          description: 'Nullable Ã¢â‚¬â€ null for non-trial subscriptions',
         },
         {
           columnName: 'current_period_start',
@@ -179,7 +179,7 @@ export const saasTemplate: DomainTemplate = {
         {
           columnName: 'canceled_at',
           strategy: { kind: 'timestamp', options: { mode: 'past' } },
-          description: 'Nullable — should be null for active/trialing subscriptions',
+          description: 'Nullable Ã¢â‚¬â€ should be null for active/trialing subscriptions',
         },
       ],
     }],
@@ -220,7 +220,7 @@ export const saasTemplate: DomainTemplate = {
         {
           columnName: 'paid_at',
           strategy: { kind: 'timestamp', options: { mode: 'past' } },
-          description: 'Nullable — null for unpaid invoices',
+          description: 'Nullable Ã¢â‚¬â€ null for unpaid invoices',
         },
         {
           columnName: 'created_at',
@@ -277,13 +277,57 @@ export const saasTemplate: DomainTemplate = {
               weights: [0.35, 0.30, 0.20, 0.15],
             },
           },
-          description: 'Nullable — null for successful payments',
+          description: 'Nullable Ã¢â‚¬â€ null for successful payments',
         },
         {
           columnName: 'paid_at',
           matchPattern: ['paid_at', 'payment_date', 'charged_at'],
           strategy: { kind: 'timestamp', options: { mode: 'past' } },
         },
+      ],
+    }],
+    ['features', {
+      tableName: 'features',
+      matchPattern: ['features', '*feature*'],
+      rowCountMultiplier: 0.02,
+      columnOverrides: [
+        { columnName: 'name', strategy: { kind: 'text', options: { mode: 'short' } } },
+        { columnName: 'category', strategy: { kind: 'enum', options: { values: ['core', 'analytics', 'security', 'integration'], weights: [0.35, 0.25, 0.20, 0.20] } } },
+        { columnName: 'created_at', strategy: { kind: 'timestamp', options: { mode: 'past' } } },
+      ],
+    }],
+    ['plan_features', {
+      tableName: 'plan_features',
+      matchPattern: ['plan_features', '*plan_feature*'],
+      rowCountMultiplier: 0.06,
+      columnOverrides: [
+        { columnName: 'enabled', strategy: { kind: 'boolean' } },
+        { columnName: 'limit_value', strategy: { kind: 'integer', options: { min: 0, max: 10000 } } },
+        { columnName: 'created_at', strategy: { kind: 'timestamp', options: { mode: 'past' } } },
+      ],
+    }],
+    ['sessions', {
+      tableName: 'sessions',
+      matchPattern: ['sessions', '*session*'],
+      rowCountMultiplier: 8.0,
+      columnOverrides: [
+        { columnName: 'started_at', strategy: { kind: 'timestamp', options: { mode: 'past' } } },
+        { columnName: 'ended_at', strategy: { kind: 'timestamp', options: { mode: 'recent' } } },
+        { columnName: 'duration_seconds', strategy: { kind: 'integer', options: { min: 10, max: 14400 } } },
+        { columnName: 'ip_address', strategy: { kind: 'text', options: { mode: 'short' } } },
+        { columnName: 'user_agent', strategy: { kind: 'text' } },
+        { columnName: 'country', strategy: { kind: 'enum', options: { values: ['US', 'UK', 'CA', 'DE', 'FR', 'AU', 'IN', 'BR'], weights: [0.50, 0.10, 0.08, 0.06, 0.05, 0.04, 0.04, 0.03] } } },
+        { columnName: 'created_at', strategy: { kind: 'timestamp', options: { mode: 'past' } } },
+      ],
+    }],
+    ['events', {
+      tableName: 'events',
+      matchPattern: ['events', '*event*'],
+      rowCountMultiplier: 10.0,
+      columnOverrides: [
+        { columnName: 'event_type', strategy: { kind: 'enum', options: { values: ['page_view', 'button_click', 'api_call', 'feature_use', 'error', 'search'], weights: [0.40, 0.20, 0.15, 0.12, 0.05, 0.08] } } },
+        { columnName: 'event_name', strategy: { kind: 'text', options: { mode: 'short' } } },
+        { columnName: 'created_at', strategy: { kind: 'timestamp', options: { mode: 'recent' } } },
       ],
     }],
   ]),
