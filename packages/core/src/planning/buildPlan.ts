@@ -76,10 +76,15 @@ export function buildGenerationPlan(
     fkBySource.set(`${fk.sourceTable}.${fk.sourceColumn}`, fk);
   }
 
+  // Pre-compute the template's target table set for FK scoping
+  const templateTargetSet = template ? new Set(template.targetTables) : null;
+
   // Build table plans
   const tables: TableGenerationPlan[] = schema.tables.map((table) => {
+    // Get FKs for this table, scoped to template targets only
     const tableForeignKeys = schema.foreignKeys.filter(
-      (fk) => fk.sourceTable === table.name,
+      (fk) => fk.sourceTable === table.name
+        && (!templateTargetSet || templateTargetSet.has(fk.targetTable)),
     );
 
     const dependencies = tableForeignKeys.map((fk) => fk.targetTable);
@@ -180,8 +185,9 @@ export function buildGenerationPlan(
 
       // If this column is a FK source, populate foreignKeyRef
       // FK strategy always takes priority over template overrides
+      // But skip FKs that reference tables outside the template's targetTables
       const fk = fkBySource.get(`${table.name}.${column.name}`);
-      if (fk) {
+      if (fk && (!templateTargetSet || templateTargetSet.has(fk.targetTable))) {
         columnPlan.strategy = { kind: 'foreign_key' };
         const ref: ForeignKeyReferencePlan = {
           referencedTable: fk.targetTable,
