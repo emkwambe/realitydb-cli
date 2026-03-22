@@ -90,12 +90,17 @@ realitydb export --format json --output ./data --template saas --records 5000
 # Export as CSV
 realitydb export --format csv --output ./data --template ecommerce --records 10000
 
-# Export as SQL (INSERT statements)
-realitydb export --format sql --output ./data --template healthcare --records 5000
+# Export as SQL with CREATE TABLE DDL + batched INSERTs
+realitydb export --format sql --output ./data --template saas --records 5000
+
+# Control batch size (rows per INSERT statement, default: 50)
+realitydb export --format sql --template saas --records 5000 --batch-size 100
 
 # Export with timeline
 realitydb export --format csv --template fintech --records 50000 --timeline 24-months
 ```
+
+SQL export includes a file header (template, seed, timestamp), CREATE TABLE statements scoped to template tables in FK dependency order, and batched `INSERT INTO ... VALUES` statements.
 
 ### Data Science Mode
 
