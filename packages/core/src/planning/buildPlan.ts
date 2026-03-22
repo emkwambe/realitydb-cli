@@ -221,8 +221,9 @@ export function buildGenerationPlan(
     }
 
     // Apply rowCountMultiplier from template if defined
+    // Ensure at least 1 row for enabled tables to prevent FK resolution failures
     const rowCount = tableConfig?.rowCountMultiplier
-      ? Math.round(defaultRowCount * tableConfig.rowCountMultiplier)
+      ? Math.max(1, Math.round(defaultRowCount * tableConfig.rowCountMultiplier))
       : defaultRowCount;
 
     // When a template is active, only enable tables matched by the template
@@ -243,29 +244,14 @@ export function buildGenerationPlan(
     return tablePlan;
   });
 
-  // When a template is active, also enable any disabled tables that are
-  // FK dependencies of enabled tables (transitive closure).
+  // When a template is active, restrict enabled tables to exactly those listed
+  // in the template's targetTables. Wildcard matchPatterns can accidentally match
+  // tables from other templates (e.g., '*payment*' matches 'claim_payments').
   if (template) {
-    const enabledSet = new Set(
-      tables.filter((t) => t.enabled).map((t) => t.tableName),
-    );
-
-    let changed = true;
-    while (changed) {
-      changed = false;
-      for (const tablePlan of tables) {
-        if (tablePlan.enabled) {
-          for (const dep of tablePlan.dependencies) {
-            if (!enabledSet.has(dep)) {
-              enabledSet.add(dep);
-              const depPlan = tables.find((t) => t.tableName === dep);
-              if (depPlan && !depPlan.enabled) {
-                depPlan.enabled = true;
-                changed = true;
-              }
-            }
-          }
-        }
+    const targetSet = new Set(template.targetTables);
+    for (const tablePlan of tables) {
+      if (tablePlan.enabled && !targetSet.has(tablePlan.tableName)) {
+        tablePlan.enabled = false;
       }
     }
   }
