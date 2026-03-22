@@ -18,7 +18,7 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import { useSchemaStore } from './store';
 import { Table, Column, SEMANTIC_COLORS, SEMANTIC_LABELS, RelationshipSemantic, Relationship } from './types';
-import { Database, Plus, Trash2, Key, Link, X, Check, Info } from 'lucide-react';
+import { Database, Plus, Trash2, Key, Link, X, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 const TableNode = ({ data, selected }: NodeProps<Table>) => {
@@ -195,33 +195,6 @@ const edgeTypes = {
   custom: CustomEdge,
 };
 
-const Legend = () => {
-  const [expanded, setExpanded] = useState(false);
-
-  return (
-    <div className="absolute bottom-4 left-4 bg-white/80 backdrop-blur-md rounded-lg border border-slate-200 shadow-lg z-10">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-2 p-2.5 w-full text-left hover:bg-slate-50 rounded-lg transition-colors"
-      >
-        <Info size={14} className="text-slate-400" />
-        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">System Semantics</span>
-        <span className="text-[10px] text-slate-300 ml-auto">{expanded ? '▼' : '▶'}</span>
-      </button>
-      {expanded && (
-        <div className="px-3 pb-3 grid grid-cols-1 gap-2">
-          {(Object.entries(SEMANTIC_LABELS) as [RelationshipSemantic, string][]).map(([key, label]) => (
-            <div key={key} className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: SEMANTIC_COLORS[key] }} />
-              <span className="text-[10px] font-medium text-slate-600">{label}</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
-
 export default function SchemaCanvas() {
   const { tables, relationships, updateTable, createRelationshipWithFK, selectedRelationshipId, setSelectedRelationship } = useSchemaStore();
   const [pendingConnection, setPendingConnection] = useState<Connection | null>(null);
@@ -350,8 +323,6 @@ export default function SchemaCanvas() {
         <Background color="#cbd5e1" gap={20} />
         <Controls />
       </ReactFlow>
-
-      <Legend />
 
       <AnimatePresence>
         {pendingConnection && (
