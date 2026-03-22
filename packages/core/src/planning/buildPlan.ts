@@ -270,6 +270,13 @@ export function buildGenerationPlan(
     }
   }
 
+  // Filter tableOrder to only include enabled tables
+  const enabledNames = new Set(tables.filter((t) => t.enabled).map((t) => t.tableName));
+  const filteredTableOrder = tableOrder.filter((name) => enabledNames.has(name));
+  // Replace tableOrder contents in-place so the reference used below stays correct
+  tableOrder.length = 0;
+  tableOrder.push(...filteredTableOrder);
+
   // Resolve temporal constraints if timeline is enabled
   if (timelineConfig?.enabled) {
     const temporalConstraints = resolveTemporalConstraints(

@@ -113,13 +113,26 @@ export async function exportDataset(
       case 'csv':
         files = await exportToCsv(dataset, outputDir);
         break;
-      case 'sql':
+      case 'sql': {
+        // Scope DDL to only the tables in the generation plan (not the entire DB)
+        const templateTableSet = new Set(plan.tableOrder);
+        const scopedSchema = {
+          ...schema,
+          tables: schema.tables.filter((t) => templateTableSet.has(t.name)),
+          foreignKeys: schema.foreignKeys.filter(
+            (fk) => templateTableSet.has(fk.sourceTable) && templateTableSet.has(fk.targetTable),
+          ),
+        };
+        scopedSchema.tableCount = scopedSchema.tables.length;
+        scopedSchema.foreignKeyCount = scopedSchema.foreignKeys.length;
+
         files = await exportToSql(dataset, outputDir, plan.tableOrder, {
-          ddl: generateCreateTableDDL(schema),
+          ddl: generateCreateTableDDL(scopedSchema),
           batchSize: options?.batchSize ?? 50,
           templateName: plan.config.templateName,
         });
         break;
+      }
       default:
         throw new Error(`Unknown export format: "${format}". Supported: json, csv, sql`);
     }
