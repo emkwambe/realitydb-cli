@@ -26,11 +26,11 @@ export const templates: Template[] = [
   {
     id: 'saas',
     name: 'SaaS Startup',
-    description: 'Multi-tenant SaaS platform with organizations, users, plans, subscriptions, and billing.',
+    description: 'Multi-tenant SaaS platform with organizations, users, plans, subscriptions, invoices, payments, sessions, and events.',
     icon: '\u{1F680}',
     category: 'STARTUP',
-    tables: ['organizations', 'users', 'plans', 'subscriptions'],
-    rowsPerTable: 15,
+    tables: ['organizations', 'users', 'plans', 'features', 'plan_features', 'subscriptions', 'invoices', 'payments', 'sessions', 'events'],
+    rowsPerTable: 2668,
     suggestedQueries: [
       {
         label: 'Count users by plan',
@@ -76,11 +76,11 @@ export const templates: Template[] = [
   {
     id: 'ecommerce',
     name: 'E-Commerce Store',
-    description: 'Online retail platform with customers, products, orders, and reviews.',
+    description: 'Online retail platform with 12 tables: customers, products, orders, payments, refunds, disputes, shipments, sessions, cart items, and reviews.',
     icon: '\u{1F6D2}',
     category: 'COMMERCE',
-    tables: ['customers', 'categories', 'products', 'orders', 'order_items', 'reviews'],
-    rowsPerTable: 20,
+    tables: ['customers', 'categories', 'products', 'orders', 'order_items', 'reviews', 'sessions', 'cart_items', 'payments', 'refunds', 'shipments', 'disputes'],
+    rowsPerTable: 2500,
     suggestedQueries: [
       {
         label: 'Orders by status',
@@ -120,11 +120,11 @@ export const templates: Template[] = [
   {
     id: 'fintech',
     name: 'FinTech Payments',
-    description: 'Payment processing platform with accounts, transactions, fraud detection, and settlements.',
+    description: 'Financial platform with 10 tables: accounts, transactions, transfers, cards, authorizations, settlements, fraud alerts, investigations, and compliance.',
     icon: '\u{1F4B0}',
     category: 'FINANCE',
-    tables: ['accounts', 'transactions', 'fraud_alerts', 'settlements', 'chargebacks'],
-    rowsPerTable: 15,
+    tables: ['accounts', 'transactions', 'transfers', 'cards', 'authorizations', 'settlements', 'fraud_alerts', 'fraud_investigations', 'chargebacks', 'compliance_checks'],
+    rowsPerTable: 2600,
     suggestedQueries: [
       {
         label: 'Transactions by type',
