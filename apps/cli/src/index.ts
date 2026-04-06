@@ -6,6 +6,7 @@ import { seedCommand } from './commands/seed.js';
 import { resetCommand } from './commands/reset.js';
 import { scanCommand } from './commands/scan.js';
 import { initCommand } from './commands/init.js';
+import { maskCommand as maskCmd } from './commands/mask.js';
 // import { templatesCommand, templatesInitCommand, templatesValidateCommand } from './commands/templates'; // TODO: re-enable after @databox/templates is wired
 import { requireAuth, loadLicense } from './auth/license';
 import * as fs from 'fs';
@@ -409,18 +410,15 @@ program
 
 program
   .command('mask')
-  .description('Mask PII in databases (Team plan required)')
+  .description('Scan and mask PII in a PostgreSQL database')
   .requiredOption('-c, --connection <string>', 'Database connection string')
-  .option('--dry-run', 'Detect PII without masking')
-  .option('--mode <mode>', 'Masking mode: fake, token, redact', 'fake')
-  .action(async (options) => {
-    const license = requireAuth('mask');
-    console.log(`\n\u{1F512} Masking PII in database...`);
-    console.log(`   User: ${license?.email}`);
-    console.log(`   Mode: ${options.mode}`);
-    console.log(`   Dry run: ${options.dryRun ? 'YES' : 'NO'}`);
-    console.log(`\n\u2714 PII detection complete. 16 categories scanned.\n`);
-  });
+  .option('--mode <type>', 'Compliance mode: gdpr, hipaa, strict', 'gdpr')
+  .option('--dry-run', 'Scan only, show what would be masked')
+  .option('--confirm', 'Apply masking to database')
+  .option('-o, --output <file>', 'Save audit log to file')
+  .option('--schema <name>', 'PostgreSQL schema', 'public')
+  .option('-s, --seed <number>', 'Deterministic seed for reproducibility')
+  .action(maskCmd);
 
 // ============================================
 // Parse command line arguments

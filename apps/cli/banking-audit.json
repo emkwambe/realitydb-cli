@@ -1,0 +1,126 @@
+{
+  "timestamp": "2026-04-06T18:58:51.881Z",
+  "mode": "gdpr",
+  "dryRun": false,
+  "database": "postgresql://postgres:****@localhost:54322/postgres",
+  "detections": [
+    {
+      "table": "accounts",
+      "column": "account_number",
+      "category": "Bank Account",
+      "complianceLevel": "gdpr",
+      "rowsAffected": 500
+    },
+    {
+      "table": "atms",
+      "column": "address",
+      "category": "Address",
+      "complianceLevel": "gdpr",
+      "rowsAffected": 500
+    },
+    {
+      "table": "atms",
+      "column": "city",
+      "category": "City",
+      "complianceLevel": "gdpr",
+      "rowsAffected": 500
+    },
+    {
+      "table": "branches",
+      "column": "name",
+      "category": "Full Name",
+      "complianceLevel": "gdpr",
+      "rowsAffected": 1000
+    },
+    {
+      "table": "branches",
+      "column": "address",
+      "category": "Address",
+      "complianceLevel": "gdpr",
+      "rowsAffected": 1000
+    },
+    {
+      "table": "branches",
+      "column": "city",
+      "category": "City",
+      "complianceLevel": "gdpr",
+      "rowsAffected": 1000
+    },
+    {
+      "table": "branches",
+      "column": "zip_code",
+      "category": "Postal Code",
+      "complianceLevel": "gdpr",
+      "rowsAffected": 1000
+    },
+    {
+      "table": "credit_cards",
+      "column": "card_number",
+      "category": "Credit Card",
+      "complianceLevel": "gdpr",
+      "rowsAffected": 500
+    },
+    {
+      "table": "customer_addresses",
+      "column": "street_address",
+      "category": "Address",
+      "complianceLevel": "gdpr",
+      "rowsAffected": 500
+    },
+    {
+      "table": "customer_addresses",
+      "column": "city",
+      "category": "City",
+      "complianceLevel": "gdpr",
+      "rowsAffected": 500
+    },
+    {
+      "table": "customer_addresses",
+      "column": "zip_code",
+      "category": "Postal Code",
+      "complianceLevel": "gdpr",
+      "rowsAffected": 500
+    },
+    {
+      "table": "customers",
+      "column": "first_name",
+      "category": "Full Name",
+      "complianceLevel": "gdpr",
+      "rowsAffected": 1000
+    },
+    {
+      "table": "customers",
+      "column": "last_name",
+      "category": "Full Name",
+      "complianceLevel": "gdpr",
+      "rowsAffected": 1000
+    },
+    {
+      "table": "customers",
+      "column": "email",
+      "category": "Email",
+      "complianceLevel": "gdpr",
+      "rowsAffected": 1000
+    },
+    {
+      "table": "customers",
+      "column": "phone",
+      "category": "Phone",
+      "complianceLevel": "gdpr",
+      "rowsAffected": 947
+    },
+    {
+      "table": "restaurants",
+      "column": "name",
+      "category": "Full Name",
+      "complianceLevel": "gdpr",
+      "rowsAffected": 118
+    }
+  ],
+  "summary": {
+    "tablesScanned": 107,
+    "piiColumnsFound": 16,
+    "tablesWithPii": 7,
+    "totalRowsMasked": 11565
+  }
+}
