@@ -16,6 +16,7 @@ import { captureCommand } from './commands/capture.js';
 import { loadCommand } from './commands/load.js';
 // import { templatesCommand, templatesInitCommand, templatesValidateCommand } from './commands/templates'; // TODO: re-enable after @databox/templates is wired
 import { requireAuth, loadLicense } from './auth/license';
+import { gateCommand, gateRows, gateLifecycleRules, printUpgradePrompt, stripLifecycleRules, printLifecycleWarning, recordRowUsage } from './gate.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -97,6 +98,13 @@ async function runHandler(options: any) {
     const license = loadLicense();
     const isLoggedIn = !!license;
     const rows = parseInt(options.rows);
+
+    // Tier gating: row limits
+    const rowGate = gateRows(rows);
+    if (!rowGate.allowed) {
+      printUpgradePrompt(rowGate.reason!);
+      process.exit(1);
+    }
     const format = options.format?.toLowerCase() || 'json';
 
     if (isNaN(rows) || rows < 1) {
@@ -141,6 +149,12 @@ async function runHandler(options: any) {
 
       // Normalize tables from any format
       const { tables, templateName } = normalizeTables(pack);
+
+    // Tier gating: strip lifecycle rules on free tier
+    if (gateLifecycleRules()) {
+      const stripped = stripLifecycleRules(tables);
+      if (stripped > 0) printLifecycleWarning(stripped);
+    }
 
       if (tables.length === 0) {
         console.error(`\nâŒ No tables found in pack file.`);
@@ -207,6 +221,7 @@ async function runHandler(options: any) {
 
       // Generate data
       const { allData, actualTotal, elapsed } = generateData(ordered, rowsPerTable, pack);
+    recordRowUsage(actualTotal); // Track monthly usage
 
       if (format === 'sql') {
         const outputFile = options.output || `./realitydb_output_${Date.now()}.sql`;
@@ -360,7 +375,7 @@ program
   .option('--create-tables', 'Create tables from pack schema before inserting')
   .option('--drop-tables', 'Drop and recreate tables before inserting')
   .option('--batch-size <number>', 'Rows per INSERT batch', '100')
-  .action(seedCommand);
+  .action(async (...args: any[]) => { const _g = gateCommand('seed'); if (!_g.allowed) { printUpgradePrompt(_g.reason!); process.exit(1); } await seedCommand(...args); })
 
 // ============================================
 // INIT COMMAND (Setup wizard)
@@ -387,7 +402,7 @@ program
   .option('--intensity <level>', 'Scenario intensity: low, medium, high', 'medium')
   .option('-s, --seed <number>', 'Deterministic seed')
   .option('--list-scenarios', 'List all available scenarios')
-  .action(simulateCommand);
+  .action(async (...args: any[]) => { const _g = gateCommand('simulate'); if (!_g.allowed) { printUpgradePrompt(_g.reason!); process.exit(1); } await simulateCommand(...args); })
 
 // PACK COMMANDS (Template management)
 
@@ -425,7 +440,7 @@ program
   .option('--command <cmd>', 'Filter by command name')
   .option('--limit <n>', 'Max entries to show', '50')
   .option('--clear', 'Clear the audit log')
-  .action(auditCommand);
+  .action(async (...args: any[]) => { const _g = gateCommand('audit'); if (!_g.allowed) { printUpgradePrompt(_g.reason!); process.exit(1); } await auditCommand(...args); })
 
 // ANALYZE COMMAND (Data-driven strategy suggestions)
 
@@ -437,7 +452,7 @@ program
   .option('--schema <n>', 'PostgreSQL schema', 'public')
   .option('--sample <n>', 'Sample size per table', '100')
   .option('--table <name>', 'Analyze a single table')
-  .action(analyzeCommand);
+  .action(async (...args: any[]) => { const _g = gateCommand('analyze'); if (!_g.allowed) { printUpgradePrompt(_g.reason!); process.exit(1); } await analyzeCommand(...args); })
 
 // SCAN COMMAND (Database introspection)
 
@@ -457,7 +472,7 @@ program
   .requiredOption('-p, --pack <file>', 'RealityPack JSON file')
   .requiredOption('-c, --connection <string>', 'Database connection string')
   .option('--confirm', 'Confirm destructive operation')
-  .action(resetCommand);
+  .action(async (...args: any[]) => { const _g = gateCommand('reset'); if (!_g.allowed) { printUpgradePrompt(_g.reason!); process.exit(1); } await resetCommand(...args); })
 
 // MASK COMMAND (PII detection & masking)
 
@@ -471,7 +486,7 @@ program
   .option('-o, --output <file>', 'Save audit log to file')
   .option('--schema <n>', 'PostgreSQL schema', 'public')
   .option('-s, --seed <number>', 'Deterministic seed for reproducibility')
-  .action(maskCmd);
+  .action(async (...args: any[]) => { const _g = gateCommand('mask'); if (!_g.allowed) { printUpgradePrompt(_g.reason!); process.exit(1); } await maskCmd(...args); })
 
 // CAPTURE COMMAND (Bug reproduction)
 
@@ -484,7 +499,7 @@ program
   .option('--schema <n>', 'PostgreSQL schema', 'public')
   .option('--tables <list>', 'Comma-separated table names to capture')
   .option('--limit <n>', 'Max rows per table', '1000')
-  .action(captureCommand);
+  .action(async (...args: any[]) => { const _g = gateCommand('capture'); if (!_g.allowed) { printUpgradePrompt(_g.reason!); process.exit(1); } await captureCommand(...args); })
 
 // LOAD COMMAND (Restore captured pack)
 
@@ -495,7 +510,7 @@ program
   .requiredOption('-c, --connection <string>', 'Database connection string')
   .option('--confirm', 'Confirm data insertion')
   .option('--drop-tables', 'Drop and recreate tables before loading')
-  .action((file, options) => loadCommand({ file, ...options }));
+  .action(async (file: string, options: any) => { const _g = gateCommand('load'); if (!_g.allowed) { printUpgradePrompt(_g.reason!); process.exit(1); } await loadCommand({ file, ...options }); })
 
 // Parse command line arguments
 // ============================================
