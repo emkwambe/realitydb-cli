@@ -1,5 +1,6 @@
-import React, { useCallback, useMemo, useState } from 'react';
-import ReactFlow, { 
+import React, { useCallback, useMemo, useState, useRef } from 'react';
+import ReactFlow, {
+  ReactFlowInstance,
   Background, 
   Controls, 
   Handle, 
@@ -202,11 +203,14 @@ export default function SchemaCanvas() {
   const [semantic, setSemantic] = useState<RelationshipSemantic>('connection');
   const [createFK, setCreateFK] = useState(true);
   const [customFKName, setCustomFKName] = useState('');
+  const rfInstance = useRef<ReactFlowInstance | null>(null);
 
-  const nodes = useMemo(() => tables.map(t => ({
+  const nodes = useMemo(() => tables.map((t, index) => ({
     id: t.id,
     type: 'table',
-    position: t.position,
+    position: t.position && typeof t.position.x === 'number' && typeof t.position.y === 'number'
+      ? t.position
+      : { x: (index % 4) * 350, y: Math.floor(index / 4) * 250 },
     data: t,
   })), [tables]);
 
@@ -307,8 +311,16 @@ export default function SchemaCanvas() {
   const targetTable = tables.find(t => t.id === pendingConnection?.target);
   const sourceColumn = sourceTable?.columns.find(c => c.id === pendingConnection?.sourceHandle);
 
+  const onInit = useCallback((instance: ReactFlowInstance) => {
+    rfInstance.current = instance;
+    // Defer fitView until after nodes are rendered and container has dimensions
+    requestAnimationFrame(() => {
+      instance.fitView({ padding: 0.15 });
+    });
+  }, []);
+
   return (
-    <div className="w-full h-full bg-slate-50 relative">
+    <div className="w-full h-full bg-slate-50 relative" style={{ minWidth: 200, minHeight: 200 }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -318,7 +330,7 @@ export default function SchemaCanvas() {
         onEdgeClick={onEdgeClick}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
-        fitView
+        onInit={onInit}
       >
         <Background color="#cbd5e1" gap={20} />
         <Controls />

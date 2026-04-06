@@ -2,12 +2,12 @@ import React from 'react';
 import { useSchemaStore } from './store';
 import { DataType } from './types';
 import { REALITY_TEMPLATES } from './templates';
-import { 
-  Plus, 
-  ShoppingBag, 
-  Mail, 
-  Hash, 
-  Calendar, 
+import {
+  Plus,
+  ShoppingBag,
+  Mail,
+  Hash,
+  Calendar,
   Type,
   Layout,
   Briefcase,
@@ -21,11 +21,12 @@ import {
   Truck,
   CreditCard,
   Rocket,
-  Activity
+  Activity,
+  Trash2
 } from 'lucide-react';
 
 export default function Sidebar() {
-  const { addTable, addColumn, selectedTableId, loadTemplate } = useSchemaStore();
+  const { addTable, addColumn, selectedTableId, loadTemplate, clearAll, tables } = useSchemaStore();
 
   const quickFields = [
     { name: 'id', type: 'uuid', strategy: 'uuid', icon: <Hash size={14} /> },
@@ -75,13 +76,26 @@ export default function Sidebar() {
         {/* Actions */}
         <section>
           <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Actions</h3>
-          <button 
+          <button
             onClick={() => addTable({})}
             className="w-full flex items-center justify-center gap-2 p-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-xs font-medium transition-all shadow-sm"
           >
             <Plus size={14} />
             NEW TABLE
           </button>
+          {tables.length > 0 && (
+            <button
+              onClick={() => {
+                if (window.confirm('Clear all tables?')) {
+                  clearAll();
+                }
+              }}
+              className="w-full flex items-center justify-center gap-2 p-2 bg-white hover:bg-red-50 text-slate-500 hover:text-red-600 border border-slate-200 hover:border-red-200 rounded-md text-xs font-medium transition-all mt-2"
+            >
+              <Trash2 size={14} />
+              CLEAR CANVAS
+            </button>
+          )}
         </section>
 
         {/* Domain Templates */}
