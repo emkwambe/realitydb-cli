@@ -1,6 +1,6 @@
 {
   "name": "@realitydb/cli",
-  "version": "2.7.0",
+  "version": "2.8.0",
   "description": "Developer Reality Platform - realistic database environments from your schema",
   "license": "MIT",
   "keywords": [

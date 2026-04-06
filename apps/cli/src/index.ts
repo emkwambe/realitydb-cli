@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import { loginCommand } from './commands/login';
 import { logoutCommand } from './commands/logout';
 import { statusCommand } from './commands/status';
-// import { seedCommand } from './commands/seed.js'; // TODO: re-enable after @databox/shared is wired
+import { seedCommand } from './commands/seed.js';
 // import { templatesCommand, templatesInitCommand, templatesValidateCommand } from './commands/templates'; // TODO: re-enable after @databox/templates is wired
 import { requireAuth, loadLicense } from './auth/license';
 import * as fs from 'fs';
@@ -299,7 +299,23 @@ function printSummary(outputFile: string, actualTotal: number, elapsed: string) 
 }
 
 // ============================================
-// CAPTURE COMMAND (Requires authentication + Team plan)
+// SEED COMMAND (Direct database insertion)
+// ============================================
+
+program
+  .command('seed')
+  .description('Generate and insert synthetic data directly into a database')
+  .requiredOption('-p, --pack <file>', 'RealityPack JSON file')
+  .requiredOption('-c, --connection <string>', 'Database connection string (postgresql://...)')
+  .option('-r, --rows <number>', 'Number of rows to generate', '10000')
+  .option('-s, --seed <number>', 'Deterministic seed for reproducibility')
+  .option('--create-tables', 'Create tables from pack schema before inserting')
+  .option('--drop-tables', 'Drop and recreate tables before inserting')
+  .option('--batch-size <number>', 'Rows per INSERT batch', '100')
+  .action(seedCommand);
+
+// ============================================
+// // CAPTURE COMMAND (Requires authentication + Team plan)
 // ============================================
 
 program

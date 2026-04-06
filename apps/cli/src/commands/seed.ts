@@ -1,267 +1,187 @@
-import { resolve } from 'node:path';
-import { writeFileSync } from 'node:fs';
-import { loadConfig } from '@databox/config';
-import { seedDatabase, getDefaultScenarioRegistry, analyzeDatabase } from '@databox/core';
-import { formatCIOutput } from '@databox/shared';
-import { maskConnectionString } from '../utils.js';
-import { resolveTemplate } from '../resolveTemplate.js';
-
-const VERSION = '1.3.1';
+import { loadLicense } from '../auth/license';
+import {
+  normalizeTables,
+  topologicalSort,
+  distributeRows,
+  generateData,
+} from '@realitydb/engine';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export async function seedCommand(options: {
-  records?: string;
-  template?: string;
+  pack: string;
+  rows?: string;
+  connection: string;
   seed?: string;
-  timeline?: string;
-  scenario?: string;
-  scenarioIntensity?: string;
-  scenarioSchedule?: string;
-  lifecycle?: boolean;
-  autoTemplate?: boolean;
-  ci?: boolean;
-  configPath?: string;
+  createTables?: boolean;
+  dropTables?: boolean;
+  batchSize?: string;
 }): Promise<void> {
-  const start = performance.now();
+  const license = loadLicense();
+  const isLoggedIn = !!license;
+  const rows = options.rows ? parseInt(options.rows) : 10000;
+  const batchSize = options.batchSize ? parseInt(options.batchSize) : 100;
+
+  if (isNaN(rows) || rows < 1) {
+    console.error(`\n\u274C Invalid row count: ${options.rows}`);
+    process.exit(1);
+  }
+
+  if (!isLoggedIn && rows > 50000) {
+    console.error(`\n\u274C Free tier limited to 50,000 rows.`);
+    console.error(`   Requested: ${rows.toLocaleString()} rows`);
+    console.error(`\n   Upgrade: realitydb login --api-key YOUR_KEY\n`);
+    process.exit(1);
+  }
+
+  // Read pack file
+  const packPath = path.resolve(options.pack);
+  if (!fs.existsSync(packPath)) {
+    console.error(`\n\u274C Pack file not found: ${packPath}`);
+    process.exit(1);
+  }
+
+  const pack = JSON.parse(fs.readFileSync(packPath, 'utf-8'));
+  const { tables, templateName } = normalizeTables(pack);
+
+  if (tables.length === 0) {
+    console.error(`\n\u274C No tables found in pack file.`);
+    process.exit(1);
+  }
+
+  const ordered = topologicalSort(tables);
+  const rowsPerTable = distributeRows(ordered, rows);
+
+  // Mask connection string for display
+  const masked = options.connection.replace(/\/\/([^:]+):([^@]+)@/, '//$1:****@');
+
+  console.log(`\n\u{1F680} RealityDB Seed`);
+  console.log(`${'\u2500'.repeat(40)}`);
+  if (isLoggedIn) {
+    console.log(`   User: ${license.email}`);
+    console.log(`   Plan: ${license.tier.toUpperCase()}`);
+  } else {
+    console.log(`   Mode: FREE TIER (50K rows max)`);
+  }
+  console.log(`   Pack: ${options.pack}`);
+  console.log(`   Database: ${masked}`);
+  console.log(`   Template: ${templateName}`);
+  console.log(`   Tables: ${tables.length}`);
+  console.log(`   Batch size: ${batchSize}`);
+  if (options.seed) console.log(`   Seed: ${options.seed}`);
+  console.log(`${'\u2500'.repeat(40)}`);
+
+  // Show table plan
+  for (const t of ordered) {
+    const fkInfo = t.foreignKeys.length > 0
+      ? ` (refs: ${t.foreignKeys.map(fk => fk.references.table).join(', ')})`
+      : ' (root)';
+    console.log(`   \u{1F4CA} ${t.name}: ${rowsPerTable[t.name].toLocaleString()} rows${fkInfo}`);
+  }
+
+  console.log(`${'\u2500'.repeat(40)}`);
+  console.log(`   Generating data...`);
+
+  // Generate data using engine
+  const { allData, actualTotal, elapsed } = generateData(ordered, rowsPerTable);
+
+  console.log(`   Generated ${actualTotal.toLocaleString()} rows in ${elapsed}s`);
+  console.log(`   Connecting to database...`);
+
+  // Dynamic import of pg (only needed for seed)
+  let pg: any;
   try {
-    const config = await loadConfig(options.configPath);
+    pg = await import('pg');
+  } catch {
+    console.error(`\n\u274C PostgreSQL driver not found.`);
+    console.error(`   Run: npm install pg`);
+    process.exit(1);
+  }
 
-    const records = options.records ? parseInt(options.records, 10) : undefined;
-    const seed = options.seed ? parseInt(options.seed, 10) : undefined;
-    const rawTemplateName = options.template ?? config.template;
-    // Resolve file paths to absolute paths so downstream code can find the file
-    // regardless of working directory changes. Detect file paths by looking for
-    // path separators or .json extension.
-    let templateName = rawTemplateName && (rawTemplateName.includes('/') || rawTemplateName.includes('\\') || rawTemplateName.endsWith('.json'))
-      ? resolve(rawTemplateName)
-      : rawTemplateName;
+  const client = new pg.Client({ connectionString: options.connection });
 
-    // Auto-template: analyze → generate template → use it for seeding
-    if (options.autoTemplate && !templateName) {
-      if (!options.ci) {
-        console.log('');
-        console.log('Running auto-template analysis...');
-      }
-      const analyzeResult = await analyzeDatabase(config, {
-        sampleSize: 100,
-        autoTemplate: true,
-        safeMode: true,
-      });
-      if (analyzeResult.templateJson) {
-        const autoPath = resolve('.realitydb-auto-template.json');
-        writeFileSync(autoPath, analyzeResult.templateJson + '\n', 'utf-8');
-        templateName = autoPath;
-        if (!options.ci) {
-          console.log(`Auto-template generated: ${autoPath}`);
-        }
+  try {
+    await client.connect();
+    console.log(`   \u2705 Connected`);
+
+    // Drop tables if requested (reverse order to respect FKs)
+    if (options.dropTables) {
+      console.log(`   Dropping existing tables...`);
+      for (let i = ordered.length - 1; i >= 0; i--) {
+        await client.query(`DROP TABLE IF EXISTS "${ordered[i].name}" CASCADE`);
       }
     }
 
-    const timeline = options.timeline;
-    const scenario = options.scenario;
-    const scenarioIntensity = (options.scenarioIntensity ?? 'medium') as 'low' | 'medium' | 'high';
-    const scenarioSchedule = options.scenarioSchedule;
-    const lifecycle = options.lifecycle ?? false;
-
-    // Validate: --scenario-schedule requires --timeline
-    if (scenarioSchedule && !timeline) {
-      const msg = '--scenario-schedule requires --timeline to be set';
-      if (options.ci) {
-        console.log(formatCIOutput({
-          success: false,
-          command: 'seed',
-          version: VERSION,
-          timestamp: new Date().toISOString(),
-          durationMs: Math.round(performance.now() - start),
-          error: msg,
-        }));
-        process.exit(1);
+    // Create tables if requested
+    if (options.createTables || options.dropTables) {
+      console.log(`   Creating tables...`);
+      const { generateCreateTable } = await import('@realitydb/engine');
+      for (const table of ordered) {
+        const ddl = generateCreateTable(table);
+        await client.query(ddl);
       }
-      console.error(`[realitydb] ${msg}`);
-      process.exit(1);
+      console.log(`   \u2705 ${ordered.length} tables created`);
     }
 
-    // Validate template if specified (supports file paths, built-in, and user dir)
-    if (templateName) {
-      try {
-        resolveTemplate(templateName);
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (options.ci) {
-          console.log(formatCIOutput({
-            success: false,
-            command: 'seed',
-            version: VERSION,
-            timestamp: new Date().toISOString(),
-            durationMs: Math.round(performance.now() - start),
-            error: msg,
-          }));
-          process.exit(1);
-        }
-        console.error(`[realitydb] ${msg}`);
-        process.exit(1);
-      }
-    }
+    // Insert data table by table in FK order
+    console.log(`   Inserting data...`);
+    const insertStart = Date.now();
+    let totalInserted = 0;
 
-    // Validate scenario names if specified
-    if (scenario) {
-      const scenarioRegistry = getDefaultScenarioRegistry();
-      const scenarioNames = scenario.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
-      for (const name of scenarioNames) {
-        if (!scenarioRegistry.get(name)) {
-          if (options.ci) {
-            console.log(formatCIOutput({
-              success: false,
-              command: 'seed',
-              version: VERSION,
-              timestamp: new Date().toISOString(),
-              durationMs: Math.round(performance.now() - start),
-              error: `Scenario "${name}" not found`,
-            }));
-            process.exit(1);
+    for (const table of ordered) {
+      const tableData = allData[table.name];
+      if (!tableData || tableData.length === 0) continue;
+
+      const columns = Object.keys(tableData[0]);
+      let tableInserted = 0;
+
+      for (let offset = 0; offset < tableData.length; offset += batchSize) {
+        const batch = tableData.slice(offset, offset + batchSize);
+        const values: any[] = [];
+        const rowPlaceholders: string[] = [];
+
+        for (let rowIdx = 0; rowIdx < batch.length; rowIdx++) {
+          const row = batch[rowIdx];
+          const placeholders: string[] = [];
+          for (let colIdx = 0; colIdx < columns.length; colIdx++) {
+            const paramIndex = rowIdx * columns.length + colIdx + 1;
+            placeholders.push(`$${paramIndex}`);
+            values.push(row[columns[colIdx]]);
           }
-          const available = scenarioRegistry.list();
-          console.error(`[realitydb] Scenario "${name}" not found.`);
-          console.error('');
-          console.error('Available scenarios:');
-          for (const s of available) {
-            console.error(`  ${s.name} — ${s.description} (${s.supportedIntensities.join(', ')})`);
-          }
-          process.exit(1);
+          rowPlaceholders.push(`(${placeholders.join(', ')})`);
         }
+
+        const quotedCols = columns.map(c => `"${c}"`).join(', ');
+        const sql = `INSERT INTO "${table.name}" (${quotedCols}) VALUES ${rowPlaceholders.join(', ')}`;
+        await client.query(sql, values);
+        tableInserted += batch.length;
       }
+
+      totalInserted += tableInserted;
+      console.log(`   \u{1F4CA} ${table.name}: ${tableInserted.toLocaleString()} rows inserted`);
     }
 
-    const effectiveSeed = seed ?? config.seed.randomSeed ?? 42;
-    const effectiveRecords = records ?? config.seed.defaultRecords;
-    const masked = maskConnectionString(config.database.connectionString);
+    const insertElapsed = ((Date.now() - insertStart) / 1000).toFixed(2);
 
-    if (!options.ci) {
-      console.log('');
-      console.log('RealityDB Seed');
-      console.log('═══════════════════════════════════════');
-      console.log(`Database: ${masked}`);
-      if (templateName) {
-        console.log(`Template: ${templateName}`);
-      }
-      if (timeline) {
-        console.log(`Timeline: ${timeline}`);
-        console.log(`Growth: s-curve`);
-      }
-      console.log(`Seed: ${effectiveSeed}`);
-      console.log(`Records per table: ${effectiveRecords}`);
-      if (lifecycle) {
-        console.log('Lifecycle: enabled');
-      }
-      if (scenario) {
-        const scenarioNames = scenario.split(',').map((s) => s.trim());
-        const scenarioDisplay = scenarioNames.map((s) => `${s} (${scenarioIntensity})`).join(', ');
-        console.log(`Scenarios: ${scenarioDisplay}`);
-      }
-      if (scenarioSchedule) {
-        console.log(`Scenario schedule: ${scenarioSchedule}`);
-      }
-      console.log('');
+    console.log(`\n\u2705 Seed complete!`);
+    console.log(`${'\u2500'.repeat(40)}`);
+    console.log(`   \u{1F4CA} Total rows: ${totalInserted.toLocaleString()}`);
+    console.log(`   \u23F1\uFE0F  Generate: ${elapsed}s`);
+    console.log(`   \u23F1\uFE0F  Insert: ${insertElapsed}s`);
+    console.log(`   \u{1F4C8} Speed: ${Math.round(totalInserted / parseFloat(insertElapsed)).toLocaleString()} rows/sec`);
+    console.log(``);
 
-      if (lifecycle) {
-        console.log('Simulating lifecycles...');
-      } else if (timeline) {
-        console.log('Generating with timeline...');
-      } else {
-        console.log('Seeding...');
-      }
-    }
-
-    const result = await seedDatabase(config, {
-      records,
-      seed,
-      template: templateName,
-      timeline,
-      scenarios: scenario,
-      scenarioIntensity,
-      scenarioSchedule,
-      lifecycle,
-    });
-
-    const durationMs = Math.round(performance.now() - start);
-
-    if (options.ci) {
-      console.log(formatCIOutput({
-        success: true,
-        command: 'seed',
-        version: VERSION,
-        timestamp: new Date().toISOString(),
-        durationMs,
-        data: {
-          database: masked,
-          template: templateName ?? null,
-          seed: effectiveSeed,
-          recordsPerTable: effectiveRecords,
-          totalRows: result.totalRows,
-          tables: result.insertResult.tables.map((t) => ({
-            name: t.tableName,
-            rowsInserted: t.rowsInserted,
-            batchCount: t.batchCount,
-            durationMs: t.durationMs,
-          })),
-          timelineUsed: !!timeline,
-          lifecycleUsed: !!lifecycle,
-          scenariosApplied: result.scenariosApplied ?? [],
-          scenarioReport: result.scenarioReport ?? null,
-        },
-      }));
-      return;
-    }
-
-    // Print scenario results if any
-    if (result.scenariosApplied && result.scenariosApplied.length > 0) {
-      console.log('');
-      console.log('Scenario Report');
-      console.log('───────────────────────────────────────');
-      for (const sr of result.scenariosApplied) {
-        console.log(`  ${sr.scenarioName}: ${sr.rowsAffected} rows affected`);
-        for (const mod of sr.modifications) {
-          console.log(`    ${mod}`);
-        }
-      }
-    }
-
-    console.log('');
-    console.log('Writing to database...');
-    for (const tableResult of result.insertResult.tables) {
-      console.log(
-        `  ${tableResult.tableName}: ${tableResult.rowsInserted} rows inserted (${tableResult.batchCount} batches, ${tableResult.durationMs}ms)`,
-      );
-    }
-
-    const totalTime = (result.durationMs / 1000).toFixed(1);
-    console.log('');
-    console.log(`Seed complete. ${result.totalRows} rows in ${totalTime}s`);
-    console.log('');
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    if (options.ci) {
-      console.log(formatCIOutput({
-        success: false,
-        command: 'seed',
-        version: VERSION,
-        timestamp: new Date().toISOString(),
-        durationMs: Math.round(performance.now() - start),
-        error: message,
-      }));
-      process.exit(1);
-    }
-    if (message.includes('Config file not found')) {
-      console.error(`[realitydb] ${message}`);
-      console.error('Hint: Copy realitydb.config.json to realitydb.config.json');
-    } else if (message.includes('Invalid timeline format')) {
-      console.error(`[realitydb] ${message}`);
-    } else if (message.includes('connection') || message.includes('ECONNREFUSED')) {
-      console.error(`[realitydb] Seed failed: ${message}`);
-      console.error('Hint: Check that your database is running (e.g. Docker)');
-    } else {
-      console.error(`[realitydb] Seed failed: ${message}`);
-      console.error('Database was not modified (transaction rolled back).');
+  } catch (error: any) {
+    console.error(`\n\u274C Seed failed: ${error.message}`);
+    if (error.message.includes('ECONNREFUSED')) {
+      console.error(`   Hint: Is your database running?`);
+    } else if (error.message.includes('does not exist')) {
+      console.error(`   Hint: Try adding --create-tables to create the schema first`);
+    } else if (error.message.includes('already exists')) {
+      console.error(`   Hint: Try adding --drop-tables to replace existing tables`);
     }
     process.exit(1);
+  } finally {
+    await client.end();
   }
 }
