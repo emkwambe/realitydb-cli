@@ -3,6 +3,8 @@ import { loginCommand } from './commands/login';
 import { logoutCommand } from './commands/logout';
 import { statusCommand } from './commands/status';
 import { seedCommand } from './commands/seed.js';
+import { resetCommand } from './commands/reset.js';
+import { scanCommand } from './commands/scan.js';
 // import { templatesCommand, templatesInitCommand, templatesValidateCommand } from './commands/templates'; // TODO: re-enable after @databox/templates is wired
 import { requireAuth, loadLicense } from './auth/license';
 import * as fs from 'fs';
@@ -352,7 +354,27 @@ program
   .action(seedCommand);
 
 // ============================================
-// // CAPTURE COMMAND (Requires authentication + Team plan)
+// SCAN COMMAND (Database introspection)
+
+program
+  .command('scan')
+  .description('Scan a PostgreSQL database and generate a RealityPack template')
+  .requiredOption('-c, --connection <string>', 'Database connection string')
+  .option('-o, --output <file>', 'Output file path')
+  .option('--schema <name>', 'PostgreSQL schema to scan', 'public')
+  .action(scanCommand);
+
+// RESET COMMAND (Drop seeded tables)
+
+program
+  .command('reset')
+  .description('Drop tables created by seed (requires --confirm)')
+  .requiredOption('-p, --pack <file>', 'RealityPack JSON file')
+  .requiredOption('-c, --connection <string>', 'Database connection string')
+  .option('--confirm', 'Confirm destructive operation')
+  .action(resetCommand);
+
+// CAPTURE COMMAND (Requires authentication + Team plan)
 // ============================================
 
 program

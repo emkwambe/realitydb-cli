@@ -1,86 +1,86 @@
-import { loadConfig } from '@databox/config';
-import { resetDatabase } from '@databox/core';
-import { formatCIOutput } from '@databox/shared';
-import { maskConnectionString } from '../utils.js';
-
-const VERSION = '0.10.0';
+import { loadLicense } from '../auth/license';
+import {
+  normalizeTables,
+  topologicalSort,
+} from '@realitydb/engine';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export async function resetCommand(options: {
+  pack: string;
+  connection: string;
   confirm?: boolean;
-  ci?: boolean;
-  configPath?: string;
 }): Promise<void> {
-  const start = performance.now();
+  const license = loadLicense();
 
-  // CI mode skips --confirm (non-interactive)
-  if (!options.ci && !options.confirm) {
-    console.log('');
-    console.log('This will delete ALL seeded data. Run with --confirm to proceed.');
-    console.log('');
+  // Read pack to know which tables to drop
+  const packPath = path.resolve(options.pack);
+  if (!fs.existsSync(packPath)) {
+    console.error(`\n\u274C Pack file not found: ${packPath}`);
+    process.exit(1);
+  }
+
+  const pack = JSON.parse(fs.readFileSync(packPath, 'utf-8'));
+  const { tables, templateName } = normalizeTables(pack);
+
+  if (tables.length === 0) {
+    console.error(`\n\u274C No tables found in pack file.`);
+    process.exit(1);
+  }
+
+  // Reverse FK order — drop children first
+  const ordered = topologicalSort(tables).reverse();
+  const masked = options.connection.replace(/\/\/([^:]+):([^@]+)@/, '//$1:****@');
+
+  console.log(`\n\u{1F5D1} RealityDB Reset`);
+  console.log(`${'\u2500'.repeat(40)}`);
+  if (license) {
+    console.log(`   User: ${license.email}`);
+  }
+  console.log(`   Database: ${masked}`);
+  console.log(`   Template: ${templateName}`);
+  console.log(`   Tables to drop: ${ordered.length}`);
+  console.log(`${'\u2500'.repeat(40)}`);
+
+  for (const t of ordered) {
+    console.log(`   \u{1F5D1} ${t.name}`);
+  }
+
+  if (!options.confirm) {
+    console.log(`\n\u26A0\uFE0F  This will DROP ${ordered.length} tables and all their data.`);
+    console.log(`   Add --confirm to proceed.\n`);
     process.exit(0);
   }
 
+  // Dynamic import pg
+  let pg: any;
   try {
-    const config = await loadConfig(options.configPath);
-    const masked = maskConnectionString(config.database.connectionString);
+    pg = await import('pg');
+  } catch {
+    console.error(`\n\u274C PostgreSQL driver not found. Run: npm install pg`);
+    process.exit(1);
+  }
 
-    if (!options.ci) {
-      console.log('');
-      console.log('RealityDB Reset');
-      console.log('═══════════════════════════════════════');
-      console.log(`Database: ${masked}`);
-      console.log('');
-      console.log('Clearing tables...');
+  const client = new pg.Client({ connectionString: options.connection });
+
+  try {
+    await client.connect();
+    console.log(`\n   Dropping tables...`);
+
+    for (const table of ordered) {
+      await client.query(`DROP TABLE IF EXISTS "${table.name}" CASCADE`);
+      console.log(`   \u2705 Dropped ${table.name}`);
     }
 
-    const result = await resetDatabase(config);
-    const durationMs = Math.round(performance.now() - start);
+    console.log(`\n\u2705 Reset complete! ${ordered.length} tables dropped.\n`);
 
-    if (options.ci) {
-      console.log(formatCIOutput({
-        success: true,
-        command: 'reset',
-        version: VERSION,
-        timestamp: new Date().toISOString(),
-        durationMs,
-        data: {
-          database: masked,
-          tablesCleared: result.tablesCleared,
-          tableCount: result.tablesCleared.length,
-        },
-      }));
-      return;
-    }
-
-    for (const tableName of result.tablesCleared) {
-      console.log(`  ${tableName}: cleared`);
-    }
-
-    console.log('');
-    console.log(`Reset complete. ${result.tablesCleared.length} tables cleared in ${result.durationMs}ms`);
-    console.log('');
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    if (options.ci) {
-      console.log(formatCIOutput({
-        success: false,
-        command: 'reset',
-        version: VERSION,
-        timestamp: new Date().toISOString(),
-        durationMs: Math.round(performance.now() - start),
-        error: message,
-      }));
-      process.exit(1);
-    }
-    if (message.includes('Config file not found')) {
-      console.error(`[realitydb] ${message}`);
-      console.error('Hint: Copy realitydb.config.json to realitydb.config.json');
-    } else if (message.includes('connection') || message.includes('ECONNREFUSED')) {
-      console.error(`[realitydb] Reset failed: ${message}`);
-      console.error('Hint: Check that your database is running (e.g. Docker)');
-    } else {
-      console.error(`[realitydb] Reset failed: ${message}`);
+  } catch (error: any) {
+    console.error(`\n\u274C Reset failed: ${error.message}`);
+    if (error.message.includes('ECONNREFUSED')) {
+      console.error(`   Hint: Is your database running?`);
     }
     process.exit(1);
+  } finally {
+    await client.end();
   }
 }
