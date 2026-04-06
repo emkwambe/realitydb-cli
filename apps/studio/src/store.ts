@@ -53,14 +53,17 @@ interface HistorySnapshot {
 }
 
 const undoStack: HistorySnapshot[] = [];
-const MAX_UNDO = 50;
+const redoStack: HistorySnapshot[] = [];
+const MAX_HISTORY = 50;
 
 function pushUndo(state: { tables: Table[]; relationships: Relationship[] }) {
   undoStack.push({
     tables: JSON.parse(JSON.stringify(state.tables)),
     relationships: JSON.parse(JSON.stringify(state.relationships)),
   });
-  if (undoStack.length > MAX_UNDO) undoStack.shift();
+  if (undoStack.length > MAX_HISTORY) undoStack.shift();
+  // Clear redo on new action
+  redoStack.length = 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -115,7 +118,12 @@ interface SchemaState {
   importSchema: (tables: Table[], relationships: Relationship[]) => void;
   clearAll: () => void;
   undo: () => void;
+  redo: () => void;
   canUndo: () => boolean;
+  canRedo: () => boolean;
+  autoLayout: () => void;
+  canvasLocked: boolean;
+  toggleCanvasLock: () => void;
 }
 
 export const useSchemaStore = create<SchemaState>()(
@@ -134,6 +142,7 @@ export const useSchemaStore = create<SchemaState>()(
       selectedRelationshipId: null,
       previewMode: 'table',
       selectedRootRecordId: null,
+      canvasLocked: false,
 
       setPreviewMode: (mode) => set({ previewMode: mode }),
       setSelectedRootRecordId: (id) => set({ selectedRootRecordId: id }),
@@ -202,6 +211,11 @@ export const useSchemaStore = create<SchemaState>()(
       undo: () => {
         const prev = undoStack.pop();
         if (!prev) return;
+        const { tables, relationships } = get();
+        redoStack.push({
+          tables: JSON.parse(JSON.stringify(tables)),
+          relationships: JSON.parse(JSON.stringify(relationships)),
+        });
         set({
           tables: prev.tables,
           relationships: prev.relationships,
@@ -211,7 +225,43 @@ export const useSchemaStore = create<SchemaState>()(
         });
       },
 
+      redo: () => {
+        const next = redoStack.pop();
+        if (!next) return;
+        const { tables, relationships } = get();
+        undoStack.push({
+          tables: JSON.parse(JSON.stringify(tables)),
+          relationships: JSON.parse(JSON.stringify(relationships)),
+        });
+        set({
+          tables: next.tables,
+          relationships: next.relationships,
+          selectedTableId: null,
+          selectedColumnId: null,
+          selectedRelationshipId: null,
+        });
+      },
+
       canUndo: () => undoStack.length > 0,
+      canRedo: () => redoStack.length > 0,
+
+      autoLayout: () => {
+        pushUndo(get());
+        const COLS = 4;
+        const COL_WIDTH = 350;
+        const ROW_HEIGHT = 280;
+        set((state) => ({
+          tables: state.tables.map((t, i) => ({
+            ...t,
+            position: {
+              x: 80 + (i % COLS) * COL_WIDTH,
+              y: 80 + Math.floor(i / COLS) * ROW_HEIGHT,
+            },
+          })),
+        }));
+      },
+
+      toggleCanvasLock: () => set((state) => ({ canvasLocked: !state.canvasLocked })),
 
       calculateForecast: () => {
         const { tables, simulation, relationships } = get();

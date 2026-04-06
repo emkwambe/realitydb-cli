@@ -196,8 +196,11 @@ const edgeTypes = {
   custom: CustomEdge,
 };
 
+// Global ref for fitView — accessed from App.tsx toolbar
+export let fitViewGlobal: (() => void) | null = null;
+
 export default function SchemaCanvas() {
-  const { tables, relationships, updateTable, createRelationshipWithFK, selectedRelationshipId, setSelectedRelationship } = useSchemaStore();
+  const { tables, relationships, updateTable, createRelationshipWithFK, selectedRelationshipId, setSelectedRelationship, canvasLocked } = useSchemaStore();
   const [pendingConnection, setPendingConnection] = useState<Connection | null>(null);
   const [relType, setRelType] = useState<'one-to-many' | 'one-to-one'>('one-to-many');
   const [semantic, setSemantic] = useState<RelationshipSemantic>('connection');
@@ -247,12 +250,16 @@ export default function SchemaCanvas() {
   }, [setSelectedRelationship]);
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
+    if (canvasLocked) {
+      // Only allow selection changes when locked
+      changes = changes.filter(c => c.type === 'select');
+    }
     changes.forEach(change => {
       if (change.type === 'position' && change.position) {
         updateTable(change.id, { position: change.position });
       }
     });
-  }, [updateTable]);
+  }, [updateTable, canvasLocked]);
 
   const onEdgesChange = useCallback((changes: EdgeChange[]) => {
     // We don't currently store edge positions/state externally beyond the relationship itself
@@ -313,6 +320,7 @@ export default function SchemaCanvas() {
 
   const onInit = useCallback((instance: ReactFlowInstance) => {
     rfInstance.current = instance;
+    fitViewGlobal = () => instance.fitView({ padding: 0.15 });
     // Defer fitView until after nodes are rendered and container has dimensions
     requestAnimationFrame(() => {
       instance.fitView({ padding: 0.15 });
@@ -330,6 +338,7 @@ export default function SchemaCanvas() {
         onEdgeClick={onEdgeClick}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
+        nodesDraggable={!canvasLocked}
         onInit={onInit}
       >
         <Background color="#cbd5e1" gap={20} />

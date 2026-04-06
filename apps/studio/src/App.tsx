@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Sidebar from './Sidebar';
-import SchemaCanvas from './SchemaCanvas';
+import SchemaCanvas, { fitViewGlobal } from './SchemaCanvas';
 import Inspector from './Inspector';
 import PreviewPanel from './PreviewPanel';
 import { useSchemaStore } from './store';
@@ -16,7 +16,12 @@ import {
   FileCode,
   FileJson,
   Archive,
-  Undo2
+  Undo2,
+  Redo2,
+  LayoutGrid,
+  Maximize2,
+  Lock,
+  Unlock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -30,7 +35,7 @@ import {
 import { importSchema } from './services/importCLI';
 
 export default function App() {
-  const { tables, relationships, simulation, importSchema: storeImport, undo, canUndo } = useSchemaStore();
+  const { tables, relationships, simulation, importSchema: storeImport, undo, redo, canUndo, canRedo, autoLayout, canvasLocked, toggleCanvasLock } = useSchemaStore();
   const [showExport, setShowExport] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -40,10 +45,14 @@ export default function App() {
         e.preventDefault();
         undo();
       }
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+        e.preventDefault();
+        redo();
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [undo]);
+  }, [undo, redo]);
 
   const validationIssues = showExport ? validateForExport(tables, relationships) : [];
   const blockingErrors = validationIssues.filter(i => i.type === 'error');
@@ -135,16 +144,51 @@ export default function App() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 mr-2 border-r border-slate-200 pr-3">
             <button
               onClick={undo}
               disabled={!canUndo()}
               title="Undo (Ctrl+Z)"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-md transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+              className="p-1.5 text-slate-500 hover:bg-slate-100 rounded-md transition-all disabled:opacity-25 disabled:cursor-not-allowed"
             >
-              <Undo2 size={14} />
-              Undo
+              <Undo2 size={15} />
             </button>
+            <button
+              onClick={redo}
+              disabled={!canRedo()}
+              title="Redo (Ctrl+Shift+Z)"
+              className="p-1.5 text-slate-500 hover:bg-slate-100 rounded-md transition-all disabled:opacity-25 disabled:cursor-not-allowed"
+            >
+              <Redo2 size={15} />
+            </button>
+            <div className="w-px h-5 bg-slate-200 mx-1" />
+            <button
+              onClick={() => { autoLayout(); requestAnimationFrame(() => fitViewGlobal?.()); }}
+              disabled={tables.length === 0}
+              title="Auto Layout"
+              className="p-1.5 text-slate-500 hover:bg-slate-100 rounded-md transition-all disabled:opacity-25 disabled:cursor-not-allowed"
+            >
+              <LayoutGrid size={15} />
+            </button>
+            <button
+              onClick={() => fitViewGlobal?.()}
+              disabled={tables.length === 0}
+              title="Zoom to Fit"
+              className="p-1.5 text-slate-500 hover:bg-slate-100 rounded-md transition-all disabled:opacity-25 disabled:cursor-not-allowed"
+            >
+              <Maximize2 size={15} />
+            </button>
+            <div className="w-px h-5 bg-slate-200 mx-1" />
+            <button
+              onClick={toggleCanvasLock}
+              title={canvasLocked ? 'Unlock Canvas' : 'Lock Canvas'}
+              className={`p-1.5 rounded-md transition-all ${canvasLocked ? 'text-amber-600 bg-amber-50 hover:bg-amber-100' : 'text-slate-500 hover:bg-slate-100'}`}
+            >
+              {canvasLocked ? <Lock size={15} /> : <Unlock size={15} />}
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2">
             <a
               href="/docs/README.md"
               target="_blank"
