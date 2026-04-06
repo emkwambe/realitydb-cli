@@ -45,6 +45,25 @@ const COMPANIES = ['Acme Corp', 'Globex Inc', 'Initech', 'Umbrella Co', 'Stark I
 const DOMAINS = ['example.com', 'test.io', 'demo.org', 'mail.dev', 'acme.co'];
 
 // ---------------------------------------------------------------------------
+// Undo History
+// ---------------------------------------------------------------------------
+interface HistorySnapshot {
+  tables: Table[];
+  relationships: Relationship[];
+}
+
+const undoStack: HistorySnapshot[] = [];
+const MAX_UNDO = 50;
+
+function pushUndo(state: { tables: Table[]; relationships: Relationship[] }) {
+  undoStack.push({
+    tables: JSON.parse(JSON.stringify(state.tables)),
+    relationships: JSON.parse(JSON.stringify(state.relationships)),
+  });
+  if (undoStack.length > MAX_UNDO) undoStack.shift();
+}
+
+// ---------------------------------------------------------------------------
 
 interface SchemaState {
   tables: Table[];
@@ -95,6 +114,8 @@ interface SchemaState {
   loadTemplate: (template: RealityTemplate) => void;
   importSchema: (tables: Table[], relationships: Relationship[]) => void;
   clearAll: () => void;
+  undo: () => void;
+  canUndo: () => boolean;
 }
 
 export const useSchemaStore = create<SchemaState>()(
@@ -118,6 +139,7 @@ export const useSchemaStore = create<SchemaState>()(
       setSelectedRootRecordId: (id) => set({ selectedRootRecordId: id }),
 
       loadTemplate: (template) => {
+        pushUndo(get());
         const safeTables = template.tables.map((t, index) => ({
           ...t,
           position: t.position && typeof t.position.x === 'number' && typeof t.position.y === 'number'
@@ -141,6 +163,7 @@ export const useSchemaStore = create<SchemaState>()(
       },
 
       importSchema: (tables, relationships) => {
+        pushUndo(get());
         // Ensure every table has a valid position (auto-grid if missing)
         const safeTables = tables.map((t, index) => ({
           ...t,
@@ -163,15 +186,32 @@ export const useSchemaStore = create<SchemaState>()(
         }
       },
 
-      clearAll: () => set({
-        tables: [],
-        relationships: [],
-        selectedTableId: null,
-        selectedColumnId: null,
-        selectedRelationshipId: null,
-        selectedRootRecordId: null,
-        previewMode: 'table',
-      }),
+      clearAll: () => {
+        pushUndo(get());
+        set({
+          tables: [],
+          relationships: [],
+          selectedTableId: null,
+          selectedColumnId: null,
+          selectedRelationshipId: null,
+          selectedRootRecordId: null,
+          previewMode: 'table',
+        });
+      },
+
+      undo: () => {
+        const prev = undoStack.pop();
+        if (!prev) return;
+        set({
+          tables: prev.tables,
+          relationships: prev.relationships,
+          selectedTableId: null,
+          selectedColumnId: null,
+          selectedRelationshipId: null,
+        });
+      },
+
+      canUndo: () => undoStack.length > 0,
 
       calculateForecast: () => {
         const { tables, simulation, relationships } = get();
@@ -219,7 +259,7 @@ export const useSchemaStore = create<SchemaState>()(
         simulation: { ...state.simulation, ...updates },
       })),
 
-      addTable: (table) => set((state) => {
+      addTable: (table) => { pushUndo(get()); set((state) => {
         const tableCount = state.tables.length;
         const GRID_COLS = 5;
         const defaultPos = {
@@ -267,19 +307,19 @@ export const useSchemaStore = create<SchemaState>()(
         }));
 
         return { tables: [...state.tables, newTable] };
-      }),
+      }); },
 
       updateTable: (id, updates) => set((state) => ({
         tables: state.tables.map((t) => (t.id === id ? { ...t, ...updates } : t)),
       })),
 
-      removeTable: (id) => set((state) => ({
+      removeTable: (id) => { pushUndo(get()); set((state) => ({
         tables: state.tables.filter((t) => t.id !== id),
         relationships: state.relationships.filter((r) => r.sourceTableId !== id && r.targetTableId !== id),
         selectedTableId: state.selectedTableId === id ? null : state.selectedTableId,
-      })),
+      })); },
 
-      addColumn: (tableId, column) => set((state) => ({
+      addColumn: (tableId, column) => { pushUndo(get()); set((state) => ({
         tables: state.tables.map((t) => {
           if (t.id === tableId) {
             const name = column.name || 'new_column';
@@ -332,7 +372,7 @@ export const useSchemaStore = create<SchemaState>()(
           }
           return t;
         }),
-      })),
+      })); },
 
       bulkAddColumns: (tableId, columns) => set((state) => ({
         tables: state.tables.map((t) => {
@@ -406,7 +446,7 @@ export const useSchemaStore = create<SchemaState>()(
         }),
       })),
 
-      removeColumn: (tableId, columnId) => set((state) => ({
+      removeColumn: (tableId, columnId) => { pushUndo(get()); set((state) => ({
         tables: state.tables.map((t) => {
           if (t.id === tableId) {
             return { ...t, columns: t.columns.filter((c) => c.id !== columnId) };
@@ -417,13 +457,13 @@ export const useSchemaStore = create<SchemaState>()(
           !(r.sourceTableId === tableId && r.sourceColumnId === columnId) &&
           !(r.targetTableId === tableId && r.targetColumnId === columnId)
         ),
-      })),
+      })); },
 
       addRelationship: (rel) => set((state) => ({
         relationships: [...state.relationships, rel],
       })),
 
-      createRelationshipWithFK: ({ sourceTableId, sourceColumnId, targetTableId, targetColumnId, type, createFKColumn, fkColumnName, semantic }) => set((state) => {
+      createRelationshipWithFK: ({ sourceTableId, sourceColumnId, targetTableId, targetColumnId, type, createFKColumn, fkColumnName, semantic }) => { pushUndo(get()); set((state) => {
         let finalTargetColumnId = targetColumnId;
         const sourceTable = state.tables.find(t => t.id === sourceTableId);
         const sourceColumn = sourceTable?.columns.find(c => c.id === sourceColumnId);
@@ -483,12 +523,12 @@ export const useSchemaStore = create<SchemaState>()(
           tables: newTables,
           relationships: [...state.relationships, newRelationship],
         };
-      }),
+      }); },
 
-      removeRelationship: (id) => set((state) => ({
+      removeRelationship: (id) => { pushUndo(get()); set((state) => ({
         relationships: state.relationships.filter((r) => r.id !== id),
         selectedRelationshipId: state.selectedRelationshipId === id ? null : state.selectedRelationshipId,
-      })),
+      })); },
 
       updateRelationship: (id, updates) => set((state) => ({
         relationships: state.relationships.map((r) => r.id === id ? { ...r, ...updates } : r),

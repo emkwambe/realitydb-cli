@@ -39,6 +39,8 @@ Rules:
 - Positions: {"x":(idx%4)*350,"y":Math.floor(idx/4)*250}
 - Every column needs "options" field ({} if empty)
 - FK columns: isFK:true + fkTarget:{tableId,columnId}
+- CRITICAL: Every FK column MUST have a matching relationship in the relationships array. No orphan FKs.
+- In relationships, sourceTableId/sourceColumnId = the PARENT table's PK, targetTableId/targetColumnId = the CHILD table's FK column
 - Enums: include realistic weights + lifecycleRules where applicable
 - Temporal deps: "options":{"dependsOn":"created_at","dependencyRule":"after"}
 - Types: uuid,string,integer,decimal,boolean,timestamp,email,name,phone,enum
@@ -89,7 +91,7 @@ export default function AIGeneratorModal({ onClose }: AIGeneratorModalProps) {
 
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 120000);
+      const timeout = setTimeout(() => controller.abort(), 150000);
 
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -162,7 +164,7 @@ export default function AIGeneratorModal({ onClose }: AIGeneratorModalProps) {
 
     } catch (err: any) {
       if (err.name === 'AbortError') {
-        setError('Request timed out (120s). Try a simpler description or retry.');
+        setError('Request timed out (150s). Try a simpler description or retry.');
       } else {
         setError(err.message || 'An unexpected error occurred.');
       }
