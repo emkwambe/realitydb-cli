@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Sidebar from './Sidebar';
 import SchemaCanvas from './SchemaCanvas';
 import Inspector from './Inspector';
@@ -15,7 +15,8 @@ import {
   BookOpen,
   FileCode,
   FileJson,
-  Archive
+  Archive,
+  Undo2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -29,9 +30,20 @@ import {
 import { importSchema } from './services/importCLI';
 
 export default function App() {
-  const { tables, relationships, simulation, importSchema: storeImport } = useSchemaStore();
+  const { tables, relationships, simulation, importSchema: storeImport, undo, canUndo } = useSchemaStore();
   const [showExport, setShowExport] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [undo]);
 
   const validationIssues = showExport ? validateForExport(tables, relationships) : [];
   const blockingErrors = validationIssues.filter(i => i.type === 'error');
@@ -124,6 +136,15 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={undo}
+              disabled={!canUndo()}
+              title="Undo (Ctrl+Z)"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-md transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <Undo2 size={14} />
+              Undo
+            </button>
             <a
               href="/docs/README.md"
               target="_blank"
