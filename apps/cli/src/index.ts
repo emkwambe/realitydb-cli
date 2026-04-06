@@ -5,6 +5,7 @@ import { statusCommand } from './commands/status';
 import { seedCommand } from './commands/seed.js';
 import { resetCommand } from './commands/reset.js';
 import { scanCommand } from './commands/scan.js';
+import { initCommand } from './commands/init.js';
 // import { templatesCommand, templatesInitCommand, templatesValidateCommand } from './commands/templates'; // TODO: re-enable after @databox/templates is wired
 import { requireAuth, loadLicense } from './auth/license';
 import * as fs from 'fs';
@@ -354,6 +355,16 @@ program
   .action(seedCommand);
 
 // ============================================
+// INIT COMMAND (Setup wizard)
+
+program
+  .command('init')
+  .description('Create a new RealityDB template (interactive or quick mode)')
+  .option('-d, --domain <type>', 'Domain preset: saas, ecommerce, healthcare, education')
+  .option('-o, --output <file>', 'Output file path')
+  .option('--quick', 'Skip interactive prompts, use defaults')
+  .action(initCommand);
+
 // SCAN COMMAND (Database introspection)
 
 program

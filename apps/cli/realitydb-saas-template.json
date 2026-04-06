@@ -1,0 +1,364 @@
+{
+  "version": "4.3.0",
+  "name": "saas",
+  "description": "SaaS platform with users, plans, subscriptions, and billing",
+  "tables": [
+    {
+      "id": "tbl-01",
+      "name": "organizations",
+      "columns": [
+        {
+          "id": "tbl-01-c1",
+          "name": "id",
+          "type": "string",
+          "strategy": "uuid"
+        },
+        {
+          "id": "tbl-01-c2",
+          "name": "name",
+          "type": "string",
+          "strategy": "company_name"
+        },
+        {
+          "id": "tbl-01-c3",
+          "name": "slug",
+          "type": "string",
+          "strategy": "random_string"
+        },
+        {
+          "id": "tbl-01-c4",
+          "name": "created_at",
+          "type": "timestamp",
+          "strategy": "timestamp"
+        }
+      ],
+      "position": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "id": "tbl-02",
+      "name": "users",
+      "columns": [
+        {
+          "id": "tbl-02-c1",
+          "name": "id",
+          "type": "string",
+          "strategy": "uuid"
+        },
+        {
+          "id": "tbl-02-c2",
+          "name": "org_id",
+          "type": "uuid",
+          "strategy": "uuid",
+          "isFK": true,
+          "fkTarget": {
+            "tableId": "tbl-01",
+            "columnId": "tbl-01-c1"
+          }
+        },
+        {
+          "id": "tbl-02-c3",
+          "name": "email",
+          "type": "string",
+          "strategy": "email"
+        },
+        {
+          "id": "tbl-02-c4",
+          "name": "name",
+          "type": "string",
+          "strategy": "full_name"
+        },
+        {
+          "id": "tbl-02-c5",
+          "name": "role",
+          "type": "string",
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "admin",
+              "member",
+              "viewer"
+            ],
+            "weights": [
+              10,
+              70,
+              20
+            ]
+          }
+        },
+        {
+          "id": "tbl-02-c6",
+          "name": "created_at",
+          "type": "timestamp",
+          "strategy": "timestamp"
+        }
+      ],
+      "position": {
+        "x": 350,
+        "y": 0
+      }
+    },
+    {
+      "id": "tbl-03",
+      "name": "plans",
+      "columns": [
+        {
+          "id": "tbl-03-c1",
+          "name": "id",
+          "type": "string",
+          "strategy": "uuid"
+        },
+        {
+          "id": "tbl-03-c2",
+          "name": "name",
+          "type": "string",
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "free",
+              "starter",
+              "pro",
+              "enterprise"
+            ],
+            "weights": [
+              30,
+              35,
+              25,
+              10
+            ]
+          }
+        },
+        {
+          "id": "tbl-03-c3",
+          "name": "price_cents",
+          "type": "number",
+          "strategy": "integer",
+          "options": {
+            "min": 0,
+            "max": 9900
+          }
+        },
+        {
+          "id": "tbl-03-c4",
+          "name": "created_at",
+          "type": "timestamp",
+          "strategy": "timestamp"
+        }
+      ],
+      "position": {
+        "x": 700,
+        "y": 0
+      }
+    },
+    {
+      "id": "tbl-04",
+      "name": "subscriptions",
+      "columns": [
+        {
+          "id": "tbl-04-c1",
+          "name": "id",
+          "type": "string",
+          "strategy": "uuid"
+        },
+        {
+          "id": "tbl-04-c2",
+          "name": "org_id",
+          "type": "uuid",
+          "strategy": "uuid",
+          "isFK": true,
+          "fkTarget": {
+            "tableId": "tbl-01",
+            "columnId": "tbl-01-c1"
+          }
+        },
+        {
+          "id": "tbl-04-c3",
+          "name": "plan_id",
+          "type": "uuid",
+          "strategy": "uuid",
+          "isFK": true,
+          "fkTarget": {
+            "tableId": "tbl-03",
+            "columnId": "tbl-03-c1"
+          }
+        },
+        {
+          "id": "tbl-04-c4",
+          "name": "status",
+          "type": "string",
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "active",
+              "cancelled",
+              "past_due",
+              "trialing"
+            ],
+            "weights": [
+              65,
+              15,
+              10,
+              10
+            ]
+          }
+        },
+        {
+          "id": "tbl-04-c5",
+          "name": "created_at",
+          "type": "timestamp",
+          "strategy": "timestamp"
+        }
+      ],
+      "position": {
+        "x": 1050,
+        "y": 0
+      }
+    },
+    {
+      "id": "tbl-05",
+      "name": "invoices",
+      "columns": [
+        {
+          "id": "tbl-05-c1",
+          "name": "id",
+          "type": "string",
+          "strategy": "uuid"
+        },
+        {
+          "id": "tbl-05-c2",
+          "name": "subscription_id",
+          "type": "uuid",
+          "strategy": "uuid",
+          "isFK": true,
+          "fkTarget": {
+            "tableId": "tbl-04",
+            "columnId": "tbl-04-c1"
+          }
+        },
+        {
+          "id": "tbl-05-c3",
+          "name": "amount_cents",
+          "type": "number",
+          "strategy": "integer",
+          "options": {
+            "min": 0,
+            "max": 9900
+          }
+        },
+        {
+          "id": "tbl-05-c4",
+          "name": "status",
+          "type": "string",
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "paid",
+              "pending",
+              "failed",
+              "void"
+            ],
+            "weights": [
+              75,
+              10,
+              10,
+              5
+            ]
+          }
+        },
+        {
+          "id": "tbl-05-c5",
+          "name": "created_at",
+          "type": "timestamp",
+          "strategy": "timestamp"
+        }
+      ],
+      "position": {
+        "x": 0,
+        "y": 250
+      }
+    },
+    {
+      "id": "tbl-06",
+      "name": "sessions",
+      "columns": [
+        {
+          "id": "tbl-06-c1",
+          "name": "id",
+          "type": "string",
+          "strategy": "uuid"
+        },
+        {
+          "id": "tbl-06-c2",
+          "name": "user_id",
+          "type": "uuid",
+          "strategy": "uuid",
+          "isFK": true,
+          "fkTarget": {
+            "tableId": "tbl-02",
+            "columnId": "tbl-02-c1"
+          }
+        },
+        {
+          "id": "tbl-06-c3",
+          "name": "ip_address",
+          "type": "string",
+          "strategy": "text"
+        },
+        {
+          "id": "tbl-06-c4",
+          "name": "created_at",
+          "type": "timestamp",
+          "strategy": "timestamp"
+        }
+      ],
+      "position": {
+        "x": 350,
+        "y": 250
+      }
+    }
+  ],
+  "relationships": [
+    {
+      "id": "rel-01",
+      "sourceTableId": "tbl-01",
+      "sourceColumnId": "tbl-01-c1",
+      "targetTableId": "tbl-02",
+      "targetColumnId": "tbl-02-c2",
+      "type": "one-to-many"
+    },
+    {
+      "id": "rel-02",
+      "sourceTableId": "tbl-01",
+      "sourceColumnId": "tbl-01-c1",
+      "targetTableId": "tbl-04",
+      "targetColumnId": "tbl-04-c2",
+      "type": "one-to-many"
+    },
+    {
+      "id": "rel-03",
+      "sourceTableId": "tbl-03",
+      "sourceColumnId": "tbl-03-c1",
+      "targetTableId": "tbl-04",
+      "targetColumnId": "tbl-04-c3",
+      "type": "one-to-many"
+    },
+    {
+      "id": "rel-04",
+      "sourceTableId": "tbl-04",
+      "sourceColumnId": "tbl-04-c1",
+      "targetTableId": "tbl-05",
+      "targetColumnId": "tbl-05-c2",
+      "type": "one-to-many"
+    },
+    {
+      "id": "rel-05",
+      "sourceTableId": "tbl-02",
+      "sourceColumnId": "tbl-02-c1",
+      "targetTableId": "tbl-06",
+      "targetColumnId": "tbl-06-c2",
+      "type": "one-to-many"
+    }
+  ]
+}

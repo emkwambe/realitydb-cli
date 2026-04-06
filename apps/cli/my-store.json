@@ -1,0 +1,436 @@
+{
+  "version": "4.3.0",
+  "name": "ecommerce",
+  "description": "Online store with customers, products, orders, and payments",
+  "tables": [
+    {
+      "id": "tbl-01",
+      "name": "customers",
+      "columns": [
+        {
+          "id": "tbl-01-c1",
+          "name": "id",
+          "type": "string",
+          "strategy": "uuid"
+        },
+        {
+          "id": "tbl-01-c2",
+          "name": "email",
+          "type": "string",
+          "strategy": "email"
+        },
+        {
+          "id": "tbl-01-c3",
+          "name": "name",
+          "type": "string",
+          "strategy": "full_name"
+        },
+        {
+          "id": "tbl-01-c4",
+          "name": "city",
+          "type": "string",
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "New York",
+              "LA",
+              "Chicago",
+              "Houston",
+              "Phoenix"
+            ]
+          }
+        },
+        {
+          "id": "tbl-01-c5",
+          "name": "created_at",
+          "type": "timestamp",
+          "strategy": "timestamp"
+        }
+      ],
+      "position": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "id": "tbl-02",
+      "name": "products",
+      "columns": [
+        {
+          "id": "tbl-02-c1",
+          "name": "id",
+          "type": "string",
+          "strategy": "uuid"
+        },
+        {
+          "id": "tbl-02-c2",
+          "name": "name",
+          "type": "string",
+          "strategy": "company_name"
+        },
+        {
+          "id": "tbl-02-c3",
+          "name": "sku",
+          "type": "string",
+          "strategy": "random_string"
+        },
+        {
+          "id": "tbl-02-c4",
+          "name": "price",
+          "type": "number",
+          "strategy": "float",
+          "options": {
+            "min": 5,
+            "max": 500
+          }
+        },
+        {
+          "id": "tbl-02-c5",
+          "name": "category",
+          "type": "string",
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "electronics",
+              "clothing",
+              "home",
+              "sports",
+              "books"
+            ],
+            "weights": [
+              25,
+              25,
+              20,
+              15,
+              15
+            ]
+          }
+        },
+        {
+          "id": "tbl-02-c6",
+          "name": "created_at",
+          "type": "timestamp",
+          "strategy": "timestamp"
+        }
+      ],
+      "position": {
+        "x": 350,
+        "y": 0
+      }
+    },
+    {
+      "id": "tbl-03",
+      "name": "orders",
+      "columns": [
+        {
+          "id": "tbl-03-c1",
+          "name": "id",
+          "type": "string",
+          "strategy": "uuid"
+        },
+        {
+          "id": "tbl-03-c2",
+          "name": "customer_id",
+          "type": "uuid",
+          "strategy": "uuid",
+          "isFK": true,
+          "fkTarget": {
+            "tableId": "tbl-01",
+            "columnId": "tbl-01-c1"
+          }
+        },
+        {
+          "id": "tbl-03-c3",
+          "name": "status",
+          "type": "string",
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "delivered",
+              "shipped",
+              "processing",
+              "cancelled"
+            ],
+            "weights": [
+              60,
+              20,
+              15,
+              5
+            ]
+          }
+        },
+        {
+          "id": "tbl-03-c4",
+          "name": "total",
+          "type": "number",
+          "strategy": "float",
+          "options": {
+            "min": 10,
+            "max": 2000
+          }
+        },
+        {
+          "id": "tbl-03-c5",
+          "name": "created_at",
+          "type": "timestamp",
+          "strategy": "timestamp"
+        }
+      ],
+      "position": {
+        "x": 700,
+        "y": 0
+      }
+    },
+    {
+      "id": "tbl-04",
+      "name": "order_items",
+      "columns": [
+        {
+          "id": "tbl-04-c1",
+          "name": "id",
+          "type": "string",
+          "strategy": "uuid"
+        },
+        {
+          "id": "tbl-04-c2",
+          "name": "order_id",
+          "type": "uuid",
+          "strategy": "uuid",
+          "isFK": true,
+          "fkTarget": {
+            "tableId": "tbl-03",
+            "columnId": "tbl-03-c1"
+          }
+        },
+        {
+          "id": "tbl-04-c3",
+          "name": "product_id",
+          "type": "uuid",
+          "strategy": "uuid",
+          "isFK": true,
+          "fkTarget": {
+            "tableId": "tbl-02",
+            "columnId": "tbl-02-c1"
+          }
+        },
+        {
+          "id": "tbl-04-c4",
+          "name": "quantity",
+          "type": "number",
+          "strategy": "integer",
+          "options": {
+            "min": 1,
+            "max": 10
+          }
+        },
+        {
+          "id": "tbl-04-c5",
+          "name": "price",
+          "type": "number",
+          "strategy": "float",
+          "options": {
+            "min": 5,
+            "max": 500
+          }
+        },
+        {
+          "id": "tbl-04-c6",
+          "name": "created_at",
+          "type": "timestamp",
+          "strategy": "timestamp"
+        }
+      ],
+      "position": {
+        "x": 1050,
+        "y": 0
+      }
+    },
+    {
+      "id": "tbl-05",
+      "name": "payments",
+      "columns": [
+        {
+          "id": "tbl-05-c1",
+          "name": "id",
+          "type": "string",
+          "strategy": "uuid"
+        },
+        {
+          "id": "tbl-05-c2",
+          "name": "order_id",
+          "type": "uuid",
+          "strategy": "uuid",
+          "isFK": true,
+          "fkTarget": {
+            "tableId": "tbl-03",
+            "columnId": "tbl-03-c1"
+          }
+        },
+        {
+          "id": "tbl-05-c3",
+          "name": "amount",
+          "type": "number",
+          "strategy": "float",
+          "options": {
+            "min": 10,
+            "max": 2000
+          }
+        },
+        {
+          "id": "tbl-05-c4",
+          "name": "method",
+          "type": "string",
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "credit_card",
+              "debit_card",
+              "paypal",
+              "bank_transfer"
+            ],
+            "weights": [
+              45,
+              25,
+              20,
+              10
+            ]
+          }
+        },
+        {
+          "id": "tbl-05-c5",
+          "name": "status",
+          "type": "string",
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "captured",
+              "pending",
+              "failed",
+              "refunded"
+            ],
+            "weights": [
+              80,
+              8,
+              7,
+              5
+            ]
+          }
+        },
+        {
+          "id": "tbl-05-c6",
+          "name": "created_at",
+          "type": "timestamp",
+          "strategy": "timestamp"
+        }
+      ],
+      "position": {
+        "x": 0,
+        "y": 250
+      }
+    },
+    {
+      "id": "tbl-06",
+      "name": "reviews",
+      "columns": [
+        {
+          "id": "tbl-06-c1",
+          "name": "id",
+          "type": "string",
+          "strategy": "uuid"
+        },
+        {
+          "id": "tbl-06-c2",
+          "name": "product_id",
+          "type": "uuid",
+          "strategy": "uuid",
+          "isFK": true,
+          "fkTarget": {
+            "tableId": "tbl-02",
+            "columnId": "tbl-02-c1"
+          }
+        },
+        {
+          "id": "tbl-06-c3",
+          "name": "customer_id",
+          "type": "uuid",
+          "strategy": "uuid",
+          "isFK": true,
+          "fkTarget": {
+            "tableId": "tbl-01",
+            "columnId": "tbl-01-c1"
+          }
+        },
+        {
+          "id": "tbl-06-c4",
+          "name": "rating",
+          "type": "number",
+          "strategy": "integer",
+          "options": {
+            "min": 1,
+            "max": 5
+          }
+        },
+        {
+          "id": "tbl-06-c5",
+          "name": "created_at",
+          "type": "timestamp",
+          "strategy": "timestamp"
+        }
+      ],
+      "position": {
+        "x": 350,
+        "y": 250
+      }
+    }
+  ],
+  "relationships": [
+    {
+      "id": "rel-01",
+      "sourceTableId": "tbl-01",
+      "sourceColumnId": "tbl-01-c1",
+      "targetTableId": "tbl-03",
+      "targetColumnId": "tbl-03-c2",
+      "type": "one-to-many"
+    },
+    {
+      "id": "rel-02",
+      "sourceTableId": "tbl-03",
+      "sourceColumnId": "tbl-03-c1",
+      "targetTableId": "tbl-04",
+      "targetColumnId": "tbl-04-c2",
+      "type": "one-to-many"
+    },
+    {
+      "id": "rel-03",
+      "sourceTableId": "tbl-02",
+      "sourceColumnId": "tbl-02-c1",
+      "targetTableId": "tbl-04",
+      "targetColumnId": "tbl-04-c3",
+      "type": "one-to-many"
+    },
+    {
+      "id": "rel-04",
+      "sourceTableId": "tbl-03",
+      "sourceColumnId": "tbl-03-c1",
+      "targetTableId": "tbl-05",
+      "targetColumnId": "tbl-05-c2",
+      "type": "one-to-many"
+    },
+    {
+      "id": "rel-05",
+      "sourceTableId": "tbl-02",
+      "sourceColumnId": "tbl-02-c1",
+      "targetTableId": "tbl-06",
+      "targetColumnId": "tbl-06-c2",
+      "type": "one-to-many"
+    },
+    {
+      "id": "rel-06",
+      "sourceTableId": "tbl-01",
+      "sourceColumnId": "tbl-01-c1",
+      "targetTableId": "tbl-06",
+      "targetColumnId": "tbl-06-c3",
+      "type": "one-to-many"
+    }
+  ]
+}
