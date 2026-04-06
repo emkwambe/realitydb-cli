@@ -26,122 +26,30 @@ const EXAMPLES = [
 
 function buildPrompt(userDescription: string, complexity: Complexity): string {
   const tableRange = COMPLEXITY_CONFIG[complexity].range;
-  return `You are a database schema architect for RealityDB. Given a domain description, generate a complete, production-realistic database schema.
+  return `Generate a ${complexity} database schema (${tableRange} tables) for: ${userDescription}
 
-RULES:
-- Generate a ${complexity} schema with approximately ${tableRange} tables
-- Every table MUST have: id (uuid PK), created_at (timestamp)
-- Use realistic column names (snake_case)
-- Define foreign keys with fkTarget references
-- Add weighted enum distributions that reflect real-world data
-- Add lifecycle rules where state transitions exist (e.g. cancelled orders null shipped_at)
-- Add temporal dependencies (shipped_at after created_at) using dependsOn/dependencyRule
-- Tables should cover: core entities, junction tables, audit/history tables, configuration tables, and analytics tables
-- Generate table IDs as tbl-01, tbl-02, etc.
-- Generate column IDs as tbl-01-c1, tbl-01-c2, etc.
-- Generate relationship IDs as rel-01, rel-02, etc.
-- Assign grid positions: { "x": (tableIndex % 4) * 350, "y": Math.floor(tableIndex / 4) * 250 }
-- Every column MUST have an "options" field (use {} if no options needed)
+Return ONLY valid JSON, no markdown, no explanation.
 
-RESPOND WITH ONLY VALID JSON. No markdown, no explanation, no code fences.
+Format:
+{"tables":[{"id":"tbl-01","name":"users","columns":[{"id":"tbl-01-c1","name":"id","type":"uuid","isPK":true,"isFK":false,"nullable":false,"strategy":"uuid","options":{}},{"id":"tbl-01-c2","name":"status","type":"enum","isPK":false,"isFK":false,"nullable":false,"strategy":"enum","options":{"values":["active","inactive"],"weights":[80,20],"lifecycleRules":[{"value":"inactive","nullFields":["last_login"]}]}},{"id":"tbl-01-c3","name":"org_id","type":"uuid","isPK":false,"isFK":true,"nullable":true,"strategy":"uuid","options":{},"fkTarget":{"tableId":"tbl-02","columnId":"tbl-02-c1"}},{"id":"tbl-01-c4","name":"created_at","type":"timestamp","isPK":false,"isFK":false,"nullable":false,"strategy":"timestamp","options":{}}],"position":{"x":0,"y":0}}],"relationships":[{"id":"rel-01","sourceTableId":"tbl-02","sourceColumnId":"tbl-02-c1","targetTableId":"tbl-01","targetColumnId":"tbl-01-c3","type":"one-to-many","semantic":"connection"}]}
 
-The JSON format is:
-{
-  "tables": [
-    {
-      "id": "tbl-01",
-      "name": "table_name",
-      "columns": [
-        {
-          "id": "tbl-01-c1",
-          "name": "id",
-          "type": "uuid",
-          "isPK": true,
-          "isFK": false,
-          "nullable": false,
-          "strategy": "uuid",
-          "options": {}
-        },
-        {
-          "id": "tbl-01-c2",
-          "name": "status",
-          "type": "enum",
-          "isPK": false,
-          "isFK": false,
-          "nullable": false,
-          "strategy": "enum",
-          "options": {
-            "values": ["active", "inactive", "suspended"],
-            "weights": [70, 20, 10],
-            "lifecycleRules": [
-              { "value": "suspended", "nullFields": ["last_active_at"] }
-            ]
-          }
-        },
-        {
-          "id": "tbl-01-c3",
-          "name": "other_table_id",
-          "type": "uuid",
-          "isPK": false,
-          "isFK": true,
-          "nullable": true,
-          "strategy": "uuid",
-          "options": {},
-          "fkTarget": { "tableId": "tbl-02", "columnId": "tbl-02-c1" }
-        },
-        {
-          "id": "tbl-01-c4",
-          "name": "created_at",
-          "type": "timestamp",
-          "isPK": false,
-          "isFK": false,
-          "nullable": false,
-          "strategy": "timestamp",
-          "options": {}
-        },
-        {
-          "id": "tbl-01-c5",
-          "name": "shipped_at",
-          "type": "timestamp",
-          "isPK": false,
-          "isFK": false,
-          "nullable": true,
-          "strategy": "timestamp",
-          "options": { "dependsOn": "created_at", "dependencyRule": "after" }
-        }
-      ],
-      "position": { "x": 0, "y": 0 }
-    }
-  ],
-  "relationships": [
-    {
-      "id": "rel-01",
-      "sourceTableId": "tbl-02",
-      "sourceColumnId": "tbl-02-c1",
-      "targetTableId": "tbl-01",
-      "targetColumnId": "tbl-01-c3",
-      "type": "one-to-many",
-      "semantic": "connection"
-    }
-  ]
-}
-
-Available column types: uuid, string, integer, decimal, boolean, timestamp, email, name, phone, enum
-Available strategies: uuid, enum, integer, decimal, timestamp, past_date, future_date, email, company_name, name, phone, boolean, random_string
-Available relationship semantics: connection, trigger, temporal, lifecycle, risk, activity
-
-For enum strategy, always include weights that reflect realistic distributions.
-For timestamp columns that depend on another (e.g. shipped_at after created_at), add: "options": { "dependsOn": "created_at", "dependencyRule": "after" }
-
-USER'S DOMAIN DESCRIPTION:
-${userDescription}`;
+Rules:
+- Every table: id (uuid PK) + created_at (timestamp) minimum
+- snake_case names. IDs: tbl-01, tbl-01-c1, rel-01
+- Positions: {"x":(idx%4)*350,"y":Math.floor(idx/4)*250}
+- Every column needs "options" field ({} if empty)
+- FK columns: isFK:true + fkTarget:{tableId,columnId}
+- Enums: include realistic weights + lifecycleRules where applicable
+- Temporal deps: "options":{"dependsOn":"created_at","dependencyRule":"after"}
+- Types: uuid,string,integer,decimal,boolean,timestamp,email,name,phone,enum
+- Strategies: uuid,enum,integer,decimal,timestamp,past_date,future_date,email,company_name,name,phone,boolean,random_string
+- Semantics: connection,trigger,temporal,lifecycle,risk,activity
+- Cover: core entities, junction tables, audit tables, config tables`;
 }
 
 function extractJSON(text: string): string {
-  // Strip markdown fences if present
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (fenced) return fenced[1].trim();
-  // Try to find JSON object
   const start = text.indexOf('{');
   const end = text.lastIndexOf('}');
   if (start !== -1 && end !== -1) return text.slice(start, end + 1);
@@ -154,10 +62,11 @@ export default function AIGeneratorModal({ onClose }: AIGeneratorModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ tables: number; relationships: number } | null>(null);
+  const [elapsed, setElapsed] = useState(0);
 
   const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
 
-  const handleGenerate = async (retryPrompt?: string) => {
+  const handleGenerate = async (isRetry?: boolean) => {
     if (!prompt.trim()) return;
 
     if (!apiKey) {
@@ -168,14 +77,19 @@ export default function AIGeneratorModal({ onClose }: AIGeneratorModalProps) {
     setLoading(true);
     setError(null);
     setResult(null);
+    setElapsed(0);
 
-    const messageContent = retryPrompt
-      ? `${buildPrompt(prompt, complexity)}\n\nIMPORTANT: Your previous response was not valid JSON. Return ONLY the JSON object, no other text.`
-      : buildPrompt(prompt, complexity);
+    const startTime = Date.now();
+    const timer = setInterval(() => setElapsed(Math.floor((Date.now() - startTime) / 1000)), 1000);
+
+    let messageContent = buildPrompt(prompt, complexity);
+    if (isRetry) {
+      messageContent += '\n\nYour previous response was not valid JSON. Return ONLY the raw JSON object.';
+    }
 
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 60000);
+      const timeout = setTimeout(() => controller.abort(), 120000);
 
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -187,7 +101,7 @@ export default function AIGeneratorModal({ onClose }: AIGeneratorModalProps) {
         },
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
-          max_tokens: 8000,
+          max_tokens: 16000,
           messages: [{ role: 'user', content: messageContent }],
         }),
         signal: controller.signal,
@@ -197,7 +111,7 @@ export default function AIGeneratorModal({ onClose }: AIGeneratorModalProps) {
 
       if (!response.ok) {
         const errBody = await response.text();
-        throw new Error(`API error (${response.status}): ${errBody.slice(0, 200)}`);
+        throw new Error(`API error (${response.status}): ${errBody.slice(0, 300)}`);
       }
 
       const data = await response.json();
@@ -208,11 +122,11 @@ export default function AIGeneratorModal({ onClose }: AIGeneratorModalProps) {
       try {
         parsed = JSON.parse(jsonStr);
       } catch {
-        // Auto-retry once on JSON parse failure
-        if (!retryPrompt) {
+        if (!isRetry) {
+          clearInterval(timer);
           setLoading(false);
           setError('Failed to parse schema. Retrying...');
-          setTimeout(() => handleGenerate('retry'), 500);
+          setTimeout(() => handleGenerate(true), 500);
           return;
         }
         throw new Error('Failed to parse AI response as valid JSON. Please try again.');
@@ -244,17 +158,16 @@ export default function AIGeneratorModal({ onClose }: AIGeneratorModalProps) {
       store.importSchema(parsed.tables, rels);
 
       setResult({ tables: parsed.tables.length, relationships: rels.length });
-
-      // Close after brief success display
       setTimeout(() => onClose(), 1500);
 
     } catch (err: any) {
       if (err.name === 'AbortError') {
-        setError('Request timed out (60s). Try a simpler schema or retry.');
+        setError('Request timed out (120s). Try a simpler description or retry.');
       } else {
         setError(err.message || 'An unexpected error occurred.');
       }
     } finally {
+      clearInterval(timer);
       setLoading(false);
     }
   };
@@ -330,19 +243,26 @@ export default function AIGeneratorModal({ onClose }: AIGeneratorModalProps) {
             </div>
           </div>
 
-          {error && (
+          {loading && (
+            <div className="flex items-center gap-2 p-3 bg-purple-50 border border-purple-100 rounded-lg">
+              <Loader2 size={16} className="text-purple-500 animate-spin shrink-0" />
+              <p className="text-xs text-purple-700 font-medium">
+                Generating schema... {elapsed}s
+              </p>
+            </div>
+          )}
+
+          {error && !loading && (
             <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-100 rounded-lg">
               <AlertCircle size={16} className="text-red-500 shrink-0 mt-0.5" />
               <div className="flex-1">
                 <p className="text-xs text-red-700">{error}</p>
-                {!loading && (
-                  <button
-                    onClick={() => handleGenerate()}
-                    className="text-[10px] font-bold text-red-600 hover:text-red-800 mt-1 uppercase"
-                  >
-                    Retry
-                  </button>
-                )}
+                <button
+                  onClick={() => handleGenerate()}
+                  className="text-[10px] font-bold text-red-600 hover:text-red-800 mt-1 uppercase"
+                >
+                  Retry
+                </button>
               </div>
             </div>
           )}
