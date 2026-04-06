@@ -1,0 +1,1631 @@
+{
+  "generatedAt": "2026-04-06T19:12:16.084Z",
+  "database": "postgresql://postgres:****@localhost:54322/postgres",
+  "sampleSize": 100,
+  "tables": 29,
+  "columns": 189,
+  "strategies": {
+    "account_audit_log": {
+      "id": {
+        "strategy": "uuid",
+        "confidence": "high"
+      },
+      "account_id": {
+        "strategy": "fk",
+        "options": {
+          "references": "accounts"
+        },
+        "confidence": "high"
+      },
+      "action": {
+        "strategy": "enum",
+        "options": {
+          "values": [
+            "updated",
+            "created",
+            "unfrozen",
+            "closed",
+            "frozen"
+          ],
+          "weights": [
+            49,
+            18,
+            12,
+            12,
+            9
+          ]
+        },
+        "confidence": "high"
+      },
+      "old_values": {
+        "strategy": "text",
+        "confidence": "low"
+      },
+      "new_values": {
+        "strategy": "text",
+        "confidence": "low"
+      },
+      "performed_by": {
+        "strategy": "text",
+        "confidence": "low"
+      },
+      "reason": {
+        "strategy": "text",
+        "confidence": "low"
+      },
+      "created_at": {
+        "strategy": "timestamp",
+        "confidence": "high"
+      }
+    },
+    "accounts": {
+      "id": {
+        "strategy": "uuid",
+        "confidence": "high"
+      },
+      "customer_id": {
+        "strategy": "fk",
+        "options": {
+          "references": "customers"
+        },
+        "confidence": "high"
+      },
+      "branch_id": {
+        "strategy": "fk",
+        "options": {
+          "references": "branches"
+        },
+        "confidence": "high"
+      },
+      "account_number": {
+        "strategy": "text",
+        "confidence": "low"
+      },
+      "account_type": {
+        "strategy": "enum",
+        "options": {
+          "values": [
+            "checking",
+            "savings",
+            "business",
+            "money_market"
+          ],
+          "weights": [
+            39,
+            36,
+            14,
+            10
+          ]
+        },
+        "confidence": "high"
+      },
+      "balance": {
+        "strategy": "float",
+        "options": {
+          "min": 1.32,
+          "max": 999.86
+        },
+        "confidence": "high"
+      },
+      "status": {
+        "strategy": "enum",
+        "options": {
+          "values": [
+            "active",
+            "frozen",
+            "closed"
+          ],
+          "weights": [
+            85,
+            11,
+            4
+          ]
+        },
+        "confidence": "high"
+      },
+      "opened_date": {
+        "strategy": "timestamp",
+        "confidence": "high"
+      },
+      "created_at": {
+        "strategy": "timestamp",
+        "confidence": "high"
+      }
+    },
+    "atm_transactions": {
+      "id": {
+        "strategy": "uuid",
+        "confidence": "high"
+      },
+      "atm_id": {
+        "strategy": "fk",
+        "options": {
+          "references": "atms"
+        },
+        "confidence": "high"
+      },
+      "account_id": {
+        "strategy": "fk",
+        "options": {
+          "references": "accounts"
+        },
+        "confidence": "high"
+      },
+      "transaction_type": {
+        "strategy": "enum",
+        "options": {
+          "values": [
+            "withdrawal",
+            "deposit",
+            "balance_inquiry",
+            "transfer"
+          ],
+          "weights": [
+            60,
+            23,
+            12,
+            6
+          ]
+        },
+        "confidence": "high"
+      },
+      "amount": {
+        "strategy": "float",
+        "options": {
+          "min": 2.84,
+          "max": 996.98
+        },
+        "confidence": "high"
+      },
+      "fee": {
+        "strategy": "float",
+        "options": {
+          "min": 4,
+          "max": 998.22
+        },
+        "confidence": "high"
+      },
+      "status": {
+        "strategy": "enum",
+        "options": {
+          "values": [
+            "completed",
+            "failed",
+            "cancelled"
+          ],
+          "weights": [
+            89,
+            6,
+            5
+          ]
+        },
+        "confidence": "high"
+      },
+      "created_at": {
+        "strategy": "timestamp",
+        "confidence": "high"
+      }
+    },
+    "atms": {
+      "id": {
+        "strategy": "uuid",
+        "confidence": "high"
+      },
+      "branch_id": {
+        "strategy": "fk",
+        "options": {
+          "references": "branches"
+        },
+        "confidence": "high"
+      },
+      "location_name": {
+        "strategy": "text",
+        "confidence": "low"
+      },
+      "address": {
+        "strategy": "text",
+        "confidence": "low"
+      },
+      "city": {
+        "strategy": "enum",
+        "options": {
+          "values": [
+            "Clinton",
+            "Greenville",
+            "Madison",
+            "Georgetown",
+            "Riverside",
+            "Springfield",
+            "Fairview",
+            "Arlington"
+          ],
+          "weights": [
+            13,
+            13,
+            13,
+            13,
+            12,
+            12,
+            12,
+            12
+          ]
+        },
+        "confidence": "high"
+      },
+      "state": {
+        "strategy": "text",
+        "confidence": "low"
+      },
+      "status": {
+        "strategy": "enum",
+        "options": {
+          "values": [
+            "operational",
+            "out_of_service",
+            "maintenance"
+          ],
+          "weights": [
+            82,
+            13,
+            5
+          ]
+        },
+        "confidence": "high"
+      },
+      "cash_level": {
+        "strategy": "float",
+        "options": {
+          "min": 2.35,
+          "max": 999.2
+        },
+        "confidence": "high"
+      },
+      "created_at": {
+        "strategy": "timestamp",
+        "confidence": "high"
+      }
+    },
+    "branches": {
+      "id": {
+        "strategy": "uuid",
+        "confidence": "high"
+      },
+      "name": {
+        "strategy": "enum",
+        "options": {
+          "values": [
+            "Morgan Chen",
+            "Avery Garcia",
+            "Riley Nguyen",
+            "Rowan Patel",
+            "Casey Brown",
+            "Quinn Jones",
+            "Alex Smith",
+            "Sage Johnson",
+            "Taylor Kim",
+            "Jordan Williams"
+          ],
+          "weights": [
+            10,
+            10,
+            10,
+            10,
+            10,
+            10,
+            10,
+            10,
+            10,
+            10
+          ]
+        },
+        "confidence": "medium"
+      },
+      "address": {
+        "strategy": "text",
+        "confidence": "low"
+      },
+      "city": {
+        "strategy": "enum",
+        "options": {
+          "values": [
+            "Georgetown",
+            "Springfield",
+            "Greenville",
+            "Arlington",
+            "Madison",
+            "Fairview",
+            "Riverside",
+            "Clinton"
+          ],
+          "weights": [
+            13,
+            13,
+            13,
+            13,
+            13,
+            13,
+            13,
+            13
+          ]
+        },
+        "confidence": "high"
+      },
+      "state": {
+        "strategy": "text",
+        "confidence": "low"
+      },
+      "zip_code": {
+        "strategy": "text",
+        "confidence": "low"
+      },
+      "status": {
+        "strategy": "enum",
+        "options": {
+          "values": [
+            "active",
+            "closed"
+          ],
+          "weights": [
+            90,
+            10
+          ]
+        },
+        "confidence": "high"
+      },
+      "created_at": {
+        "strategy": "timestamp",
+        "confidence": "high"
+      }
+    },
+    "card_transactions": {
+      "id": {
+        "strategy": "uuid",
+        "confidence": "high"
+      },
+      "credit_card_id": {
+        "strategy": "fk",
+        "options": {
+          "references": "credit_cards"
+        },
+        "confidence": "high"
+      },
+      "merchant_name": {
+        "strategy": "text",
+        "confidence": "low"
+      },
+      "amount": {
+        "strategy": "float",
+        "options": {
+          "min": 2.5,
+          "max": 999.34
+        },
+        "confidence": "high"
+      },
+      "transaction_type": {
+        "strategy": "enum",
+        "options": {
+          "values": [
+            "purchase",
+            "payment",
+            "cash_advance",
+            "refund"
+          ],
+          "weights": [
+            71,
+            14,
+            10,
+            4
+          ]
+        },
+        "confidence": "high"
+      },
+      "status": {
+        "strategy": "enum",
+        "options": {
+          "values": [
+            "posted",
+            "pending",
+            "declined",
+            "disputed"
+          ],
+          "weights": [
+            76,
+            15,
+            8,
+            2
+          ]
+        },
+        "confidence": "high"
+      },
+      "location": {
+        "strategy": "text",
+        "confidence": "low"
+      },
+      "created_at": {
+        "strategy": "timestamp",
+        "confidence": "high"
+      }
+    },
+    "coupons": {
+      "id": {
+        "strategy": "uuid",
+        "confidence": "high"
+      },
+      "campaign_id": {
+        "strategy": "fk",
+        "options": {
+          "references": "marketing_campaigns"
+        },
+        "confidence": "high"
+      },
+      "created_at": {
+        "strategy": "timestamp",
+        "confidence": "high"
+      }
+    },
+    "credit_cards": {
+      "id": {
+        "strategy": "uuid",
+        "confidence": "high"
+      },
+      "customer_id": {
+        "strategy": "fk",
+        "options": {
+          "references": "customers"
+        },
+        "confidence": "high"
+      },
+      "card_number": {
+        "strategy": "text",
+        "confidence": "low"
+      },
+      "card_type": {
+        "strategy": "enum",
+        "options": {
+          "values": [
+            "mastercard",
+            "visa",
+            "american_express",
+            "discover"
+          ],
+          "weights": [
+            38,
+            36,
+            15,
+            11
+          ]
+        },
+        "confidence": "high"
+      },
+      "credit_limit": {
+        "strategy": "float",
+        "options": {
+          "min": 7.64,
+          "max": 999.19
+        },
+        "confidence": "high"
+      },
+      "current_balance": {
+        "strategy": "float",
+        "options": {
+          "min": 3.36,
+          "max": 995.95
+        },
+        "confidence": "high"
+      },
+      "status": {
+        "strategy": "enum",
+        "options": {
+          "values": [
+            "active",
+            "blocked",
+            "expired",
+            "cancelled"
+          ],
+          "weights": [
+            80,
+            9,
+            6,
+            4
+          ]
+        },
+        "confidence": "high"
+      },
+      "expiry_date": {
+        "strategy": "text",
+        "confidence": "low"
+      },
+      "created_at": {
+        "strategy": "timestamp",
+        "confidence": "high"
+      }
+    },
+    "customer_addresses": {
+      "id": {
+        "strategy": "uuid",
+        "confidence": "high"
+      },
+      "customer_id": {
+        "strategy": "fk",
+        "options": {
+          "references": "customers"
+        },
+        "confidence": "high"
+      },
+      "address_type": {
+        "strategy": "enum",
+        "options": {
+          "values": [
+            "home",
+            "work",
+            "mailing",
+            "billing"
+          ],
+          "weights": [
+            49,
+            26,
+            13,
+            11
+          ]
+        },
+        "confidence": "high"
+      },
+      "street_address": {
+        "strategy": "text",
+        "confidence": "low"
+      },
+      "city": {
+        "strategy": "enum",
+        "options": {
+          "values": [
+            "Clinton",
+            "Greenville",
+            "Madison",
+            "Georgetown",
+            "Riverside",
+            "Springfield",
+            "Fairview",
+            "Arlington"
+          ],
+          "weights": [
+            13,
+            13,
+            13,
+            13,
+            12,
+            12,
+            12,
+            12
+          ]
+        },
+        "confidence": "high"
+      },
+      "state": {
+        "strategy": "text",
+        "confidence": "low"
+      },
+      "zip_code": {
+        "strategy": "text",
+        "confidence": "low"
+      },
+      "is_primary": {
+        "strategy": "enum",
+        "options": {
+          "values": [
+            "true",
+            "false"
+          ],
+          "weights": [
+            53,
+            47
+          ]
+        },
+        "confidence": "high"
+      },
+      "created_at": {
+        "strategy": "timestamp",
+        "confidence": "high"
+      }
+    },
+    "customer_service_tickets": {
+      "id": {
+        "strategy": "uuid",
+        "confidence": "high"
+      },
+      "customer_id": {
+        "strategy": "fk",
+        "options": {
+          "references": "customers"
+        },
+        "confidence": "high"
+      },
+      "subject": {
+        "strategy": "text",
+        "confidence": "low"
+      },
+      "description": {
+        "strategy": "text",
+        "confidence": "low"
+      },
+      "priority": {
+        "strategy": "enum",
+        "options": {
+          "values": [
+            "medium",
+            "low",
+            "high",
+            "urgent"
+          ],
+          "weights": [
+            36,
+            36,
+            24,
+            3
+          ]
+        },
+        "confidence": "high"
+      },
+      "status": {
+        "strategy": "enum",
+        "options": {
+          "values": [
+            "in_progress",
+            "resolved",
+            "open",
+            "closed"
+          ],
+          "weights": [
+            28,
+            27,
+            23,
+            22
+          ]
+        },
+        "confidence": "high"
+      },
+      "assigned_agent": {
+        "strategy": "text",
+        "confidence": "low"
+      },
+      "resolved_at": {
+        "strategy": "timestamp",
+        "confidence": "high"
+      },
+      "created_at": {
+        "strategy": "timestamp",
+        "confidence": "high"
+      }
+    },
+    "customers": {
+      "id": {
+        "strategy": "uuid",
+        "confidence": "high"
+      },
+      "first_name": {
+        "strategy": "enum",
+        "options": {
+          "values": [
+            "Morgan Chen",
+            "Avery Garcia",
+            "Rowan Patel",
+            "Riley Nguyen",
+            "Casey Brown",
+            "Quinn Jones",
+            "Alex Smith",
+            "Sage Johnson",
+            "Jordan Williams",
+            "Taylor Kim"
+          ],
+          "weights": [
+            10,
+            10,
+            10,
+            10,
+            10,
+            10,
+            10,
+            10,
+            10,
+            10
+          ]
+        },
+        "confidence": "medium"
+      },
+      "last_name": {
+        "strategy": "enum",
+        "options": {
+          "values": [
+            "Morgan Chen",
+            "Avery Garcia",
+            "Rowan Patel",
+            "Riley Nguyen",
+            "Casey Brown",
+            "Quinn Jones",
+            "Alex Smith",
+            "Sage Johnson",
+            "Taylor Kim",
+            "Jordan Williams"
+          ],
+          "weights": [
+            10,
+            10,
+            10,
+            10,
+            10,
+            10,
+            10,
+            10,
+            10,
+            10
+          ]
+        },
+        "confidence": "medium"
+      },
+      "email": {
+        "strategy": "email",
+        "confidence": "high"
+      },
+      "phone": {
+        "strategy": "phone",
+        "confidence": "high"
+      },
+      "status": {
+        "strategy": "enum",
+        "options": {
+          "values": [
+            "active",
+            "suspended",
+            "closed"
+          ],
+          "weights": [
+            86,
+            9,
+            5
+          ]
+        },
+        "confidence": "high"
+      },
+      "date_of_birth": {
+        "strategy": "text",
+        "confidence": "low"
+      },
+      "created_at": {
+        "strategy": "timestamp",
+        "confidence": "high"
+      }
+    },
+    "deliveries": {
+      "id": {
+        "strategy": "uuid",
+        "confidence": "high"
+      },
+      "order_id": {
+        "strategy": "fk",
+        "options": {
+          "references": "orders"
+        },
+        "confidence": "high"
+      },
+      "vehicle": {
+        "strategy": "enum",
+        "options": {
+          "values": [
+            "bike",
+            "car"
+          ],
+          "weights": [
+            69,
+            31
+          ]
+        },
+        "confidence": "high"
+      },
+      "created_at": {
+        "strategy": "timestamp",
+        "confidence": "high"
+      }
+    },
+    "fraud_alerts": {
+      "id": {
+        "strategy": "uuid",
+        "confidence": "high"
+      },
+      "transaction_id": {
+        "strategy": "fk",
+        "options": {
+          "references": "transactions"
+        },
+        "confidence": "high"
+      },
+      "customer_id": {
+        "strategy": "fk",
+        "options": {
+          "references": "customers"
+        },
+        "confidence": "high"
+      },
+      "alert_type": {
+        "strategy": "enum",
+        "options": {
+          "values": [
+            "suspicious_transaction",
+            "high_amount",
+            "unusual_location",
+            "velocity_check"
+          ],
+          "weights": [
+            29,
+            24,
+            24,
+            22
+          ]
+        },
+        "confidence": "high"
+      },
+      "risk_score": {
+        "strategy": "integer",
+        "options": {
+          "min": 1,
+          "max": 1000
+        },
+        "confidence": "high"
+      },
+      "status": {
+        "strategy": "enum",
+        "options": {
+          "values": [
+            "pending",
+            "false_positive",
+            "investigated",
+            "confirmed_fraud"
+          ],
+          "weights": [
+            34,
+            33,
+            19,
+            14
+          ]
+        },
+        "confidence": "high"
+      },
+      "investigated_by": {
+        "strategy": "text",
+        "confidence": "low"
+      },
+      "resolution_notes": {
+        "strategy": "text",
+        "confidence": "low"
+      },
+      "created_at": {
+        "strategy": "timestamp",
+        "confidence": "high"
+      }
+    },
+    "fraud_rules": {
+      "id": {
+        "strategy": "uuid",
+        "confidence": "high"
+      },
+      "rule_name": {
+        "strategy": "text",
+        "confidence": "low"
+      },
+      "rule_type": {
+        "strategy": "enum",
+        "options": {
+          "values": [
+            "amount_threshold",
+            "velocity",
+            "merchant",
+            "location",
+            "time_based"
+          ],
+          "weights": [
+            26,
+            22,
+            21,
+            18,
+            13
+          ]
+        },
+        "confidence": "high"
+      },
+      "threshold_value": {
+        "strategy": "float",
+        "options": {
+          "min": 2.25,
+          "max": 996.43
+        },
+        "confidence": "high"
+      },
+      "risk_weight": {
+        "strategy": "integer",
+        "options": {
+          "min": 2,
+          "max": 1000
+        },
+        "confidence": "high"
+      },
+      "is_active": {
+        "strategy": "enum",
+        "options": {
+          "values": [
+            "true",
+            "false"
+          ],
+          "weights": [
+            52,
+            48
+          ]
+        },
+        "confidence": "high"
+      },
+      "description": {
+        "strategy": "text",
+        "confidence": "low"
+      },
+      "created_at": {
+        "strategy": "timestamp",
+        "confidence": "high"
+      }
+    },
+    "interest_rates": {
+      "id": {
+        "strategy": "uuid",
+        "confidence": "high"
+      },
+      "product_type": {
+        "strategy": "enum",
+        "options": {
+          "values": [
+            "mortgage",
+            "auto_loan",
+            "savings",
+            "personal_loan",
+            "money_market",
+            "checking",
+            "cd",
+            "credit_card"
+          ],
+          "weights": [
+            20,
+            16,
+            15,
+            14,
+            11,
+            10,
+            9,
+            6
+          ]
+        },
+        "confidence": "high"
+      },
+      "rate_type": {
+        "strategy": "enum",
+        "options": {
+          "values": [
+            "fixed",
+            "variable",
+            "promotional"
+          ],
+          "weights": [
+            62,
+            29,
+            9
+          ]
+        },
+        "confidence": "high"
+      },
+      "interest_rate": {
+        "strategy": "float",
+        "options": {
+          "min": 1.18,
+          "max": 999.96
+        },
+        "confidence": "high"
+      },
+      "effective_date": {
+        "strategy": "timestamp",
+        "confidence": "high"
+      },
+      "end_date": {
+        "strategy": "text",
+        "confidence": "low"
+      },
+      "is_active": {
+        "strategy": "enum",
+        "options": {
+          "values": [
+            "false",
+            "true"
+          ],
+          "weights": [
+            51,
+            49
+          ]
+        },
+        "confidence": "high"
+      },
+      "created_at": {
+        "strategy": "timestamp",
+        "confidence": "high"
+      }
+    },
+    "loan_payments": {
+      "id": {
+        "strategy": "uuid",
+        "confidence": "high"
+      },
+      "loan_id": {
+        "strategy": "fk",
+        "options": {
+          "references": "loans"
+        },
+        "confidence": "high"
+      },
+      "payment_amount": {
+        "strategy": "float",
+        "options": {
+          "min": 2.33,
+          "max": 999.67
+        },
+        "confidence": "high"
+      },
+      "principal_amount": {
+        "strategy": "float",
+        "options": {
+          "min": 6.15,
+          "max": 999.48
+        },
+        "confidence": "high"
+      },
+      "interest_amount": {
+        "strategy": "float",
+        "options": {
+          "min": 3.56,
+          "max": 998.47
+        },
+        "confidence": "high"
+      },
+      "payment_type": {
+        "strategy": "enum",
+        "options": {
+          "values": [
+            "scheduled",
+            "extra",
+            "late",
+            "prepayment"
+          ],
+          "weights": [
+            79,
+            10,
+            7,
+            3
+          ]
+        },
+        "confidence": "high"
+      },
+      "status": {
+        "strategy": "enum",
+        "options": {
+          "values": [
+            "processed",
+            "pending",
+            "failed",
+            "reversed"
+          ],
+          "weights": [
+            82,
+            11,
+            4,
+            2
+          ]
+        },
+        "confidence": "high"
+      },
+      "due_date": {
+        "strategy": "text",
+        "confidence": "low"
+      },
+      "paid_date": {
+        "strategy": "timestamp",
+        "confidence": "high"
+      },
+      "created_at": {
+        "strategy": "timestamp",
+        "confidence": "high"
+      }
+    },
+    "loans": {
+      "id": {
+        "strategy": "uuid",
+        "confidence": "high"
+      },
+      "customer_id": {
+        "strategy": "fk",
+        "options": {
+          "references": "customers"
+        },
+        "confidence": "high"
+      },
+      "loan_type": {
+        "strategy": "enum",
+        "options": {
+          "values": [
+            "mortgage",
+            "personal",
+            "auto",
+            "business"
+          ],
+          "weights": [
+            33,
+            30,
+            26,
+            11
+          ]
+        },
+        "confidence": "high"
+      },
+      "principal_amount": {
+        "strategy": "float",
+        "options": {
+          "min": 1.6,
+          "max": 999.27
+        },
+        "confidence": "high"
+      },
+      "outstanding_balance": {
+        "strategy": "float",
+        "options": {
+          "min": 3.98,
+          "max": 999.54
+        },
+        "confidence": "high"
+      },
+      "interest_rate": {
+        "strategy": "float",
+        "options": {
+          "min": 1.11,
+          "max": 998.84
+        },
+        "confidence": "high"
+      },
+      "term_months": {
+        "strategy": "integer",
+        "options": {
+          "min": 1,
+          "max": 999
+        },
+        "confidence": "high"
+      },
+      "status": {
+        "strategy": "enum",
+        "options": {
+          "values": [
+            "active",
+            "paid_off",
+            "defaulted",
+            "restructured"
+          ],
+          "weights": [
+            67,
+            22,
+            7,
+            5
+          ]
+        },
+        "confidence": "high"
+      },
+      "maturity_date": {
+        "strategy": "text",
+        "confidence": "low"
+      },
+      "created_at": {
+        "strategy": "timestamp",
+        "confidence": "high"
+      }
+    },
+    "loyalty_accounts": {
+      "id": {
+        "strategy": "uuid",
+        "confidence": "high"
+      },
+      "customer_id": {
+        "strategy": "uuid",
+        "confidence": "high"
+      },
+      "tier": {
+        "strategy": "enum",
+        "options": {
+          "values": [
+            "silver",
+            "gold"
+          ],
+          "weights": [
+            83,
+            17
+          ]
+        },
+        "confidence": "high"
+      },
+      "created_at": {
+        "strategy": "timestamp",
+        "confidence": "high"
+      }
+    },
+    "marketing_campaigns": {
+      "id": {
+        "strategy": "uuid",
+        "confidence": "high"
+      },
+      "channel": {
+        "strategy": "enum",
+        "options": {
+          "values": [
+            "email",
+            "social",
+            "push"
+          ],
+          "weights": [
+            50,
+            33,
+            17
+          ]
+        },
+        "confidence": "high"
+      },
+      "created_at": {
+        "strategy": "timestamp",
+        "confidence": "high"
+      }
+    },
+    "menu_items": {
+      "id": {
+        "strategy": "uuid",
+        "confidence": "high"
+      },
+      "menu_id": {
+        "strategy": "fk",
+        "options": {
+          "references": "menus"
+        },
+        "confidence": "high"
+      },
+      "price": {
+        "strategy": "float",
+        "options": {
+          "min": 6.63,
+          "max": 49.86
+        },
+        "confidence": "high"
+      },
+      "created_at": {
+        "strategy": "timestamp",
+        "confidence": "high"
+      }
+    },
+    "menus": {
+      "id": {
+        "strategy": "uuid",
+        "confidence": "high"
+      },
+      "restaurant_id": {
+        "strategy": "fk",
+        "options": {
+          "references": "restaurants"
+        },
+        "confidence": "high"
+      },
+      "created_at": {
+        "strategy": "timestamp",
+        "confidence": "high"
+      }
+    },
+    "orders": {
+      "id": {
+        "strategy": "uuid",
+        "confidence": "high"
+      },
+      "restaurant_id": {
+        "strategy": "fk",
+        "options": {
+          "references": "restaurants"
+        },
+        "confidence": "high"
+      },
+      "customer_id": {
+        "strategy": "uuid",
+        "confidence": "high"
+      },
+      "coupon_id": {
+        "strategy": "fk",
+        "options": {
+          "references": "coupons"
+        },
+        "confidence": "high"
+      },
+      "status": {
+        "strategy": "enum",
+        "options": {
+          "values": [
+            "delivered",
+            "cancelled"
+          ],
+          "weights": [
+            97,
+            3
+          ]
+        },
+        "confidence": "high"
+      },
+      "completed_at": {
+        "strategy": "timestamp",
+        "confidence": "high"
+      },
+      "created_at": {
+        "strategy": "timestamp",
+        "confidence": "high"
+      }
+    },
+    "payments": {
+      "id": {
+        "strategy": "uuid",
+        "confidence": "high"
+      },
+      "order_id": {
+        "strategy": "fk",
+        "options": {
+          "references": "orders"
+        },
+        "confidence": "high"
+      },
+      "status": {
+        "strategy": "enum",
+        "options": {
+          "values": [
+            "captured",
+            "failed"
+          ],
+          "weights": [
+            90,
+            10
+          ]
+        },
+        "confidence": "high"
+      },
+      "created_at": {
+        "strategy": "timestamp",
+        "confidence": "high"
+      }
+    },
+    "referrals": {
+      "id": {
+        "strategy": "uuid",
+        "confidence": "high"
+      },
+      "referrer_id": {
+        "strategy": "uuid",
+        "confidence": "high"
+      },
+      "reward": {
+        "strategy": "float",
+        "options": {
+          "min": 5,
+          "max": 19.86
+        },
+        "confidence": "high"
+      },
+      "created_at": {
+        "strategy": "timestamp",
+        "confidence": "high"
+      }
+    },
+    "restaurants": {
+      "id": {
+        "strategy": "uuid",
+        "confidence": "high"
+      },
+      "name": {
+        "strategy": "enum",
+        "options": {
+          "values": [
+            "Morgan Chen",
+            "Avery Garcia",
+            "Rowan Patel",
+            "Riley Nguyen",
+            "Casey Brown",
+            "Quinn Jones",
+            "Alex Smith",
+            "Sage Johnson",
+            "Taylor Kim",
+            "Jordan Williams"
+          ],
+          "weights": [
+            10,
+            10,
+            10,
+            10,
+            10,
+            10,
+            10,
+            10,
+            9,
+            9
+          ]
+        },
+        "confidence": "medium"
+      },
+      "status": {
+        "strategy": "enum",
+        "options": {
+          "values": [
+            "open",
+            "closed",
+            "busy"
+          ],
+          "weights": [
+            65,
+            26,
+            8
+          ]
+        },
+        "confidence": "high"
+      },
+      "created_at": {
+        "strategy": "timestamp",
+        "confidence": "high"
+      }
+    },
+    "reviews": {
+      "id": {
+        "strategy": "uuid",
+        "confidence": "high"
+      },
+      "order_id": {
+        "strategy": "fk",
+        "options": {
+          "references": "orders"
+        },
+        "confidence": "high"
+      },
+      "rating": {
+        "strategy": "enum",
+        "options": {
+          "values": [
+            "1",
+            "4",
+            "5",
+            "2",
+            "3"
+          ],
+          "weights": [
+            24,
+            24,
+            22,
+            17,
+            14
+          ]
+        },
+        "confidence": "high"
+      },
+      "created_at": {
+        "strategy": "timestamp",
+        "confidence": "high"
+      }
+    },
+    "shift_logs": {
+      "id": {
+        "strategy": "uuid",
+        "confidence": "high"
+      },
+      "restaurant_id": {
+        "strategy": "fk",
+        "options": {
+          "references": "restaurants"
+        },
+        "confidence": "high"
+      },
+      "created_at": {
+        "strategy": "timestamp",
+        "confidence": "high"
+      }
+    },
+    "subscriptions": {
+      "id": {
+        "strategy": "uuid",
+        "confidence": "high"
+      },
+      "customer_id": {
+        "strategy": "uuid",
+        "confidence": "high"
+      },
+      "plan": {
+        "strategy": "enum",
+        "options": {
+          "values": [
+            "monthly",
+            "annual"
+          ],
+          "weights": [
+            92,
+            8
+          ]
+        },
+        "confidence": "high"
+      },
+      "created_at": {
+        "strategy": "timestamp",
+        "confidence": "high"
+      }
+    },
+    "transactions": {
+      "id": {
+        "strategy": "uuid",
+        "confidence": "high"
+      },
+      "account_id": {
+        "strategy": "fk",
+        "options": {
+          "references": "accounts"
+        },
+        "confidence": "high"
+      },
+      "transaction_type": {
+        "strategy": "enum",
+        "options": {
+          "values": [
+            "debit",
+            "credit",
+            "transfer",
+            "fee"
+          ],
+          "weights": [
+            39,
+            32,
+            24,
+            5
+          ]
+        },
+        "confidence": "high"
+      },
+      "amount": {
+        "strategy": "float",
+        "options": {
+          "min": 1.21,
+          "max": 999.8
+        },
+        "confidence": "high"
+      },
+      "description": {
+        "strategy": "text",
+        "confidence": "low"
+      },
+      "status": {
+        "strategy": "enum",
+        "options": {
+          "values": [
+            "completed",
+            "pending",
+            "cancelled",
+            "failed"
+          ],
+          "weights": [
+            77,
+            12,
+            6,
+            5
+          ]
+        },
+        "confidence": "high"
+      },
+      "processed_at": {
+        "strategy": "timestamp",
+        "confidence": "high"
+      },
+      "created_at": {
+        "strategy": "timestamp",
+        "confidence": "high"
+      }
+    }
+  }
+}

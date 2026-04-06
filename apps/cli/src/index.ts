@@ -7,6 +7,7 @@ import { resetCommand } from './commands/reset.js';
 import { scanCommand } from './commands/scan.js';
 import { initCommand } from './commands/init.js';
 import { maskCommand as maskCmd } from './commands/mask.js';
+import { analyzeCommand } from './commands/analyze.js';
 // import { templatesCommand, templatesInitCommand, templatesValidateCommand } from './commands/templates'; // TODO: re-enable after @databox/templates is wired
 import { requireAuth, loadLicense } from './auth/license';
 import * as fs from 'fs';
@@ -365,6 +366,18 @@ program
   .option('-o, --output <file>', 'Output file path')
   .option('--quick', 'Skip interactive prompts, use defaults')
   .action(initCommand);
+
+// ANALYZE COMMAND (Data-driven strategy suggestions)
+
+program
+  .command('analyze')
+  .description('Analyze live data to suggest optimal generation strategies')
+  .requiredOption('-c, --connection <string>', 'Database connection string')
+  .option('-o, --output <file>', 'Save strategy report to file')
+  .option('--schema <n>', 'PostgreSQL schema', 'public')
+  .option('--sample <n>', 'Sample size per table', '100')
+  .option('--table <name>', 'Analyze a single table')
+  .action(analyzeCommand);
 
 // SCAN COMMAND (Database introspection)
 
