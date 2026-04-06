@@ -136,7 +136,7 @@ export async function scanCommand(options: {
     // Get tables
     const tablesResult = await client.query(`
       SELECT table_name, 
-             (SELECT reltuples::bigint FROM pg_class WHERE relname = table_name) AS estimated_rows
+             (SELECT reltuples::bigint FROM pg_class c JOIN pg_namespace n ON c.relnamespace = n.oid WHERE c.relname = table_name AND n.nspname = table_schema LIMIT 1) AS estimated_rows
       FROM information_schema.tables 
       WHERE table_schema = $1 AND table_type = 'BASE TABLE'
       ORDER BY table_name
