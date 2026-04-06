@@ -1,274 +1,156 @@
-import { loadConfig } from '@databox/config';
-import { importPack, loadRealityPack, downloadPack } from '@databox/core';
-import { formatCIOutput } from '@databox/shared';
-import { writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { maskConnectionString } from '../utils.js';
+import { loadLicense } from '../auth/license';
+import * as fs from 'fs';
+import * as path from 'path';
 
-const VERSION = '0.10.0';
+export async function loadCommand(options: {
+  file: string;
+  connection: string;
+  confirm?: boolean;
+  dropTables?: boolean;
+}): Promise<void> {
+  const license = loadLicense();
+  const masked = options.connection.replace(/\/\/([^:]+):([^@]+)@/, '//$1:****@');
+  const startTime = Date.now();
 
-function isUrl(input: string): boolean {
-  return input.startsWith('http://') || input.startsWith('https://');
-}
-
-function displaySafeModeStatus(safeMode: string | undefined): void {
-  if (!safeMode) {
-    console.warn('Note: This pack was captured before privacy-safe mode was available');
-  } else if (safeMode === 'raw') {
-    console.log('WARNING: This pack contains raw (unsanitized) data');
-  } else if (safeMode === 'masked') {
-    console.log('This pack was captured with PII masking');
-  } else if (safeMode === 'tokenized') {
-    console.log('This pack was captured with PII tokenization');
-  } else if (safeMode === 'redacted') {
-    console.log('This pack was captured with PII redaction');
+  const filePath = path.resolve(options.file);
+  if (!fs.existsSync(filePath)) {
+    console.error(`\n\u274C File not found: ${filePath}`);
+    process.exit(1);
   }
-}
 
-export async function loadCommand(
-  filePath: string,
-  options: { confirm?: boolean; showDdl?: boolean; preview?: boolean; ci?: boolean; configPath?: string },
-): Promise<void> {
-  const start = performance.now();
+  let pack: any;
   try {
-    if (!filePath) {
-      const msg = 'Missing file path or URL argument.';
-      if (options.ci) {
-        console.log(formatCIOutput({
-          success: false,
-          command: 'load',
-          version: VERSION,
-          timestamp: new Date().toISOString(),
-          durationMs: 0,
-          error: msg,
-        }));
-        process.exit(1);
+    pack = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+  } catch {
+    console.error(`\n\u274C Invalid JSON in ${filePath}`);
+    process.exit(1);
+  }
+
+  const tableNames = Object.keys(pack.data || {});
+  const totalRows = tableNames.reduce((sum, t) => sum + (pack.data[t]?.length || 0), 0);
+
+  console.log(`\n\u{1F4E5} RealityDB Load`);
+  console.log(`${'\u2500'.repeat(40)}`);
+  if (license) {
+    console.log(`   User: ${license.email}`);
+  }
+  console.log(`   File: ${options.file}`);
+  console.log(`   Pack: ${pack.name || 'unnamed'}`);
+  if (pack.capturedAt) console.log(`   Captured: ${pack.capturedAt}`);
+  if (pack.safeMode) console.log(`   \u{1F512} PII was masked in this capture`);
+  console.log(`   Database: ${masked}`);
+  console.log(`   Tables: ${tableNames.length}`);
+  console.log(`   Total rows: ${totalRows.toLocaleString()}`);
+  console.log(`${'\u2500'.repeat(40)}`);
+
+  if (!options.confirm) {
+    console.log(`\n\u26A0\uFE0F  This will INSERT ${totalRows.toLocaleString()} rows into ${tableNames.length} tables.`);
+    if (options.dropTables) console.log(`   Tables will be DROPPED and recreated.`);
+    console.log(`   Add --confirm to proceed.\n`);
+    process.exit(0);
+  }
+
+  let pg: any;
+  try {
+    pg = await import('pg');
+  } catch {
+    console.error(`\n\u274C PostgreSQL driver not found. Run: npm install pg`);
+    process.exit(1);
+  }
+
+  const client = new pg.Client({ connectionString: options.connection });
+
+  try {
+    await client.connect();
+    console.log(`   \u2705 Connected`);
+
+    // Drop tables if requested (reverse order)
+    if (options.dropTables) {
+      console.log(`   Dropping tables...`);
+      for (let i = tableNames.length - 1; i >= 0; i--) {
+        await client.query(`DROP TABLE IF EXISTS "${tableNames[i]}" CASCADE`);
       }
-      console.error(`[realitydb] ${msg}`);
-      console.error('Usage: realitydb load <file|url> --confirm');
-      process.exit(1);
     }
 
-    let localPath = filePath;
+    // Create tables if schema info exists
+    if (pack.schema && options.dropTables) {
+      console.log(`   Creating tables...`);
+      for (const tableName of tableNames) {
+        const tableSchema = pack.schema[tableName];
+        if (!tableSchema) continue;
 
-    // Download from URL if needed
-    if (isUrl(filePath)) {
-      if (!options.ci) {
-        console.log('');
-        console.log(`Downloading pack from ${filePath}...`);
+        const colDefs = tableSchema.columns.map((col: any) => {
+          let type = col.type || 'text';
+          if (type === 'uuid') type = 'UUID';
+          else if (type === 'int4' || type === 'integer') type = 'INTEGER';
+          else if (type === 'int8' || type === 'bigint') type = 'BIGINT';
+          else if (type === 'float8' || type === 'numeric') type = 'NUMERIC';
+          else if (type === 'bool') type = 'BOOLEAN';
+          else if (type === 'timestamptz') type = 'TIMESTAMPTZ';
+          else if (type === 'timestamp') type = 'TIMESTAMP';
+          else type = 'TEXT';
+
+          const pk = col.isPK ? ' PRIMARY KEY' : '';
+          return `"${col.name}" ${type}${pk}`;
+        }).join(',\n  ');
+
+        await client.query(`CREATE TABLE IF NOT EXISTS "${tableName}" (\n  ${colDefs}\n)`);
       }
-      const content = await downloadPack(filePath);
-      const tempPath = join(tmpdir(), `realitydb-download-${Date.now()}.realitydb-pack.json`);
-      await writeFile(tempPath, content, 'utf-8');
-      localPath = tempPath;
-      if (!options.ci) {
-        console.log('Download complete.');
-      }
+      console.log(`   \u2705 ${tableNames.length} tables created`);
     }
 
-    // Load and validate the pack for display
-    const pack = await loadRealityPack(localPath);
+    // Insert data
+    console.log(`   Loading data...`);
+    let totalLoaded = 0;
 
-    // --preview: show pack contents without importing
-    if (options.preview) {
-      const meta = pack.metadata as Record<string, unknown>;
-      const safeMode = meta.safeMode as string | undefined;
-      const piiSummary = meta.piiSummary as { columnsDetected: number; tablesAffected: number; categoriesFound: string[] } | undefined;
+    for (const tableName of tableNames) {
+      const rows = pack.data[tableName];
+      if (!rows || rows.length === 0) continue;
 
-      if (options.ci) {
-        const tableNames = Object.keys(pack.dataset.tables);
-        const tableInfo = tableNames.map((name) => ({
-          name,
-          rowCount: pack.dataset.tables[name].rowCount,
-        }));
-        console.log(formatCIOutput({
-          success: true,
-          command: 'load',
-          version: VERSION,
-          timestamp: new Date().toISOString(),
-          durationMs: Math.round(performance.now() - start),
-          data: {
-            packName: pack.metadata.name,
-            safeMode: safeMode ?? null,
-            piiSummary: piiSummary ?? null,
-            tableCount: pack.metadata.tableCount,
-            totalRows: pack.metadata.totalRows,
-            tables: tableInfo,
-          },
-        }));
-        return;
+      const columns = Object.keys(rows[0]);
+      const batchSize = 100;
+
+      for (let offset = 0; offset < rows.length; offset += batchSize) {
+        const batch = rows.slice(offset, offset + batchSize);
+        const values: any[] = [];
+        const rowPlaceholders: string[] = [];
+
+        for (let rowIdx = 0; rowIdx < batch.length; rowIdx++) {
+          const row = batch[rowIdx];
+          const placeholders: string[] = [];
+          for (let colIdx = 0; colIdx < columns.length; colIdx++) {
+            placeholders.push(`$${rowIdx * columns.length + colIdx + 1}`);
+            values.push(row[columns[colIdx]]);
+          }
+          rowPlaceholders.push(`(${placeholders.join(', ')})`);
+        }
+
+        const quotedCols = columns.map(c => `"${c}"`).join(', ');
+        await client.query(
+          `INSERT INTO "${tableName}" (${quotedCols}) VALUES ${rowPlaceholders.join(', ')}`,
+          values
+        );
       }
 
-      console.log('');
-      console.log('Reality Pack Preview');
-      console.log('\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550');
-      console.log(`Name: ${pack.metadata.name}`);
-      if (pack.metadata.description) {
-        console.log(`Description: ${pack.metadata.description}`);
-      }
-      console.log(`Tables: ${pack.metadata.tableCount}`);
-      console.log(`Total rows: ${pack.metadata.totalRows}`);
-      console.log('');
-      displaySafeModeStatus(safeMode);
-
-      if (piiSummary) {
-        console.log(`  PII columns detected: ${piiSummary.columnsDetected}`);
-        console.log(`  Tables affected: ${piiSummary.tablesAffected}`);
-        console.log(`  Categories: ${piiSummary.categoriesFound.join(', ')}`);
-      }
-
-      console.log('');
-      console.log('Tables:');
-      for (const [name, tableData] of Object.entries(pack.dataset.tables)) {
-        console.log(`  ${name}: ${tableData.rowCount} rows`);
-      }
-      console.log('');
-      return;
+      totalLoaded += rows.length;
+      console.log(`   \u{1F4CB} ${tableName}: ${rows.length} rows loaded`);
     }
 
-    // --show-ddl: just print the DDL and exit
-    if (options.showDdl) {
-      const ddl = (pack.metadata as Record<string, unknown>).ddl as string | undefined;
-      if (options.ci) {
-        console.log(formatCIOutput({
-          success: true,
-          command: 'load',
-          version: VERSION,
-          timestamp: new Date().toISOString(),
-          durationMs: Math.round(performance.now() - start),
-          data: {
-            packName: pack.metadata.name,
-            ddlAvailable: !!ddl,
-            ddl: ddl ?? null,
-          },
-        }));
-        return;
-      }
-      if (ddl) {
-        console.log('');
-        console.log('Schema DDL (run this SQL to create tables):');
-        console.log('');
-        console.log(ddl);
-      } else {
-        console.log('');
-        console.log('No DDL available in this Reality Pack.');
-        console.log('This pack was created with pack export (generated data), not capture.');
-        console.log('');
-      }
-      return;
-    }
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
 
-    const config = await loadConfig(options.configPath);
-    const masked = maskConnectionString(config.database.connectionString);
+    console.log(`\n\u2705 Load complete!`);
+    console.log(`${'\u2500'.repeat(40)}`);
+    console.log(`   \u{1F4CA} ${totalLoaded.toLocaleString()} rows loaded across ${tableNames.length} tables`);
+    console.log(`   \u23F1\uFE0F  Time: ${elapsed}s`);
+    console.log(``);
 
-    const meta = pack.metadata as Record<string, unknown>;
-    const safeMode = meta.safeMode as string | undefined;
-
-    if (!options.ci) {
-      console.log('');
-      console.log('RealityDB Load');
-      console.log('\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550');
-      console.log(`Database: ${masked}`);
-      console.log(`Pack: ${pack.metadata.name} (v${pack.version})`);
-      if (pack.metadata.templateName) {
-        console.log(`Template: ${pack.metadata.templateName}`);
-      }
-      console.log(`Tables: ${pack.metadata.tableCount}`);
-      console.log(`Total rows: ${pack.metadata.totalRows}`);
-      if (isUrl(filePath)) {
-        console.log(`Source: ${filePath}`);
-      }
-
-      const ddl = (pack.metadata as Record<string, unknown>).ddl as string | undefined;
-      if (ddl) {
-        console.log('Schema DDL: included');
-      }
-
-      // Display safe mode status prominently
-      console.log('');
-      displaySafeModeStatus(safeMode);
-      console.log('');
-    }
-
-    if (!options.ci && !options.confirm) {
-      console.error('[realitydb] Load requires --confirm flag.');
-      console.error('Hint: This will insert data into your database. Use --confirm to proceed.');
-      console.error('');
-      console.error('To view the schema DDL first:');
-      console.error(`  realitydb load ${filePath} --show-ddl`);
-      console.error('');
-      console.error('To preview pack contents:');
-      console.error(`  realitydb load ${filePath} --preview`);
-      process.exit(1);
-    }
-
-    if (!options.ci) {
-      console.log('Loading...');
-    }
-
-    const result = await importPack(config, localPath);
-    const durationMs = Math.round(performance.now() - start);
-
-    if (options.ci) {
-      console.log(formatCIOutput({
-        success: true,
-        command: 'load',
-        version: VERSION,
-        timestamp: new Date().toISOString(),
-        durationMs,
-        data: {
-          database: masked,
-          packName: pack.metadata.name,
-          totalRows: result.totalRows,
-          safeMode: safeMode ?? null,
-          source: isUrl(filePath) ? filePath : undefined,
-          tables: result.insertResult.tables.map((t) => ({
-            name: t.tableName,
-            rowsInserted: t.rowsInserted,
-            durationMs: t.durationMs,
-          })),
-        },
-      }));
-      return;
-    }
-
-    for (const tableResult of result.insertResult.tables) {
-      console.log(
-        `  ${tableResult.tableName}: ${tableResult.rowsInserted} rows loaded`,
-      );
-    }
-
-    const totalTime = (result.durationMs / 1000).toFixed(1);
-    console.log('');
-    console.log(`Bug reproduction environment ready. ${result.insertResult.tables.length} tables, ${result.totalRows} rows loaded.`);
-    console.log(`Load complete in ${totalTime}s`);
-    console.log('');
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    if (options.ci) {
-      console.log(formatCIOutput({
-        success: false,
-        command: 'load',
-        version: VERSION,
-        timestamp: new Date().toISOString(),
-        durationMs: Math.round(performance.now() - start),
-        error: message,
-      }));
-      process.exit(1);
-    }
-    if (message.includes('Config file not found')) {
-      console.error(`[realitydb] ${message}`);
-    } else if (message.includes('Cannot import Reality Pack')) {
-      console.error(`[realitydb] ${message}`);
-      const ddlHint = 'Tip: Use --show-ddl to get the schema creation SQL.';
-      console.error(ddlHint);
-    } else if (message.includes('connection') || message.includes('ECONNREFUSED')) {
-      console.error(`[realitydb] Load failed: ${message}`);
-      console.error('Hint: Check that your database is running (e.g. Docker)');
-    } else {
-      console.error(`[realitydb] Load failed: ${message}`);
+  } catch (error: any) {
+    console.error(`\n\u274C Load failed: ${error.message}`);
+    if (error.message.includes('already exists')) {
+      console.error(`   Hint: Add --drop-tables to replace existing tables`);
     }
     process.exit(1);
+  } finally {
+    await client.end();
   }
 }

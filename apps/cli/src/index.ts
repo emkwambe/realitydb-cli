@@ -12,6 +12,8 @@ import { packListCommand, packInfoCommand, packValidateCommand } from './command
 import { upgradeCommand } from './commands/upgrade.js';
 import { auditCommand } from './commands/audit.js';
 import { simulateCommand } from './commands/simulate.js';
+import { captureCommand } from './commands/capture.js';
+import { loadCommand } from './commands/load.js';
 // import { templatesCommand, templatesInitCommand, templatesValidateCommand } from './commands/templates'; // TODO: re-enable after @databox/templates is wired
 import { requireAuth, loadLicense } from './auth/license';
 import * as fs from 'fs';
@@ -457,27 +459,7 @@ program
   .option('--confirm', 'Confirm destructive operation')
   .action(resetCommand);
 
-// CAPTURE COMMAND (Requires authentication + Team plan)
-// ============================================
-
-program
-  .command('capture')
-  .description('Capture bug reproduction environment (Team plan required)')
-  .requiredOption('-n, --name <name>', 'Bug identifier')
-  .option('--safe', 'Automatically mask PII')
-  .option('-c, --connection <string>', 'Database connection string')
-  .action(async (options) => {
-    const license = requireAuth('bug-capture');
-    console.log(`\n\u{1F6E1} Capturing bug reproduction environment...`);
-    console.log(`   User: ${license?.email}`);
-    console.log(`   Bug: ${options.name}`);
-    console.log(`   Safe mode: ${options.safe ? 'ON' : 'OFF'}`);
-    console.log(`\n\u2714 Bug captured to: ${options.name}.realitydb-pack.json\n`);
-  });
-
-// ============================================
-// MASK COMMAND (Requires authentication + Team plan)
-// ============================================
+// MASK COMMAND (PII detection & masking)
 
 program
   .command('mask')
@@ -487,11 +469,34 @@ program
   .option('--dry-run', 'Scan only, show what would be masked')
   .option('--confirm', 'Apply masking to database')
   .option('-o, --output <file>', 'Save audit log to file')
-  .option('--schema <name>', 'PostgreSQL schema', 'public')
+  .option('--schema <n>', 'PostgreSQL schema', 'public')
   .option('-s, --seed <number>', 'Deterministic seed for reproducibility')
   .action(maskCmd);
 
-// ============================================
+// CAPTURE COMMAND (Bug reproduction)
+
+program
+  .command('capture')
+  .description('Capture database state for bug reproduction')
+  .requiredOption('-n, --name <name>', 'Bug identifier (e.g. bug-4821)')
+  .requiredOption('-c, --connection <string>', 'Database connection string')
+  .option('--safe', 'Automatically mask PII in captured data')
+  .option('--schema <n>', 'PostgreSQL schema', 'public')
+  .option('--tables <list>', 'Comma-separated table names to capture')
+  .option('--limit <n>', 'Max rows per table', '1000')
+  .action(captureCommand);
+
+// LOAD COMMAND (Restore captured pack)
+
+program
+  .command('load')
+  .description('Load a captured RealityDB pack into a database')
+  .argument('<file>', 'RealityDB pack file to load')
+  .requiredOption('-c, --connection <string>', 'Database connection string')
+  .option('--confirm', 'Confirm data insertion')
+  .option('--drop-tables', 'Drop and recreate tables before loading')
+  .action((file, options) => loadCommand({ file, ...options }));
+
 // Parse command line arguments
 // ============================================
 
