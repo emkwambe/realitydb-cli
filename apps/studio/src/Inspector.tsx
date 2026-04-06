@@ -122,9 +122,22 @@ export default function Inspector() {
 
           {issues.length > 0 && (
             <div className="w-full mt-8 space-y-4">
-              <div className="flex items-center gap-2 px-1">
-                <AlertCircle size={14} className="text-amber-500" />
-                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Realism Audit</h4>
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-2">
+                  <AlertCircle size={14} className="text-amber-500" />
+                  <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Realism Audit</h4>
+                </div>
+                {issues.filter((i: any) => i.fix).length > 1 && (
+                  <button
+                    onClick={() => {
+                      issues.forEach((issue: any) => { if (issue.fix) issue.fix(); });
+                    }}
+                    className="flex items-center gap-1 px-2 py-1 text-[9px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-md transition-all"
+                  >
+                    <Wand2 size={10} />
+                    FIX ALL ({issues.filter((i: any) => i.fix).length})
+                  </button>
+                )}
               </div>
               <div className="space-y-2">
                 {issues.map((issue: any) => (
@@ -141,18 +154,18 @@ export default function Inspector() {
                   >
                     <div className="flex gap-2">
                       <AlertCircle size={14} className="shrink-0 mt-0.5" />
-                      <div>
+                      <div className="flex-1">
                         <p className="text-[11px] font-semibold leading-tight">{issue.message}</p>
-                        <div className="flex items-center gap-2 mt-1">
+                        <div className="flex items-center gap-2 mt-1.5">
                           <p className="text-[9px] opacity-70 uppercase font-bold tracking-tighter">
-                            {issue.type} - Click to inspect
+                            {issue.type}
                           </p>
                           {issue.fix && (
                             <button
                               onClick={(e) => { e.stopPropagation(); issue.fix(); }}
-                              className="text-[9px] font-bold bg-white/50 px-1.5 py-0.5 rounded hover:bg-white transition-colors"
+                              className="text-[9px] font-bold bg-white/60 px-2 py-0.5 rounded-md hover:bg-white border border-current/10 transition-colors"
                             >
-                              FIX
+                              {issue.fixLabel || 'FIX'}
                             </button>
                           )}
                         </div>

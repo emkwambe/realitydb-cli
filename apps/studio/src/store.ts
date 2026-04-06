@@ -603,6 +603,7 @@ export const useSchemaStore = create<SchemaState>()(
 
 export const validateSchema = (tables: Table[], relationships: Relationship[], updateColumn: any) => {
   const issues: any[] = [];
+  const store = useSchemaStore.getState();
 
   tables.forEach(table => {
     const hasPK = table.columns.some(c => c.isPK);
@@ -612,6 +613,25 @@ export const validateSchema = (tables: Table[], relationships: Relationship[], u
         type: 'error',
         message: `Table "${table.name}" has no primary key.`,
         tableId: table.id,
+        fix: () => {
+          store.addColumn(table.id, { name: 'id', type: 'uuid', strategy: 'uuid', isPK: true });
+        },
+        fixLabel: 'Add id',
+      });
+    }
+
+    // Missing created_at
+    const hasCreatedAt = table.columns.some(c => c.name === 'created_at');
+    if (!hasCreatedAt && table.columns.length > 1) {
+      issues.push({
+        id: `missing-timestamp-${table.id}`,
+        type: 'info',
+        message: `Table "${table.name}" has no created_at timestamp.`,
+        tableId: table.id,
+        fix: () => {
+          store.addColumn(table.id, { name: 'created_at', type: 'timestamp', strategy: 'past_date' });
+        },
+        fixLabel: 'Add created_at',
       });
     }
 
@@ -645,27 +665,85 @@ export const validateSchema = (tables: Table[], relationships: Relationship[], u
           r.targetTableId === table.id && r.targetColumnId === col.id
         );
         if (!hasRel) {
+          const targetTable = tables.find(t => t.id === col.fkTarget!.tableId);
+          const targetCol = targetTable?.columns.find(c => c.id === col.fkTarget!.columnId);
           issues.push({
             id: `missing-rel-${table.id}-${col.id}`,
             type: 'warning',
-            message: `FK column "${col.name}" exists but no relationship is defined.`,
+            message: `FK "${col.name}" in "${table.name}" has no relationship edge.`,
             tableId: table.id,
             columnId: col.id,
+            fix: targetTable && targetCol ? () => {
+              store.addRelationship({
+                id: crypto.randomUUID(),
+                sourceTableId: col.fkTarget!.tableId,
+                sourceColumnId: col.fkTarget!.columnId,
+                targetTableId: table.id,
+                targetColumnId: col.id,
+                type: 'one-to-many',
+                semantic: 'connection',
+              });
+            } : undefined,
+            fixLabel: targetTable ? `Connect to ${targetTable.name}` : undefined,
+          });
+        }
+
+        // Nullable FK warning
+        if (col.nullable) {
+          issues.push({
+            id: `nullable-fk-${table.id}-${col.id}`,
+            type: 'warning',
+            message: `FK "${col.name}" in "${table.name}" is nullable — may produce orphan references.`,
+            tableId: table.id,
+            columnId: col.id,
+            fix: () => {
+              updateColumn(table.id, col.id, { nullable: false });
+            },
+            fixLabel: 'Make required',
           });
         }
       }
 
       if (col.name.toLowerCase().includes('name') && col.strategy === 'random_string') {
+        const strategy = col.name.toLowerCase().includes('company') ? 'company_name' : 'name';
         issues.push({
           id: `semantic-mismatch-${table.id}-${col.id}`,
           type: 'info',
-          message: `Column "${col.name}" could use a more specific strategy like "name" or "company_name".`,
+          message: `Column "${col.name}" could use "${strategy}" strategy.`,
           tableId: table.id,
           columnId: col.id,
           fix: () => {
-            const strategy = col.name.toLowerCase().includes('company') ? 'company_name' : 'name';
             updateColumn(table.id, col.id, { strategy });
           },
+          fixLabel: `Use ${strategy}`,
+        });
+      }
+
+      if (col.name.toLowerCase().includes('email') && col.strategy !== 'email' && !col.isFK) {
+        issues.push({
+          id: `semantic-email-${table.id}-${col.id}`,
+          type: 'info',
+          message: `Column "${col.name}" could use "email" strategy.`,
+          tableId: table.id,
+          columnId: col.id,
+          fix: () => {
+            updateColumn(table.id, col.id, { strategy: 'email', type: 'email' });
+          },
+          fixLabel: 'Use email',
+        });
+      }
+
+      if (col.name.toLowerCase().includes('phone') && col.strategy !== 'phone' && !col.isFK) {
+        issues.push({
+          id: `semantic-phone-${table.id}-${col.id}`,
+          type: 'info',
+          message: `Column "${col.name}" could use "phone" strategy.`,
+          tableId: table.id,
+          columnId: col.id,
+          fix: () => {
+            updateColumn(table.id, col.id, { strategy: 'phone', type: 'phone' });
+          },
+          fixLabel: 'Use phone',
         });
       }
     });
