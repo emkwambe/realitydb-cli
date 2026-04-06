@@ -94,6 +94,7 @@ interface SchemaState {
   setSelectedRelationship: (id: string | null) => void;
   loadTemplate: (template: RealityTemplate) => void;
   importSchema: (tables: Table[], relationships: Relationship[]) => void;
+  clearAll: () => void;
 }
 
 export const useSchemaStore = create<SchemaState>()(
@@ -116,20 +117,55 @@ export const useSchemaStore = create<SchemaState>()(
       setPreviewMode: (mode) => set({ previewMode: mode }),
       setSelectedRootRecordId: (id) => set({ selectedRootRecordId: id }),
 
-      loadTemplate: (template) => set({
-        tables: template.tables,
-        relationships: template.relationships,
-        simulation: template.simulation,
-        selectedTableId: null,
-        selectedColumnId: null,
-        selectedRelationshipId: null,
-        selectedRootRecordId: null,
-        previewMode: 'table',
-      }),
+      loadTemplate: (template) => {
+        const safeTables = template.tables.map((t, index) => ({
+          ...t,
+          position: t.position && typeof t.position.x === 'number' && typeof t.position.y === 'number'
+            ? t.position
+            : { x: (index % 4) * 350, y: Math.floor(index / 4) * 250 },
+        }));
+        try {
+          set({
+            tables: safeTables,
+            relationships: template.relationships,
+            simulation: template.simulation,
+            selectedTableId: null,
+            selectedColumnId: null,
+            selectedRelationshipId: null,
+            selectedRootRecordId: null,
+            previewMode: 'table',
+          });
+        } catch (err) {
+          console.error('Failed to load template:', err);
+        }
+      },
 
-      importSchema: (tables, relationships) => set({
-        tables,
-        relationships,
+      importSchema: (tables, relationships) => {
+        // Ensure every table has a valid position (auto-grid if missing)
+        const safeTables = tables.map((t, index) => ({
+          ...t,
+          position: t.position && typeof t.position.x === 'number' && typeof t.position.y === 'number'
+            ? t.position
+            : { x: (index % 4) * 350, y: Math.floor(index / 4) * 250 },
+        }));
+        try {
+          set({
+            tables: safeTables,
+            relationships,
+            selectedTableId: null,
+            selectedColumnId: null,
+            selectedRelationshipId: null,
+            selectedRootRecordId: null,
+            previewMode: 'table',
+          });
+        } catch (err) {
+          console.error('Failed to import schema:', err);
+        }
+      },
+
+      clearAll: () => set({
+        tables: [],
+        relationships: [],
         selectedTableId: null,
         selectedColumnId: null,
         selectedRelationshipId: null,

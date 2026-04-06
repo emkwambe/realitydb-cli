@@ -106,6 +106,9 @@ export default function App() {
             <h1 className="font-bold text-slate-800 tracking-tight leading-none">RealityDB Studio</h1>
             <span className="text-[10px] text-slate-400 font-medium uppercase tracking-widest">Design Workbench</span>
           </div>
+          <span className="ml-3 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-amber-100 text-amber-700 rounded-full border border-amber-200">
+            Internal Preview
+          </span>
         </div>
 
         <div className="flex items-center gap-4">
