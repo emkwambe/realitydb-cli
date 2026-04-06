@@ -1,179 +1,109 @@
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { createInterface } from 'node:readline';
-import { stdin, stdout } from 'node:process';
-import { verifyAuditLogIntegrity, formatAuditLog, decryptTokenMap } from '@databox/core';
-import type { MaskAuditLog } from '@databox/core';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 
-/**
- * Prompts for a passphrase with masked input (callback-based readline for Windows compatibility).
- */
-function askPassphrase(prompt: string): Promise<string> {
-  return new Promise((resolvePromise) => {
-    const rl = createInterface({ input: stdin, output: stdout });
-    const originalWrite = stdout.write.bind(stdout);
-    let muted = false;
-    stdout.write = ((chunk: string | Uint8Array, ...args: unknown[]) => {
-      if (muted && typeof chunk === 'string' && !chunk.includes(prompt)) {
-        return originalWrite('*');
+const AUDIT_DIR = path.join(os.homedir(), '.realitydb');
+const AUDIT_FILE = path.join(AUDIT_DIR, 'audit.log');
+
+export function logAuditEvent(event: {
+  command: string;
+  pack?: string;
+  rows?: number;
+  tables?: number;
+  connection?: string;
+  format?: string;
+  duration?: string;
+}): void {
+  try {
+    if (!fs.existsSync(AUDIT_DIR)) fs.mkdirSync(AUDIT_DIR, { recursive: true });
+
+    const entry = {
+      timestamp: new Date().toISOString(),
+      ...event,
+      connection: event.connection?.replace(/\/\/([^:]+):([^@]+)@/, '//$1:****@'),
+    };
+
+    fs.appendFileSync(AUDIT_FILE, JSON.stringify(entry) + '\n', 'utf-8');
+  } catch {
+    // Silent fail — audit logging should never break the CLI
+  }
+}
+
+export async function auditCommand(options: {
+  since?: string;
+  command?: string;
+  limit?: string;
+  clear?: boolean;
+}): Promise<void> {
+  console.log(`\n\u{1F4DC} RealityDB Audit Log`);
+  console.log(`${'\u2500'.repeat(40)}`);
+
+  if (options.clear) {
+    try {
+      if (fs.existsSync(AUDIT_FILE)) {
+        fs.unlinkSync(AUDIT_FILE);
+        console.log(`   \u2705 Audit log cleared.\n`);
+      } else {
+        console.log(`   No audit log found.\n`);
       }
-      return (originalWrite as (...a: unknown[]) => boolean)(chunk, ...args);
-    }) as typeof stdout.write;
-
-    rl.question(prompt, (answer) => {
-      muted = false;
-      stdout.write = originalWrite;
-      console.log('');
-      rl.close();
-      resolvePromise(answer);
-    });
-    muted = true;
-  });
-}
-
-/**
- * realitydb audit verify <log-file>
- */
-export async function auditVerifyCommand(logFile: string, options: { ci?: boolean }): Promise<void> {
-  try {
-    const filePath = resolve(logFile);
-    const raw = readFileSync(filePath, 'utf-8');
-    const log: MaskAuditLog = JSON.parse(raw);
-
-    const result = verifyAuditLogIntegrity(log);
-    const entryCount = log.tables?.length ?? 0;
-
-    if (options.ci) {
-      console.log(JSON.stringify({
-        file: filePath,
-        entries: entryCount,
-        valid: result.valid,
-        brokenAt: result.brokenAt ?? null,
-      }));
-      process.exit(result.valid ? 0 : 1);
+    } catch (e: any) {
+      console.error(`   \u274C Failed to clear: ${e.message}\n`);
     }
-
-    console.log('');
-    console.log('Audit Chain Verification');
-    console.log('═══════════════════════════════════════');
-    console.log(`File: ${logFile}`);
-    console.log(`Entries: ${entryCount}`);
-
-    if (result.valid) {
-      console.log('Chain integrity: VERIFIED (all hashes valid)');
-    } else {
-      console.log(`Chain integrity: BROKEN at table "${result.brokenAt}"`);
-      console.log('The audit log has been tampered with.');
-    }
-    console.log('');
-
-    process.exit(result.valid ? 0 : 1);
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error(`[realitydb] Audit verify failed: ${message}`);
-    process.exit(1);
+    return;
   }
-}
 
-/**
- * realitydb audit summary <log-file>
- */
-export async function auditSummaryCommand(logFile: string, options: { ci?: boolean }): Promise<void> {
-  try {
-    const filePath = resolve(logFile);
-    const raw = readFileSync(filePath, 'utf-8');
-    const log: MaskAuditLog = JSON.parse(raw);
-
-    if (options.ci) {
-      console.log(JSON.stringify({
-        file: filePath,
-        complianceMode: log.complianceMode,
-        summary: log.summary,
-        tables: log.tables.map((t) => ({
-          tableName: t.tableName,
-          rowCount: t.rowCount,
-          piiColumnsDetected: t.piiColumnsDetected,
-          columnsMasked: t.columnsMasked,
-        })),
-      }));
-      return;
-    }
-
-    console.log('');
-    console.log(formatAuditLog(log));
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error(`[realitydb] Audit summary failed: ${message}`);
-    process.exit(1);
+  if (!fs.existsSync(AUDIT_FILE)) {
+    console.log(`   No audit history yet.`);
+    console.log(`   Operations are logged automatically when you run commands.`);
+    console.log(`   Log location: ${AUDIT_FILE}\n`);
+    return;
   }
-}
 
-/**
- * realitydb audit re-identify --token-map <file>
- */
-export async function auditReIdentifyCommand(options: { tokenMap?: string; ci?: boolean }): Promise<void> {
-  try {
-    if (!options.tokenMap) {
-      console.error('[realitydb] --token-map <file> is required for re-identify');
-      process.exit(1);
-    }
+  const lines = fs.readFileSync(AUDIT_FILE, 'utf-8').split('\n').filter(l => l.trim());
+  let entries = lines.map(l => {
+    try { return JSON.parse(l); } catch { return null; }
+  }).filter(Boolean);
 
-    const filePath = resolve(options.tokenMap);
-    const encryptedData = readFileSync(filePath, 'utf-8').trim();
-
-    const passphrase = await askPassphrase('Enter passphrase to decrypt token map: ');
-    if (!passphrase) {
-      console.error('[realitydb] Passphrase cannot be empty.');
-      process.exit(1);
-    }
-
-    const tokenMap = decryptTokenMap(encryptedData, passphrase);
-
-    if (options.ci) {
-      console.log(JSON.stringify({
-        totalTokens: tokenMap.totalTokens,
-        tokenPrefix: tokenMap.tokenPrefix,
-        createdAt: tokenMap.createdAt,
-        entries: tokenMap.entries.length,
-      }));
-      return;
-    }
-
-    console.log('');
-    console.log('Token Map Re-Identification');
-    console.log('═══════════════════════════════════════');
-    console.log(`Token prefix: ${tokenMap.tokenPrefix}`);
-    console.log(`Created: ${tokenMap.createdAt}`);
-    console.log('');
-
-    // Group by table
-    const byTable = new Map<string, typeof tokenMap.entries>();
-    for (const entry of tokenMap.entries) {
-      const existing = byTable.get(entry.tableName) ?? [];
-      existing.push(entry);
-      byTable.set(entry.tableName, existing);
-    }
-
-    for (const [tableName, entries] of byTable) {
-      console.log(`Table: ${tableName}`);
-      console.log('───────────────────────────────────────');
-      for (const entry of entries) {
-        console.log(`  ${entry.token} → ${String(entry.originalValue)} (${entry.columnName}, ${entry.piiCategory})`);
-      }
-      console.log('');
-    }
-
-    console.log(`Restored ${tokenMap.totalTokens} token mappings`);
-    console.log('');
-    console.log('These are real PII values. Handle according to your data policy.');
-    console.log('');
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    if (message.includes('Decryption failed')) {
-      console.error(message);
-    } else {
-      console.error(`[realitydb] Re-identify failed: ${message}`);
-    }
-    process.exit(1);
+  // Filter by date
+  if (options.since) {
+    const since = new Date(options.since).getTime();
+    entries = entries.filter(e => new Date(e.timestamp).getTime() >= since);
   }
+
+  // Filter by command
+  if (options.command) {
+    entries = entries.filter(e => e.command === options.command);
+  }
+
+  // Limit
+  const limit = options.limit ? parseInt(options.limit) : 50;
+  const total = entries.length;
+  entries = entries.slice(-limit);
+
+  console.log(`   Location: ${AUDIT_FILE}`);
+  console.log(`   Total entries: ${total}`);
+  if (options.since) console.log(`   Since: ${options.since}`);
+  if (options.command) console.log(`   Filter: ${options.command}`);
+  console.log(`   Showing: ${entries.length}`);
+  console.log(`${'\u2500'.repeat(40)}`);
+
+  if (entries.length === 0) {
+    console.log(`   No matching entries.\n`);
+    return;
+  }
+
+  for (const entry of entries) {
+    const time = new Date(entry.timestamp).toLocaleString();
+    const details: string[] = [];
+    if (entry.pack) details.push(`pack: ${entry.pack}`);
+    if (entry.rows) details.push(`rows: ${entry.rows.toLocaleString()}`);
+    if (entry.tables) details.push(`tables: ${entry.tables}`);
+    if (entry.format) details.push(`format: ${entry.format}`);
+    if (entry.duration) details.push(`time: ${entry.duration}`);
+    if (entry.connection) details.push(`db: ${entry.connection}`);
+
+    console.log(`   [${time}] ${entry.command}${details.length > 0 ? ' — ' + details.join(', ') : ''}`);
+  }
+
+  console.log(``);
 }

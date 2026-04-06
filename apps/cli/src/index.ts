@@ -8,6 +8,10 @@ import { scanCommand } from './commands/scan.js';
 import { initCommand } from './commands/init.js';
 import { maskCommand as maskCmd } from './commands/mask.js';
 import { analyzeCommand } from './commands/analyze.js';
+import { packListCommand, packInfoCommand, packValidateCommand } from './commands/pack.js';
+import { upgradeCommand } from './commands/upgrade.js';
+import { auditCommand } from './commands/audit.js';
+import { simulateCommand } from './commands/simulate.js';
 // import { templatesCommand, templatesInitCommand, templatesValidateCommand } from './commands/templates'; // TODO: re-enable after @databox/templates is wired
 import { requireAuth, loadLicense } from './auth/license';
 import * as fs from 'fs';
@@ -366,6 +370,60 @@ program
   .option('-o, --output <file>', 'Output file path')
   .option('--quick', 'Skip interactive prompts, use defaults')
   .action(initCommand);
+
+// SIMULATE COMMAND (Timeline + scenario injection)
+
+program
+  .command('simulate')
+  .description('Generate data across a timeline with scenario injection')
+  .option('-p, --pack <file>', 'RealityPack JSON file')
+  .option('--scenario <names>', 'Comma-separated scenarios (fraud-spike, churn-wave, etc.)')
+  .option('--timeline <duration>', 'Timeline duration (e.g. 12-months, 4-weeks)', '12-months')
+  .option('-r, --rows <number>', 'Number of rows to generate', '10000')
+  .option('-o, --output <file>', 'Output file path')
+  .option('-f, --format <type>', 'Output format: json, sql', 'json')
+  .option('--intensity <level>', 'Scenario intensity: low, medium, high', 'medium')
+  .option('-s, --seed <number>', 'Deterministic seed')
+  .option('--list-scenarios', 'List all available scenarios')
+  .action(simulateCommand);
+
+// PACK COMMANDS (Template management)
+
+program
+  .command('pack')
+  .description('List RealityDB packs in current directory')
+  .action(packListCommand);
+
+program
+  .command('pack:info')
+  .description('Show detailed info about a RealityDB pack')
+  .requiredOption('-p, --pack <file>', 'RealityPack JSON file')
+  .action(packInfoCommand);
+
+program
+  .command('pack:validate')
+  .description('Validate a RealityDB pack file')
+  .requiredOption('-p, --pack <file>', 'RealityPack JSON file')
+  .action(packValidateCommand);
+
+// UPGRADE COMMAND
+
+program
+  .command('upgrade')
+  .description('Upgrade your RealityDB plan')
+  .option('--plan <type>', 'Plan to upgrade to: pro, team, enterprise', 'pro')
+  .action(upgradeCommand);
+
+// AUDIT COMMAND
+
+program
+  .command('audit')
+  .description('View operation history')
+  .option('--since <date>', 'Show entries since date (YYYY-MM-DD)')
+  .option('--command <cmd>', 'Filter by command name')
+  .option('--limit <n>', 'Max entries to show', '50')
+  .option('--clear', 'Clear the audit log')
+  .action(auditCommand);
 
 // ANALYZE COMMAND (Data-driven strategy suggestions)
 
