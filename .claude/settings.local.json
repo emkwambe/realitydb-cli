@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(node apps/cli/dist/index.js export --template saas --format sql --records 10 --batch-size 5 --output test-saas)"
+    ]
+  }
+}

@@ -9,7 +9,7 @@
     "url": "https://github.com/emkwambe/databox.git"
   },
   "author": "Eddy Mkwambe",
-  "license": "MIT",
+  "license": "BSL-1.1",
   "scripts": {
     "build": "turbo run build",
     "clean": "turbo run clean",
