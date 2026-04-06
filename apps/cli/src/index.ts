@@ -81,19 +81,8 @@ program
 // RUN COMMAND (Free tier allowed)
 // ============================================
 
-program
-  .command('run')
-  .description('Generate synthetic data from a RealityPack')
-  .requiredOption('-p, --pack <file>', 'RealityPack JSON file')
-  .option('-r, --rows <number>', 'Number of rows to generate', '10000')
-  .option('-o, --output <file>', 'Output file path')
-  .option('-f, --format <type>', 'Output format: json, sql, csv', 'json')
-  .option('-c, --connection <string>', 'Database connection string')
-  .option('-s, --seed <number>', 'Deterministic seed for reproducibility')
-  .option('--schema-only', 'Output only CREATE TABLE statements (sql format)')
-  .option('--data-only', 'Output only INSERT statements, no CREATE TABLE (sql format)')
-  .option('--drop-tables', 'Include DROP TABLE IF EXISTS before CREATE (sql format)')
-  .action(async (options) => {
+
+async function runHandler(options: any) {
     const license = loadLicense();
     const isLoggedIn = !!license;
     const rows = parseInt(options.rows);
@@ -286,7 +275,21 @@ program
       console.error(`\nâŒ Generation failed: ${error.message}`);
       process.exit(1);
     }
-  });
+}
+
+program
+  .command('run')
+  .description('Generate synthetic data from a RealityPack')
+  .requiredOption('-p, --pack <file>', 'RealityPack JSON file')
+  .option('-r, --rows <number>', 'Number of rows to generate', '10000')
+  .option('-o, --output <file>', 'Output file path')
+  .option('-f, --format <type>', 'Output format: json, sql, csv', 'json')
+  .option('-c, --connection <string>', 'Database connection string')
+  .option('-s, --seed <number>', 'Deterministic seed for reproducibility')
+  .option('--schema-only', 'Output only CREATE TABLE statements (sql format)')
+  .option('--data-only', 'Output only INSERT statements, no CREATE TABLE (sql format)')
+  .option('--drop-tables', 'Include DROP TABLE IF EXISTS before CREATE (sql format)')
+  .action(runHandler);
 
 function printSummary(outputFile: string, actualTotal: number, elapsed: string) {
   console.log(`\n\u2705 Generation complete!`);
@@ -299,7 +302,41 @@ function printSummary(outputFile: string, actualTotal: number, elapsed: string) 
 }
 
 // ============================================
-// SEED COMMAND (Direct database insertion)
+// GENERATE COMMAND (alias for run — no DB required)
+// ============================================
+
+program
+  .command('generate')
+  .description('Generate large-scale datasets (alias for run)')
+  .requiredOption('-p, --pack <file>', 'RealityPack JSON file')
+  .option('-r, --rows <number>', 'Number of rows to generate', '10000')
+  .option('-o, --output <file>', 'Output file path')
+  .option('-f, --format <type>', 'Output format: json, sql, csv', 'json')
+  .option('-s, --seed <number>', 'Deterministic seed for reproducibility')
+  .option('--drop-tables', 'Include DROP TABLE IF EXISTS (SQL)')
+  .option('--schema-only', 'Output only CREATE TABLE (SQL)')
+  .option('--data-only', 'Output only INSERT statements (SQL)')
+  .action(runHandler);
+
+// ============================================
+// EXPORT COMMAND (alias for run with required output)
+// ============================================
+
+program
+  .command('export')
+  .description('Export data to file (alias for run)')
+  .requiredOption('-p, --pack <file>', 'RealityPack JSON file')
+  .requiredOption('-o, --output <file>', 'Output file path')
+  .option('-r, --rows <number>', 'Number of rows to generate', '10000')
+  .option('-f, --format <type>', 'Output format: json, sql, csv', 'json')
+  .option('-s, --seed <number>', 'Deterministic seed for reproducibility')
+  .option('--drop-tables', 'Include DROP TABLE IF EXISTS (SQL)')
+  .option('--schema-only', 'Output only CREATE TABLE (SQL)')
+  .option('--data-only', 'Output only INSERT statements (SQL)')
+  .action(runHandler);
+
+// ============================================
+// // SEED COMMAND (Direct database insertion)
 // ============================================
 
 program
