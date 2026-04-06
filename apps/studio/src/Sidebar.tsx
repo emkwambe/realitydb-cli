@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import AIGeneratorModal from './components/AIGeneratorModal';
 import { useSchemaStore } from './store';
 import { DataType } from './types';
 import { REALITY_TEMPLATES } from './templates';
@@ -22,10 +23,12 @@ import {
   CreditCard,
   Rocket,
   Activity,
+  Sparkles,
   Trash2
 } from 'lucide-react';
 
 export default function Sidebar() {
+  const [showAI, setShowAI] = useState(false);
   const { addTable, addColumn, selectedTableId, loadTemplate, clearAll, tables } = useSchemaStore();
 
   const quickFields = [
@@ -82,6 +85,13 @@ export default function Sidebar() {
           >
             <Plus size={14} />
             NEW TABLE
+          </button>
+          <button
+            onClick={() => setShowAI(true)}
+            className="w-full flex items-center justify-center gap-2 p-2 mt-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md text-xs font-medium transition-all shadow-sm"
+          >
+            <Sparkles size={14} />
+            GENERATE WITH AI
           </button>
           {tables.length > 0 && (
             <button
@@ -154,6 +164,7 @@ export default function Sidebar() {
           )}
         </section>
       </div>
+      {showAI && <AIGeneratorModal onClose={() => setShowAI(false)} />}
     </div>
   );
 }

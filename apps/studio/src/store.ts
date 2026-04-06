@@ -596,21 +596,21 @@ export const generateGhostRows = (table: Table, count: number = 5, allTables: Ta
 
     // First pass: non-dependent values
     table.columns.forEach((col) => {
-      if (!col.options.dependsOn) {
+      if (!col.options?.dependsOn) {
         row[col.name] = generateValue(col, allTables, projectContext, row, rng);
       }
     });
 
     // Second pass: dependent values
     table.columns.forEach((col) => {
-      if (col.options.dependsOn) {
+      if (col.options?.dependsOn) {
         row[col.name] = generateValue(col, allTables, projectContext, row, rng);
       }
     });
 
     // Third pass: lifecycle constraints
     table.columns.forEach((col) => {
-      if (col.strategy === 'enum' && col.options.lifecycleRules) {
+      if (col.strategy === 'enum' && col.options?.lifecycleRules) {
         const val = row[col.name];
         const rule = col.options.lifecycleRules.find((r: any) => r.value === val);
         if (rule?.nullFields) {
@@ -645,12 +645,12 @@ const generateValue = (
   }
 
   // Temporal dependency
-  if (col.options.dependsOn) {
+  if (col.options?.dependsOn) {
     const baseValue = currentRow[col.options.dependsOn];
     if (baseValue && (col.strategy === 'timestamp' || col.strategy === 'future_date' || col.strategy === 'past_date')) {
       const baseDate = new Date(baseValue);
       const offsetDays = rng.int(1, 90);
-      if (col.options.dependencyRule === 'after') {
+      if (col.options?.dependencyRule === 'after') {
         return new Date(baseDate.getTime() + offsetDays * 86400000).toISOString().split('T')[0];
       } else if (col.options.dependencyRule === 'before') {
         return new Date(baseDate.getTime() - offsetDays * 86400000).toISOString().split('T')[0];
@@ -679,16 +679,16 @@ const generateValue = (
       const d = new Date(Date.now() + rng.int(1, 365) * 86400000);
       return d.toISOString().split('T')[0];
     }
-    case 'integer': return rng.int(col.options.min ?? 1, col.options.max ?? 1000);
+    case 'integer': return rng.int(col.options?.min ?? 1, col.options?.max ?? 1000);
     case 'auto_increment': return (currentRow.id_index || 0) + 1;
     case 'decimal': {
-      const val = rng.float(col.options.min ?? 1, col.options.max ?? 1000);
+      const val = rng.float(col.options?.min ?? 1, col.options?.max ?? 1000);
       return Math.round(val * 100) / 100;
     }
     case 'boolean': return rng.bool();
     case 'enum': {
-      const vals = col.options.values || ['active', 'inactive', 'pending'];
-      const weights = col.options.weights || [];
+      const vals = col.options?.values || ['active', 'inactive', 'pending'];
+      const weights = col.options?.weights || [];
       if (weights.length === vals.length && weights.length > 0) {
         const totalWeight = weights.reduce((a: number, b: number) => a + b, 0);
         let r = rng.float(0, totalWeight);
