@@ -89,7 +89,7 @@ export default function AIGeneratorModal({ onClose }: AIGeneratorModalProps) {
 
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 120000);
+      const timeout = setTimeout(() => controller.abort(), 150000);
 
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -162,7 +162,7 @@ export default function AIGeneratorModal({ onClose }: AIGeneratorModalProps) {
 
     } catch (err: any) {
       if (err.name === 'AbortError') {
-        setError('Request timed out (120s). Try a simpler description or retry.');
+        setError('Request timed out (150s). Try a simpler description or retry.');
       } else {
         setError(err.message || 'An unexpected error occurred.');
       }
