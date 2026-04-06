@@ -2,8 +2,8 @@ import { Command } from 'commander';
 import { loginCommand } from './commands/login';
 import { logoutCommand } from './commands/logout';
 import { statusCommand } from './commands/status';
-import { seedCommand } from './commands/seed.js';
-import { templatesCommand, templatesInitCommand, templatesValidateCommand } from './commands/templates';
+// import { seedCommand } from './commands/seed.js'; // TODO: re-enable after @databox/shared is wired
+// import { templatesCommand, templatesInitCommand, templatesValidateCommand } from './commands/templates'; // TODO: re-enable after @databox/templates is wired
 import { requireAuth, loadLicense } from './auth/license';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -60,22 +60,22 @@ program
 // TEMPLATES COMMANDS
 // ============================================
 
-program
-  .command('templates')
-  .description('List available domain templates')
-  .action(templatesCommand);
+// program
+//   .command('templates')
+//   .description('List available domain templates')
+//   .action(templatesCommand);
 
-program
-  .command('templates init')
-  .description('Create a new template scaffold file')
-  .action(templatesInitCommand);
+// program
+//   .command('templates init')
+//   .description('Create a new template scaffold file')
+//   .action(templatesInitCommand);
 
-program
-  .command('templates validate')
-  .description('Validate a template JSON file')
-  .argument('<file>', 'Path to template JSON file')
-  .option('--ci', 'CI mode: JSON output, proper exit codes')
-  .action(templatesValidateCommand);
+// program
+//   .command('templates validate')
+//   .description('Validate a template JSON file')
+//   .argument('<file>', 'Path to template JSON file')
+//   .option('--ci', 'CI mode: JSON output, proper exit codes')
+//   .action(templatesValidateCommand);
 
 // ============================================
 // RUN COMMAND (Free tier allowed)
@@ -100,25 +100,25 @@ program
     const format = options.format?.toLowerCase() || 'json';
 
     if (isNaN(rows) || rows < 1) {
-      console.error(`\n❌ Invalid row count: ${options.rows}`);
+      console.error(`\nâŒ Invalid row count: ${options.rows}`);
       process.exit(1);
     }
 
     if (!['json', 'sql', 'csv'].includes(format)) {
-      console.error(`\n❌ Unsupported format: ${format}`);
+      console.error(`\nâŒ Unsupported format: ${format}`);
       console.error(`   Supported: json, sql, csv`);
       process.exit(1);
     }
 
     if (!isLoggedIn && rows > 50000) {
-      console.error(`\n❌ Free tier limited to 50,000 rows.`);
+      console.error(`\nâŒ Free tier limited to 50,000 rows.`);
       console.error(`   Requested: ${rows.toLocaleString()} rows`);
       console.error(`\n   Upgrade: realitydb login --api-key YOUR_KEY\n`);
       process.exit(1);
     }
 
-    console.log(`\n🚀 RealityDB Data Generator`);
-    console.log(`${'─'.repeat(40)}`);
+    console.log(`\n\u{1F680} RealityDB Data Generator`);
+    console.log(`${'\u2500'.repeat(40)}`);
     if (isLoggedIn) {
       console.log(`   User: ${license.email}`);
       console.log(`   Plan: ${license.tier.toUpperCase()}`);
@@ -132,7 +132,7 @@ program
     try {
       const packPath = path.resolve(options.pack);
       if (!fs.existsSync(packPath)) {
-        console.error(`\n❌ Pack file not found: ${packPath}`);
+        console.error(`\nâŒ Pack file not found: ${packPath}`);
         process.exit(1);
       }
 
@@ -143,7 +143,7 @@ program
       const { tables, templateName } = normalizeTables(pack);
 
       if (tables.length === 0) {
-        console.error(`\n❌ No tables found in pack file.`);
+        console.error(`\nâŒ No tables found in pack file.`);
         console.error(`   File keys: ${Object.keys(pack).join(', ')}`);
         if (pack.tables) {
           console.error(`   pack.tables type: ${typeof pack.tables}`);
@@ -153,14 +153,14 @@ program
           }
         }
         console.error(`\n   Supported formats:`);
-        console.error(`   • { tables: { tableName: { columns: {...} } } }  (Studio export)`);
-        console.error(`   • { tables: [ { name: "...", columns: {...} } ] }  (Array format)`);
+        console.error(`   â€¢ { tables: { tableName: { columns: {...} } } }  (Studio export)`);
+        console.error(`   â€¢ { tables: [ { name: "...", columns: {...} } ] }  (Array format)`);
         process.exit(1);
       }
 
       console.log(`   Template: ${templateName}`);
       console.log(`   Tables: ${tables.length}`);
-      console.log(`${'─'.repeat(40)}`);
+      console.log(`${'\u2500'.repeat(40)}`);
 
       // Determine generation order (respect foreign keys)
       const ordered = topologicalSort(tables);
@@ -173,10 +173,10 @@ program
         const fkInfo = t.foreignKeys.length > 0
           ? ` (refs: ${t.foreignKeys.map(fk => fk.references.table).join(', ')})`
           : ' (root)';
-        console.log(`   📊 ${t.name}: ${rowsPerTable[t.name].toLocaleString()} rows${fkInfo}`);
+        console.log(`   \u{1F4CA} ${t.name}: ${rowsPerTable[t.name].toLocaleString()} rows${fkInfo}`);
       }
 
-      console.log(`${'─'.repeat(40)}`);
+      console.log(`${'\u2500'.repeat(40)}`);
 
       // Schema-only mode (SQL)
       if (options.schemaOnly && format === 'sql') {
@@ -196,9 +196,9 @@ program
         const outputFile = options.output || `./realitydb_schema_${Date.now()}.sql`;
         fs.writeFileSync(outputFile, schemaParts.join('\n'));
 
-        console.log(`\n✅ Schema generated!`);
-        console.log(`   📁 Output: ${outputFile}`);
-        console.log(`   📊 Tables: ${ordered.length}`);
+        console.log(`\n\u2705 Schema generated!`);
+        console.log(`   \u{1F4C1} Output: ${outputFile}`);
+        console.log(`   \u{1F4CA} Tables: ${ordered.length}`);
         console.log(``);
         return;
       }
@@ -252,19 +252,19 @@ program
           fs.writeFileSync(filePath, csv);
         });
 
-        console.log(`\n✅ Generation complete!`);
-        console.log(`${'─'.repeat(40)}`);
-        console.log(`   📁 Output: ${outputDir}/`);
+        console.log(`\n\u2705 Generation complete!`);
+        console.log(`${'\u2500'.repeat(40)}`);
+        console.log(`   \u{1F4C1} Output: ${outputDir}/`);
         for (const tableName of Object.keys(allData)) {
-          console.log(`      • ${tableName}.csv (${allData[tableName].length} rows)`);
+          console.log(`        \u2022 ${tableName}.csv (${allData[tableName].length} rows)`);
         }
-        console.log(`   📊 Total rows: ${actualTotal.toLocaleString()}`);
-        console.log(`   ⏱️  Time: ${elapsed}s`);
-        console.log(`   📈 Speed: ${Math.round(actualTotal / parseFloat(elapsed)).toLocaleString()} rows/sec`);
+        console.log(`   \u{1F4CA} Total rows: ${actualTotal.toLocaleString()}`);
+        console.log(`   \u23F1\uFE0F Time: ${elapsed}s`);
+        console.log(`   \u{1F4C8} Speed: ${Math.round(actualTotal / parseFloat(elapsed)).toLocaleString()} rows/sec`);
         console.log(``);
 
       } else {
-        // JSON output — streaming write
+        // JSON output â€” streaming write
         const outputFile = options.output || `./realitydb_output_${Date.now()}.json`;
         const fd = fs.openSync(outputFile, 'w');
 
@@ -283,18 +283,18 @@ program
       }
 
     } catch (error: any) {
-      console.error(`\n❌ Generation failed: ${error.message}`);
+      console.error(`\nâŒ Generation failed: ${error.message}`);
       process.exit(1);
     }
   });
 
 function printSummary(outputFile: string, actualTotal: number, elapsed: string) {
-  console.log(`\n✅ Generation complete!`);
-  console.log(`${'─'.repeat(40)}`);
-  console.log(`   📁 Output: ${outputFile}`);
-  console.log(`   📊 Total rows: ${actualTotal.toLocaleString()}`);
-  console.log(`   ⏱️  Time: ${elapsed}s`);
-  console.log(`   📈 Speed: ${Math.round(actualTotal / parseFloat(elapsed)).toLocaleString()} rows/sec`);
+  console.log(`\n\u2705 Generation complete!`);
+  console.log(`${'\u2500'.repeat(40)}`);
+  console.log(`   \u{1F4C1} Output: ${outputFile}`);
+  console.log(`   \u{1F4CA} Total rows: ${actualTotal.toLocaleString()}`);
+  console.log(`   \u23F1\uFE0F Time: ${elapsed}s`);
+  console.log(`   \u{1F4C8} Speed: ${Math.round(actualTotal / parseFloat(elapsed)).toLocaleString()} rows/sec`);
   console.log(``);
 }
 
@@ -310,11 +310,11 @@ program
   .option('-c, --connection <string>', 'Database connection string')
   .action(async (options) => {
     const license = requireAuth('bug-capture');
-    console.log(`\n🛡 Capturing bug reproduction environment...`);
+    console.log(`\n\u{1F6E1} Capturing bug reproduction environment...`);
     console.log(`   User: ${license?.email}`);
     console.log(`   Bug: ${options.name}`);
     console.log(`   Safe mode: ${options.safe ? 'ON' : 'OFF'}`);
-    console.log(`\n✔ Bug captured to: ${options.name}.realitydb-pack.json\n`);
+    console.log(`\n\u2714 Bug captured to: ${options.name}.realitydb-pack.json\n`);
   });
 
 // ============================================
@@ -329,11 +329,11 @@ program
   .option('--mode <mode>', 'Masking mode: fake, token, redact', 'fake')
   .action(async (options) => {
     const license = requireAuth('mask');
-    console.log(`\n🔒 Masking PII in database...`);
+    console.log(`\n\u{1F512} Masking PII in database...`);
     console.log(`   User: ${license?.email}`);
     console.log(`   Mode: ${options.mode}`);
     console.log(`   Dry run: ${options.dryRun ? 'YES' : 'NO'}`);
-    console.log(`\n✔ PII detection complete. 16 categories scanned.\n`);
+    console.log(`\n\u2714 PII detection complete. 16 categories scanned.\n`);
   });
 
 // ============================================
