@@ -8,6 +8,17 @@ import { requireAuth, loadLicense } from './auth/license';
 import * as fs from 'fs';
 import * as path from 'path';
 
+import {
+  normalizeTables,
+  topologicalSort,
+  distributeRows,
+  generateData,
+  generateCreateTable,
+  generateInsertStatements,
+  writeJsonOutput,
+  writeCsvOutput,
+} from '@realitydb/engine';
+
 // Auto-read version from package.json
 const packageJson = JSON.parse(
   fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf-8')
@@ -46,503 +57,6 @@ program
   .action(statusCommand);
 
 // ============================================
-// MOCK VALUE GENERATOR
-// ============================================
-
-function generateMockValue(colDef: any, colName?: string): any {
-  if (typeof colDef === 'string') {
-    return generateByStrategy(colDef, {}, colName);
-  }
-  if (colDef && typeof colDef === 'object') {
-    return generateByStrategy(colDef.strategy || 'text', colDef.options || {}, colName);
-  }
-  return 'mock_value';
-}
-
-function generateByStrategy(strategy: string, options: any, colName?: string): any {
-  switch (strategy) {
-    case 'uuid':
-      return `${randomHex(8)}-${randomHex(4)}-4${randomHex(3)}-${randomHex(4)}-${randomHex(12)}`;
-    case 'company_name':
-      const companies = [
-        'Sunrise Bistro', 'Golden Plate', 'Harbor Grill', 'Mountain View Cafe',
-        'City Kitchen', 'The Local Table', 'Fresh & Co', 'Oak & Vine',
-        'Blue Ocean Sushi', 'Red Pepper Thai', 'Corner Deli', 'The Rustic Fork',
-        'Sage & Thyme', 'Firebird Pizza', 'Maple Street Diner', 'Cloud Nine Cafe',
-        'The Brass Tap', 'Luna Restaurant', 'Green Leaf Bistro', 'Stone Oven Bakery',
-      ];
-      return companies[Math.floor(Math.random() * companies.length)];
-    case 'enum':
-      if (options?.values && Array.isArray(options.values)) {
-        if (options.weights && Array.isArray(options.weights)) {
-          return weightedRandom(options.values, options.weights);
-        }
-        return options.values[Math.floor(Math.random() * options.values.length)];
-      }
-      return 'option_a';
-    case 'timestamp':
-      const now = Date.now();
-      const past = now - Math.floor(Math.random() * 365 * 24 * 60 * 60 * 1000);
-      return new Date(past).toISOString();
-    case 'integer':
-    case 'int':
-      const min = options?.min ?? 1;
-      const max = options?.max ?? 1000;
-      return Math.floor(Math.random() * (max - min + 1)) + min;
-    case 'float':
-    case 'decimal':
-    case 'money':
-      const fmin = options?.min ?? 1;
-      const fmax = options?.max ?? 999.99;
-      return parseFloat((Math.random() * (fmax - fmin) + fmin).toFixed(2));
-    case 'boolean':
-      return Math.random() > 0.5;
-    case 'email':
-      const emailPrefixes = ['alex', 'maria', 'chen', 'fatima', 'omar', 'priya', 'james', 'sarah', 'raj', 'elena'];
-      const emailDomains = ['gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'proton.me'];
-      return `${emailPrefixes[Math.floor(Math.random() * emailPrefixes.length)]}${Math.floor(Math.random() * 9999)}@${emailDomains[Math.floor(Math.random() * emailDomains.length)]}`;
-    case 'phone':
-      return `+1${Math.floor(1000000000 + Math.random() * 9000000000)}`;
-    case 'text':
-    case 'string':
-      return `sample_text_${Math.floor(Math.random() * 10000)}`;
-    case 'name':
-    case 'full_name':
-      const firstNames = ['James', 'Maria', 'Chen', 'Fatima', 'Alex', 'Priya', 'Omar', 'Sarah'];
-      const lastNames = ['Smith', 'Garcia', 'Wang', 'Johnson', 'Patel', 'Kim', 'Brown', 'Ali'];
-      return `${firstNames[Math.floor(Math.random() * firstNames.length)]} ${lastNames[Math.floor(Math.random() * lastNames.length)]}`;
-    case 'address':
-      return `${Math.floor(Math.random() * 9999)} Main St, City, ST ${Math.floor(10000 + Math.random() * 89999)}`;
-    default:
-      return `mock_${strategy}_${Math.floor(Math.random() * 1000)}`;
-  }
-}
-
-function randomHex(length: number): string {
-  let result = '';
-  const chars = '0123456789abcdef';
-  for (let i = 0; i < length; i++) {
-    result += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return result;
-}
-
-function weightedRandom(values: any[], weights: number[]): any {
-  const totalWeight = weights.reduce((a, b) => a + b, 0);
-  let random = Math.random() * totalWeight;
-  for (let i = 0; i < values.length; i++) {
-    random -= weights[i];
-    if (random <= 0) return values[i];
-  }
-  return values[values.length - 1];
-}
-
-// ============================================
-// NORMALIZE TABLES FROM ANY PACK FORMAT
-// ============================================
-
-interface NormalizedTable {
-  name: string;
-  columns: Record<string, any>;
-  foreignKeys: Array<{ column: string; references: { table: string; column: string } }>;
-}
-
-function normalizeTables(pack: any): { tables: NormalizedTable[]; templateName: string } {
-  let tables: NormalizedTable[] = [];
-  let templateName = pack.name || 'custom';
-
-  if (pack.tables) {
-    if (Array.isArray(pack.tables)) {
-      // Check if this is Studio v4.3.0 format (array of { id, name, columns: [...] })
-      const isStudioFormat = pack.tables.length > 0 && pack.tables[0].id && Array.isArray(pack.tables[0].columns);
-
-      if (isStudioFormat) {
-        // Build lookup maps: tableId -> tableName, columnId -> columnName
-        const tableIdToName: Record<string, string> = {};
-        const columnIdToName: Record<string, string> = {};
-        for (const t of pack.tables) {
-          tableIdToName[t.id] = t.name;
-          if (Array.isArray(t.columns)) {
-            for (const col of t.columns) {
-              columnIdToName[col.id] = col.name;
-            }
-          }
-        }
-
-        tables = pack.tables.map((t: any) => {
-          const columnsObj: Record<string, any> = {};
-          const fks: Array<{ column: string; references: { table: string; column: string } }> = [];
-
-          if (Array.isArray(t.columns)) {
-            for (const col of t.columns) {
-              const colEntry: any = {};
-              if (col.strategy) colEntry.strategy = col.strategy;
-              if (col.options) colEntry.options = col.options;
-              if (col.isPK) colEntry.isPK = true;
-
-              if (col.isFK && col.fkTarget) {
-                const refTableName = tableIdToName[col.fkTarget.tableId];
-                const refColName = columnIdToName[col.fkTarget.columnId];
-                if (refTableName && refColName) {
-                  colEntry.foreignKey = { table: refTableName, column: refColName };
-                  colEntry.strategy = colEntry.strategy || 'uuid';
-                  fks.push({
-                    column: col.name,
-                    references: { table: refTableName, column: refColName },
-                  });
-                }
-              }
-
-              columnsObj[col.name] = colEntry;
-            }
-          }
-
-          return {
-            name: t.name,
-            columns: columnsObj,
-            foreignKeys: fks,
-          };
-        });
-      } else {
-        // Format 1: plain array of { name, columns: {...}, ... }
-        tables = pack.tables.map((t: any) => ({
-          name: t.name || t.table_name || 'unknown',
-          columns: t.columns || t.schema || {},
-          foreignKeys: extractForeignKeys(t.columns || t.schema || {}),
-        }));
-      }
-    } else if (typeof pack.tables === 'object') {
-      // Format 2: tables is an object keyed by table name (Studio export format)
-      tables = Object.entries(pack.tables).map(([tableName, tableDef]: [string, any]) => ({
-        name: tableName,
-        columns: tableDef.columns || tableDef.schema || {},
-        foreignKeys: extractForeignKeys(tableDef.columns || tableDef.schema || {}),
-      }));
-    }
-  }
-
-  // Fallback: look for tables nested in schema or config
-  if (tables.length === 0) {
-    for (const key of ['schema', 'config', 'database']) {
-      const nested = pack[key];
-      if (nested?.tables) {
-        const result = normalizeTables({ ...pack, tables: nested.tables, name: templateName });
-        if (result.tables.length > 0) return result;
-      }
-    }
-  }
-
-  return { tables, templateName };
-}
-
-function extractForeignKeys(columns: Record<string, any>): Array<{ column: string; references: { table: string; column: string } }> {
-  const fks: Array<{ column: string; references: { table: string; column: string } }> = [];
-  for (const [colName, colDef] of Object.entries(columns)) {
-    if (colDef && typeof colDef === 'object' && colDef.foreignKey) {
-      fks.push({
-        column: colName,
-        references: {
-          table: colDef.foreignKey.table,
-          column: colDef.foreignKey.column,
-        },
-      });
-    }
-  }
-  return fks;
-}
-
-// ============================================
-// TOPOLOGICAL SORT (for FK ordering)
-// ============================================
-
-function topologicalSort(tables: NormalizedTable[]): NormalizedTable[] {
-  const tableMap = new Map(tables.map(t => [t.name, t]));
-  const visited = new Set<string>();
-  const result: NormalizedTable[] = [];
-
-  function visit(name: string) {
-    if (visited.has(name)) return;
-    visited.add(name);
-    const table = tableMap.get(name);
-    if (!table) return;
-    for (const fk of table.foreignKeys) {
-      if (tableMap.has(fk.references.table)) {
-        visit(fk.references.table);
-      }
-    }
-    result.push(table);
-  }
-
-  for (const table of tables) {
-    visit(table.name);
-  }
-
-  return result;
-}
-
-// ============================================
-// SQL TYPE INFERENCE
-// ============================================
-
-function inferSqlType(colName: string, colDef: any): string {
-  const strategy = typeof colDef === 'string' ? colDef : colDef?.strategy || 'text';
-
-  switch (strategy) {
-    case 'uuid':
-      return 'UUID';
-    case 'integer':
-    case 'int':
-      return 'INTEGER';
-    case 'float':
-    case 'decimal':
-    case 'money':
-      return 'NUMERIC(12,2)';
-    case 'boolean':
-      return 'BOOLEAN';
-    case 'timestamp':
-      return 'TIMESTAMPTZ';
-    case 'text':
-      return 'TEXT';
-    case 'email':
-    case 'company_name':
-    case 'name':
-    case 'full_name':
-    case 'address':
-      return 'VARCHAR(255)';
-    case 'enum':
-      return 'VARCHAR(50)';
-    case 'phone':
-      return 'VARCHAR(20)';
-    case 'string':
-    default:
-      return 'VARCHAR(255)';
-  }
-}
-
-function isNullableColumn(colName: string, colDef: any, tableColumns: Record<string, any>): boolean {
-  // Check if any sibling enum column has lifecycleRules that null this column
-  for (const [_, sibDef] of Object.entries(tableColumns)) {
-    const sib = sibDef as any;
-    if (sib?.options?.lifecycleRules) {
-      for (const rule of sib.options.lifecycleRules) {
-        if (rule.nullFields && rule.nullFields.includes(colName)) {
-          return true;
-        }
-      }
-    }
-  }
-  // Also check dependsOn — dependent timestamps can be null
-  if (colDef?.options?.dependsOn) {
-    return true;
-  }
-  return false;
-}
-
-// ============================================
-// SQL GENERATION
-// ============================================
-
-function generateCreateTable(table: NormalizedTable): string {
-  const lines: string[] = [];
-  const constraints: string[] = [];
-
-  for (const [colName, colDef] of Object.entries(table.columns)) {
-    const sqlType = inferSqlType(colName, colDef);
-    const nullable = isNullableColumn(colName, colDef, table.columns);
-    const isPK = colName === 'id';
-
-    let line = `  "${colName}" ${sqlType}`;
-    if (!nullable) line += ' NOT NULL';
-    if (isPK) line += ' PRIMARY KEY';
-    // Add DEFAULT gen_random_uuid() for UUID primary keys
-    if (isPK && sqlType === 'UUID') line += ' DEFAULT gen_random_uuid()';
-
-    lines.push(line);
-  }
-
-  // Add FK constraints
-  for (const fk of table.foreignKeys) {
-    const constraintName = `fk_${table.name}_${fk.column}`;
-    constraints.push(
-      `  CONSTRAINT "${constraintName}" FOREIGN KEY ("${fk.column}") REFERENCES "${fk.references.table}"("${fk.references.column}")`
-    );
-  }
-
-  const allLines = [...lines, ...constraints].join(',\n');
-  return `CREATE TABLE "${table.name}" (\n${allLines}\n);\n`;
-}
-
-function escapeSqlValue(value: any): string {
-  if (value === null || value === undefined) return 'NULL';
-  if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
-  if (typeof value === 'number') return value.toString();
-  // String — escape single quotes
-  const escaped = String(value).replace(/'/g, "''");
-  return `'${escaped}'`;
-}
-
-function generateInsertStatements(tableName: string, rows: any[], batchSize: number = 100): string {
-  if (rows.length === 0) return '';
-
-  const columns = Object.keys(rows[0]);
-  const colList = columns.map(c => `"${c}"`).join(', ');
-  const parts: string[] = [];
-
-  parts.push(`-- ${tableName}: ${rows.length} rows`);
-
-  for (let i = 0; i < rows.length; i += batchSize) {
-    const batch = rows.slice(i, i + batchSize);
-    const valueRows = batch.map(row => {
-      const vals = columns.map(col => escapeSqlValue(row[col]));
-      return `  (${vals.join(', ')})`;
-    });
-    parts.push(`INSERT INTO "${tableName}" (${colList}) VALUES\n${valueRows.join(',\n')};\n`);
-  }
-
-  return parts.join('\n');
-}
-
-// ============================================
-// DATA GENERATION ENGINE
-// ============================================
-
-interface GenerationResult {
-  allData: Record<string, any[]>;
-  actualTotal: number;
-  elapsed: string;
-}
-
-function generateData(
-  ordered: NormalizedTable[],
-  rowsPerTable: Record<string, number>,
-  pack: any,
-): GenerationResult {
-  const startTime = Date.now();
-  const generatedIds: Record<string, any[]> = {};
-  const allData: Record<string, any[]> = {};
-
-  for (const table of ordered) {
-    const tableRows = rowsPerTable[table.name];
-    const tableData: any[] = [];
-    const ids: any[] = [];
-
-    // Get lifecycle rules from enum columns
-    const lifecycleMap = getLifecycleMap(table.columns);
-
-    for (let i = 0; i < tableRows; i++) {
-      const row: Record<string, any> = {};
-      let activeLifecycleNulls: string[] = [];
-
-      // First pass: generate enum values to determine lifecycle nulls
-      for (const [colName, colDef] of Object.entries(table.columns)) {
-        const def = colDef as any;
-        if (def?.strategy === 'enum' && def?.options?.lifecycleRules) {
-          const enumValue = generateMockValue(def, colName);
-          row[colName] = enumValue;
-          // Check if this enum value triggers null fields
-          for (const rule of def.options.lifecycleRules) {
-            if (rule.value === enumValue && rule.nullFields) {
-              activeLifecycleNulls.push(...rule.nullFields);
-            }
-          }
-        }
-      }
-
-      // Second pass: generate all other columns
-      for (const [colName, colDef] of Object.entries(table.columns)) {
-        const def = colDef as any;
-
-        // Skip if already generated (enum with lifecycle)
-        if (row[colName] !== undefined) continue;
-
-        // Apply lifecycle null rules
-        if (activeLifecycleNulls.includes(colName)) {
-          row[colName] = null;
-          continue;
-        }
-
-        // Foreign key resolution
-        if (def?.foreignKey) {
-          const refTable = def.foreignKey.table;
-          const refIds = generatedIds[refTable];
-          if (refIds && refIds.length > 0) {
-            row[colName] = refIds[Math.floor(Math.random() * refIds.length)];
-          } else {
-            row[colName] = generateMockValue(def, colName);
-          }
-        } else if (def?.options?.dependsOn && def?.options?.dependencyRule === 'after') {
-          // Dependent timestamp: generate a time after the dependency
-          const depValue = row[def.options.dependsOn];
-          if (depValue) {
-            const depTime = new Date(depValue).getTime();
-            const offset = Math.floor(Math.random() * 7 * 24 * 60 * 60 * 1000); // 0-7 days after
-            row[colName] = new Date(depTime + offset).toISOString();
-          } else {
-            row[colName] = null; // dependency is null, so this is null too
-          }
-        } else {
-          row[colName] = generateMockValue(def, colName);
-        }
-
-        // Track IDs for foreign key lookups
-        if (colName === 'id') {
-          ids.push(row[colName]);
-        }
-      }
-
-      tableData.push(row);
-    }
-
-    generatedIds[table.name] = ids;
-    allData[table.name] = tableData;
-  }
-
-  const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
-  const actualTotal = Object.values(allData).reduce((sum, arr) => sum + arr.length, 0);
-
-  return { allData, actualTotal, elapsed };
-}
-
-function getLifecycleMap(columns: Record<string, any>): Map<string, string[]> {
-  const map = new Map<string, string[]>();
-  for (const [colName, colDef] of Object.entries(columns)) {
-    const def = colDef as any;
-    if (def?.options?.lifecycleRules) {
-      for (const rule of def.options.lifecycleRules) {
-        if (rule.nullFields) {
-          map.set(`${colName}:${rule.value}`, rule.nullFields);
-        }
-      }
-    }
-  }
-  return map;
-}
-
-// ============================================
-// ROW DISTRIBUTION
-// ============================================
-
-function distributeRows(ordered: NormalizedTable[], totalRows: number): Record<string, number> {
-  const rowsPerTable: Record<string, number> = {};
-  const rootCount = ordered.filter(t => t.foreignKeys.length === 0).length;
-  const childCount = ordered.length - rootCount;
-  const totalWeight = rootCount * 2 + childCount;
-
-  for (const t of ordered) {
-    const weight = t.foreignKeys.length === 0 ? 2 : 1;
-    rowsPerTable[t.name] = Math.ceil((totalRows * weight) / totalWeight);
-  }
-
-  // Scale to hit exact target
-  const totalPlanned = Object.values(rowsPerTable).reduce((a, b) => a + b, 0);
-  const scale = totalRows / totalPlanned;
-  for (const name of Object.keys(rowsPerTable)) {
-    rowsPerTable[name] = Math.max(1, Math.round(rowsPerTable[name] * scale));
-  }
-
-  return rowsPerTable;
-}
-// ============================================
 // TEMPLATES COMMANDS
 // ============================================
 
@@ -562,6 +76,7 @@ program
   .argument('<file>', 'Path to template JSON file')
   .option('--ci', 'CI mode: JSON output, proper exit codes')
   .action(templatesValidateCommand);
+
 // ============================================
 // RUN COMMAND (Free tier allowed)
 // ============================================
@@ -572,7 +87,7 @@ program
   .requiredOption('-p, --pack <file>', 'RealityPack JSON file')
   .option('-r, --rows <number>', 'Number of rows to generate', '10000')
   .option('-o, --output <file>', 'Output file path')
-  .option('-f, --format <type>', 'Output format: json, sql', 'json')
+  .option('-f, --format <type>', 'Output format: json, sql, csv', 'json')
   .option('-c, --connection <string>', 'Database connection string')
   .option('-s, --seed <number>', 'Deterministic seed for reproducibility')
   .option('--schema-only', 'Output only CREATE TABLE statements (sql format)')
@@ -589,9 +104,9 @@ program
       process.exit(1);
     }
 
-    if (!['json', 'sql'].includes(format)) {
+    if (!['json', 'sql', 'csv'].includes(format)) {
       console.error(`\n❌ Unsupported format: ${format}`);
-      console.error(`   Supported: json, sql`);
+      console.error(`   Supported: json, sql, csv`);
       process.exit(1);
     }
 
@@ -693,12 +208,8 @@ program
       // Generate data
       const { allData, actualTotal, elapsed } = generateData(ordered, rowsPerTable, pack);
 
-      // Determine output file
-      const ext = format === 'sql' ? 'sql' : 'json';
-      const outputFile = options.output || `./realitydb_output_${Date.now()}.${ext}`;
-
       if (format === 'sql') {
-        // SQL output
+        const outputFile = options.output || `./realitydb_output_${Date.now()}.sql`;
         const sqlParts: string[] = [];
         sqlParts.push(`-- ============================================`);
         sqlParts.push(`-- Generated by RealityDB CLI v${VERSION}`);
@@ -707,12 +218,10 @@ program
         sqlParts.push(`-- Generated at: ${new Date().toISOString()}`);
         sqlParts.push(`-- ============================================\n`);
 
-        // CREATE TABLE statements (unless --data-only)
         if (!options.dataOnly) {
           sqlParts.push(`-- ============================================`);
           sqlParts.push(`-- SCHEMA`);
           sqlParts.push(`-- ============================================\n`);
-
           for (const table of ordered) {
             if (options.dropTables) {
               sqlParts.push(`DROP TABLE IF EXISTS "${table.name}" CASCADE;`);
@@ -721,11 +230,9 @@ program
           }
         }
 
-        // INSERT statements
         sqlParts.push(`-- ============================================`);
         sqlParts.push(`-- DATA`);
         sqlParts.push(`-- ============================================\n`);
-
         for (const table of ordered) {
           const tableData = allData[table.name];
           if (tableData && tableData.length > 0) {
@@ -734,71 +241,46 @@ program
         }
 
         fs.writeFileSync(outputFile, sqlParts.join('\n'));
+        printSummary(outputFile, actualTotal, elapsed);
+
+      } else if (format === 'csv') {
+        const outputDir = options.output || `./realitydb_csv_${Date.now()}`;
+        fs.mkdirSync(outputDir, { recursive: true });
+
+        writeCsvOutput(allData, (table, csv) => {
+          const filePath = path.join(outputDir, `${table}.csv`);
+          fs.writeFileSync(filePath, csv);
+        });
+
+        console.log(`\n✅ Generation complete!`);
+        console.log(`${'─'.repeat(40)}`);
+        console.log(`   📁 Output: ${outputDir}/`);
+        for (const tableName of Object.keys(allData)) {
+          console.log(`      • ${tableName}.csv (${allData[tableName].length} rows)`);
+        }
+        console.log(`   📊 Total rows: ${actualTotal.toLocaleString()}`);
+        console.log(`   ⏱️  Time: ${elapsed}s`);
+        console.log(`   📈 Speed: ${Math.round(actualTotal / parseFloat(elapsed)).toLocaleString()} rows/sec`);
+        console.log(``);
 
       } else {
-        // JSON output â€” streaming write to avoid string length limits on large datasets
+        // JSON output — streaming write
+        const outputFile = options.output || `./realitydb_output_${Date.now()}.json`;
         const fd = fs.openSync(outputFile, 'w');
-        const write = (s: string) => fs.writeSync(fd, s);
 
-        write('{\n');
-        write('  "_meta": {\n');
-        write(`    "generator": "realitydb-cli",\n`);
-        write(`    "version": "${VERSION}",\n`);
-        write(`    "generated_at": "${new Date().toISOString()}",\n`);
-        write(`    "template": ${JSON.stringify(templateName)},\n`);
-        write(`    "total_rows": ${actualTotal},\n`);
-        write(`    "elapsed_seconds": ${parseFloat(elapsed)},\n`);
-        write(`    "seed": ${options.seed ? options.seed : 'null'}\n`);
-        write('  },\n');
-        write('  "tables": {\n');
+        writeJsonOutput(allData, {
+          generator: 'realitydb-cli',
+          version: VERSION,
+          generated_at: new Date().toISOString(),
+          template: templateName,
+          total_rows: actualTotal,
+          elapsed_seconds: parseFloat(elapsed),
+          seed: options.seed ? parseInt(options.seed) : null,
+        }, (chunk) => fs.writeSync(fd, chunk));
 
-        const tableNames = Object.keys(allData);
-        for (let ti = 0; ti < tableNames.length; ti++) {
-          const tableName = tableNames[ti];
-          const tableData = allData[tableName];
-          const isLastTable = ti === tableNames.length - 1;
-
-          write(`    ${JSON.stringify(tableName)}: {\n`);
-          write(`      "row_count": ${tableData.length},\n`);
-          write(`      "data": [\n`);
-
-          // Write rows in batches to avoid string length limits
-          const BATCH_SIZE = 500;
-          for (let i = 0; i < tableData.length; i += BATCH_SIZE) {
-            const batch = tableData.slice(i, Math.min(i + BATCH_SIZE, tableData.length));
-            const lines = batch.map((row: any, idx: number) => {
-              const isLast = (i + idx) === tableData.length - 1;
-              return `        ${JSON.stringify(row)}${isLast ? '' : ','}`;
-            });
-            write(lines.join('\n') + '\n');
-          }
-
-          write(`      ]\n`);
-          write(`    }${isLastTable ? '' : ','}\n`);
-
-          // Log progress for large datasets
-          if (actualTotal > 100000) {
-            const pct = Math.round(((ti + 1) / tableNames.length) * 100);
-            process.stdout.write(`\r   Writing JSON... ${pct}% (${tableName})`);
-          }
-        }
-
-        if (actualTotal > 100000) {
-          process.stdout.write('\r' + ' '.repeat(60) + '\r');
-        }
-
-        write('  }\n');
-        write('}\n');
         fs.closeSync(fd);
+        printSummary(outputFile, actualTotal, elapsed);
       }
-
-      console.log(`\n✅ Generation complete!`);
-      console.log(`${'─'.repeat(40)}`);
-      console.log(`   📁 Output: ${outputFile}`);
-      console.log(`   📊 Total rows: ${actualTotal.toLocaleString()}`);
-      console.log(`   ⏱️  Time: ${elapsed}s`);
-      console.log(`   📈 Speed: ${Math.round(actualTotal / parseFloat(elapsed)).toLocaleString()} rows/sec`);
-      console.log(``);
 
     } catch (error: any) {
       console.error(`\n❌ Generation failed: ${error.message}`);
@@ -806,6 +288,15 @@ program
     }
   });
 
+function printSummary(outputFile: string, actualTotal: number, elapsed: string) {
+  console.log(`\n✅ Generation complete!`);
+  console.log(`${'─'.repeat(40)}`);
+  console.log(`   📁 Output: ${outputFile}`);
+  console.log(`   📊 Total rows: ${actualTotal.toLocaleString()}`);
+  console.log(`   ⏱️  Time: ${elapsed}s`);
+  console.log(`   📈 Speed: ${Math.round(actualTotal / parseFloat(elapsed)).toLocaleString()} rows/sec`);
+  console.log(``);
+}
 
 // ============================================
 // CAPTURE COMMAND (Requires authentication + Team plan)
@@ -823,7 +314,6 @@ program
     console.log(`   User: ${license?.email}`);
     console.log(`   Bug: ${options.name}`);
     console.log(`   Safe mode: ${options.safe ? 'ON' : 'OFF'}`);
-    // TODO: Call your existing capture logic here
     console.log(`\n✔ Bug captured to: ${options.name}.realitydb-pack.json\n`);
   });
 
@@ -843,7 +333,6 @@ program
     console.log(`   User: ${license?.email}`);
     console.log(`   Mode: ${options.mode}`);
     console.log(`   Dry run: ${options.dryRun ? 'YES' : 'NO'}`);
-    // TODO: Call your existing mask logic here
     console.log(`\n✔ PII detection complete. 16 categories scanned.\n`);
   });
 

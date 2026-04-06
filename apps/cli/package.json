@@ -53,6 +53,7 @@
     "typescript": "^5.4.0"
   },
   "dependencies": {
+    "@realitydb/engine": "workspace:*",
     "axios": "^1.7.9",
     "open": "^10.1.0",
     "pg": "^8.20.0"

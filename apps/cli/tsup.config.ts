@@ -24,9 +24,8 @@ export default defineConfig({
     '@databox/db',
     '@databox/generators',
     '@databox/schema',
-    '@databox/shared',
-    '@databox/templates',
+    '@realitydb/engine',
     'commander',
   ],
-  external: ['pg'],
+  external: ['pg', '@databox/shared', '@databox/templates'],
 });
