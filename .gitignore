@@ -162,3 +162,15 @@ databox.config.json
 *-sprint*.md
 how-we-work-together*.md
 LOCAL_TESTING_PLAN.md
+
+# Generated data files
+*.json.tmp
+banking_*.json
+*_500k.*
+*_100k.*
+
+# Generated data files
+*.json.tmp
+banking_*.json
+*_500k.*
+*_100k.*

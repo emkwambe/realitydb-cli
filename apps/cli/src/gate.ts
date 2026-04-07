@@ -90,7 +90,9 @@ export function gateRows(rows: number): GateResult {
     const used = getRowsUsedThisMonth();
     const wouldUse = used + rows;
     if (wouldUse > CORE_MONTHLY_LIMIT) {
-      return { allowed: false, tier: 'core', reason: `Core tier: 500,000 rows/month. Used: ${used.toLocaleString()}. Overage available at $20/1M rows.` };
+      // Soft warning only — Core users are paying customers
+      // Hard enforcement comes with Stripe overage billing
+      console.log(`\n   \u26A0\uFE0F  Monthly usage: ${wouldUse.toLocaleString()} / 500,000 rows. Overage may apply.\n`);
     }
   }
 
