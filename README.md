@@ -164,7 +164,7 @@ realitydb simulate
 realitydb classroom
 ```
 
-## Dogfood Pipeline
+## Dogfood Pipeline.
 
 RealityDB generates its own Sandbox demo data:
 
