@@ -299,4 +299,4 @@ tools/
 
 ## License
 
-MIT
+BSL-1.1
