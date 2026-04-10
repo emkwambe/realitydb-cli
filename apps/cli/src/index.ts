@@ -430,6 +430,7 @@ program
   .option('--create-tables', 'Create tables from pack schema before inserting')
   .option('--drop-tables', 'Drop and recreate tables before inserting')
   .option('--batch-size <number>', 'Rows per INSERT batch', '100')
+  .option('--dry-run', 'Simulate seeding without executing — show what would be inserted')
   .action(async (...args: any[]) => { const _g = gateCommand('seed'); if (!_g.allowed) { printUpgradePrompt(_g.reason!); process.exit(1); } await seedCommand(...args); })
 
 // ============================================
@@ -518,6 +519,8 @@ program
   .requiredOption('-p, --pack <file>', 'RealityPack JSON file')
   .option('-r, --rows <number>', 'Rows per iteration', '10000')
   .option('-n, --iterations <number>', 'Number of iterations', '3')
+  .option('--json', 'Machine-readable JSON output for CI')
+  .option('--tables', 'Show per-table breakdown')
   .action(benchmarkCommand);
 
 // ANOMALY COMMAND (Inject controlled anomalies for ML training)

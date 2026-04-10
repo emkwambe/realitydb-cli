@@ -16,6 +16,7 @@ export async function seedCommand(options: {
   createTables?: boolean;
   dropTables?: boolean;
   batchSize?: string;
+  dryRun?: boolean;
 }): Promise<void> {
   const license = loadLicense();
   const isLoggedIn = !!license;
@@ -101,6 +102,19 @@ export async function seedCommand(options: {
   const client = new pg.Client({ connectionString: options.connection });
 
   try {
+    if (options.dryRun) {
+      console.log(`\n\u{1F50D} Dry Run — No data will be inserted\n`);
+      const { allData, actualTotal, elapsed } = generateData(ordered, rowsPerTable);
+      console.log(`   Generated ${actualTotal.toLocaleString()} rows in ${elapsed}s\n`);
+      for (const table of ordered) {
+        const rows = allData[table.name];
+        console.log(`   \u{1F4CB} ${table.name}: ${rows?.length || 0} rows would be inserted`);
+      }
+      console.log(`\n   Database: ${masked}`);
+      console.log(`   To execute: remove --dry-run flag\n`);
+      return;
+    }
+
     await client.connect();
     console.log(`   \u2705 Connected`);
 
