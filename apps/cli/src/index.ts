@@ -112,9 +112,9 @@ async function runHandler(options: any) {
       process.exit(1);
     }
 
-    if (!['json', 'sql', 'csv'].includes(format)) {
+    if (!['json', 'sql', 'csv', 'parquet'].includes(format)) {
       console.error(`\nâŒ Unsupported format: ${format}`);
-      console.error(`   Supported: json, sql, csv`);
+      console.error(`   Supported: json, sql, csv, parquet`);
       process.exit(1);
     }
 
@@ -278,6 +278,56 @@ async function runHandler(options: any) {
         console.log(`   \u{1F4C8} Speed: ${Math.round(actualTotal / parseFloat(elapsed)).toLocaleString()} rows/sec`);
         console.log(``);
 
+      } else if (format === 'parquet') {
+        // Parquet output: CSV files + DuckDB conversion script
+        const parquetDir = options.output || ('./realitydb_parquet_' + Date.now());
+        fs.mkdirSync(parquetDir, { recursive: true });
+        
+        const tableNames = Object.keys(allData);
+        for (const tn of tableNames) {
+          const tRows = allData[tn];
+          if (!tRows || tRows.length === 0) continue;
+          const tCols = Object.keys(tRows[0]);
+          const csvLines = [tCols.join(',')];
+          for (const row of tRows) {
+            csvLines.push(tCols.map(c => {
+              const v = row[c];
+              if (v === null || v === undefined) return '';
+              if (typeof v === 'string') return '"' + v.replace(/"/g, '""') + '"';
+              if (typeof v === 'object') return '"' + JSON.stringify(v).replace(/"/g, '""') + '"';
+              return String(v);
+            }).join(','));
+          }
+          fs.writeFileSync(path.join(parquetDir, tn + '.csv'), csvLines.join('\n'), 'utf-8');
+        }
+        
+        // DuckDB conversion script
+        const activeTableNames = tableNames.filter(t => allData[t] && allData[t].length > 0);
+        const convScript = [
+          '-- RealityDB \u2192 Parquet Conversion',
+          '-- Install DuckDB: https://duckdb.org/docs/installation',
+          '-- Run: duckdb < convert.sql',
+          '',
+          ...activeTableNames.map(t => "COPY (SELECT * FROM read_csv_auto('" + t + ".csv', header=true)) TO '" + t + ".parquet' (FORMAT PARQUET);"),
+          '',
+          '-- After conversion, delete CSV files:',
+          ...activeTableNames.map(t => '-- DELETE: ' + t + '.csv'),
+        ];
+        fs.writeFileSync(path.join(parquetDir, 'convert.sql'), convScript.join('\n'), 'utf-8');
+        
+        console.log('\n\u2705 Generation complete!');
+        console.log('\u2500'.repeat(40));
+        console.log('   \u{1F4C1} Output: ' + parquetDir + '/');
+        for (const tn of activeTableNames) {
+          console.log('        \u2022 ' + tn + '.csv (' + allData[tn].length + ' rows)');
+        }
+        console.log('        \u2022 convert.sql (DuckDB script)');
+        console.log('   \u{1F4CA} Total rows: ' + actualTotal.toLocaleString());
+        console.log('   \u23F1\uFE0F  Time: ' + elapsed + 's');
+        console.log('');
+        console.log('   Convert to Parquet:');
+        console.log('   cd "' + parquetDir + '" && duckdb < convert.sql');
+        console.log('');
       } else {
         // JSON output â€” streaming write
         const outputFile = options.output || `./realitydb_output_${Date.now()}.json`;
@@ -309,7 +359,7 @@ program
   .requiredOption('-p, --pack <file>', 'RealityPack JSON file')
   .option('-r, --rows <number>', 'Number of rows to generate', '10000')
   .option('-o, --output <file>', 'Output file path')
-  .option('-f, --format <type>', 'Output format: json, sql, csv', 'json')
+  .option('-f, --format <type>', 'Output format: json, sql, csv, parquet', 'json')
   .option('-c, --connection <string>', 'Database connection string')
   .option('-s, --seed <number>', 'Deterministic seed for reproducibility')
   .option('--schema-only', 'Output only CREATE TABLE statements (sql format)')
