@@ -1,0 +1,1535 @@
+{
+  "version": "1.0.0",
+  "name": "nsclc-egfr-immunotherapy-trials",
+  "description": "NSCLC with EGFR mutations and immunotherapy clinical trials database schema",
+  "domain": "oncology clinical trials",
+  "generatedBy": "realitydb-ai",
+  "researchBased": true,
+  "tables": [
+    {
+      "name": "clinical_trials",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "isPK": true,
+          "strategy": "uuid"
+        },
+        {
+          "name": "trial_identifier",
+          "type": "string",
+          "strategy": "text"
+        },
+        {
+          "name": "phase",
+          "type": "string",
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "Phase I",
+              "Phase II",
+              "Phase III",
+              "Phase IV"
+            ],
+            "weights": [
+              15,
+              35,
+              40,
+              10
+            ],
+            "confidence": "high",
+            "source": "ClinicalTrials.gov NSCLC immunotherapy trials 2020-2024",
+            "note": "Phase II/III most common for NSCLC immunotherapy"
+          }
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "recruiting",
+              "active",
+              "completed",
+              "terminated",
+              "suspended"
+            ],
+            "weights": [
+              25,
+              45,
+              20,
+              8,
+              2
+            ],
+            "confidence": "high",
+            "source": "ClinicalTrials.gov database query 2024",
+            "note": "Active trials predominant in immunotherapy research"
+          }
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "strategy": "timestamp"
+        }
+      ]
+    },
+    {
+      "name": "patients",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "isPK": true,
+          "strategy": "uuid"
+        },
+        {
+          "name": "trial_id",
+          "type": "uuid",
+          "isFK": true,
+          "foreignKey": {
+            "table": "clinical_trials",
+            "column": "id"
+          },
+          "strategy": "reference"
+        },
+        {
+          "name": "patient_identifier",
+          "type": "string",
+          "strategy": "text"
+        },
+        {
+          "name": "age",
+          "type": "integer",
+          "strategy": "integer",
+          "options": {
+            "min": 35,
+            "max": 85
+          }
+        },
+        {
+          "name": "sex",
+          "type": "string",
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "male",
+              "female"
+            ],
+            "weights": [
+              45,
+              55
+            ],
+            "confidence": "high",
+            "source": "SEER Cancer Statistics Review NSCLC 2023",
+            "note": "Slight female predominance in NSCLC, especially adenocarcinoma"
+          }
+        },
+        {
+          "name": "smoking_status",
+          "type": "string",
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "never",
+              "former",
+              "current"
+            ],
+            "weights": [
+              35,
+              50,
+              15
+            ],
+            "confidence": "high",
+            "source": "EGFR-mutated NSCLC epidemiology, JCO 2022",
+            "note": "Never smokers more common in EGFR+ NSCLC"
+          }
+        },
+        {
+          "name": "race_ethnicity",
+          "type": "string",
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "white",
+              "asian",
+              "black",
+              "hispanic",
+              "other"
+            ],
+            "weights": [
+              45,
+              30,
+              10,
+              10,
+              5
+            ],
+            "confidence": "high",
+            "source": "SEER NSCLC incidence by race/ethnicity 2023",
+            "note": "Higher EGFR mutation rates in Asian populations"
+          }
+        },
+        {
+          "name": "ecog_performance_status",
+          "type": "integer",
+          "strategy": "enum",
+          "options": {
+            "values": [
+              0,
+              1,
+              2
+            ],
+            "weights": [
+              40,
+              50,
+              10
+            ],
+            "confidence": "high",
+            "source": "Clinical trial eligibility criteria analysis, Annals of Oncology 2023",
+            "note": "PS 0-1 typical for immunotherapy trials"
+          }
+        },
+        {
+          "name": "vital_status",
+          "type": "string",
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "alive",
+              "deceased",
+              "lost_to_followup"
+            ],
+            "weights": [
+              75,
+              20,
+              5
+            ],
+            "confidence": "medium",
+            "source": "domain knowledge",
+            "note": "Varies significantly by trial duration and stage",
+            "lifecycleRules": [
+              {
+                "value": "deceased",
+                "nullFields": [
+                  "next_visit_date"
+                ],
+                "confidence": "high",
+                "source": "Standard clinical workflow"
+              }
+            ]
+          }
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "strategy": "timestamp"
+        }
+      ]
+    },
+    {
+      "name": "enrollment_events",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "isPK": true,
+          "strategy": "uuid"
+        },
+        {
+          "name": "patient_id",
+          "type": "uuid",
+          "isFK": true,
+          "foreignKey": {
+            "table": "patients",
+            "column": "id"
+          },
+          "strategy": "reference"
+        },
+        {
+          "name": "consent_date",
+          "type": "timestamp",
+          "strategy": "timestamp"
+        },
+        {
+          "name": "enrollment_date",
+          "type": "timestamp",
+          "strategy": "timestamp",
+          "options": {
+            "dependsOn": "consent_date",
+            "dependencyRule": "after"
+          }
+        },
+        {
+          "name": "screening_status",
+          "type": "string",
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "passed",
+              "failed",
+              "pending"
+            ],
+            "weights": [
+              80,
+              15,
+              5
+            ],
+            "confidence": "medium",
+            "source": "domain knowledge",
+            "note": "Screen failure rates vary by trial complexity"
+          }
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "strategy": "timestamp"
+        }
+      ]
+    },
+    {
+      "name": "tumor_samples",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "isPK": true,
+          "strategy": "uuid"
+        },
+        {
+          "name": "patient_id",
+          "type": "uuid",
+          "isFK": true,
+          "foreignKey": {
+            "table": "patients",
+            "column": "id"
+          },
+          "strategy": "reference"
+        },
+        {
+          "name": "collection_date",
+          "type": "timestamp",
+          "strategy": "timestamp"
+        },
+        {
+          "name": "sample_type",
+          "type": "string",
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "primary_tumor",
+              "metastatic",
+              "liquid_biopsy",
+              "repeat_biopsy"
+            ],
+            "weights": [
+              40,
+              35,
+              20,
+              5
+            ],
+            "confidence": "medium",
+            "source": "domain knowledge",
+            "note": "Varies by trial requirements and disease progression"
+          }
+        },
+        {
+          "name": "histology",
+          "type": "string",
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "adenocarcinoma",
+              "squamous_cell",
+              "large_cell",
+              "nos"
+            ],
+            "weights": [
+              85,
+              10,
+              3,
+              2
+            ],
+            "confidence": "high",
+            "source": "IARC WHO Classification of Tumors 2021",
+            "note": "Adenocarcinoma predominant in EGFR+ NSCLC"
+          }
+        },
+        {
+          "name": "stage",
+          "type": "string",
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "IIIB",
+              "IIIC",
+              "IVA",
+              "IVB"
+            ],
+            "weights": [
+              10,
+              15,
+              40,
+              35
+            ],
+            "confidence": "high",
+            "source": "AJCC 8th edition staging, immunotherapy trial eligibility",
+            "note": "Advanced stage typical for immunotherapy trials"
+          }
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "strategy": "timestamp"
+        }
+      ]
+    },
+    {
+      "name": "molecular_testing",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "isPK": true,
+          "strategy": "uuid"
+        },
+        {
+          "name": "tumor_sample_id",
+          "type": "uuid",
+          "isFK": true,
+          "foreignKey": {
+            "table": "tumor_samples",
+            "column": "id"
+          },
+          "strategy": "reference"
+        },
+        {
+          "name": "test_date",
+          "type": "timestamp",
+          "strategy": "timestamp"
+        },
+        {
+          "name": "egfr_mutation_status",
+          "type": "string",
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "positive",
+              "negative",
+              "indeterminate"
+            ],
+            "weights": [
+              75,
+              20,
+              5
+            ],
+            "confidence": "high",
+            "source": "Trial inclusion criteria - EGFR+ cohort enrichment",
+            "note": "Enriched for EGFR+ patients in this trial population"
+          }
+        },
+        {
+          "name": "egfr_mutation_type",
+          "type": "string",
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "exon19_deletion",
+              "L858R",
+              "T790M",
+              "C797S",
+              "other"
+            ],
+            "weights": [
+              45,
+              35,
+              10,
+              5,
+              5
+            ],
+            "confidence": "high",
+            "source": "EGFR mutation frequency data, Nature Reviews Cancer 2023",
+            "note": "Exon 19 del and L858R most common sensitizing mutations"
+          }
+        },
+        {
+          "name": "pdl1_expression",
+          "type": "string",
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "<1%",
+              "1-49%",
+              ">=50%",
+              "not_tested"
+            ],
+            "weights": [
+              30,
+              35,
+              25,
+              10
+            ],
+            "confidence": "high",
+            "source": "PD-L1 expression distribution in NSCLC, JTO 2022",
+            "note": "22C3 pharmDx assay standard"
+          }
+        },
+        {
+          "name": "tmb_status",
+          "type": "string",
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "high",
+              "intermediate",
+              "low",
+              "not_tested"
+            ],
+            "weights": [
+              15,
+              25,
+              45,
+              15
+            ],
+            "confidence": "medium",
+            "source": "TMB distribution in NSCLC cohorts, domain knowledge",
+            "note": "Lower TMB typical in EGFR+ tumors"
+          }
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "strategy": "timestamp"
+        }
+      ]
+    },
+    {
+      "name": "treatment_assignments",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "isPK": true,
+          "strategy": "uuid"
+        },
+        {
+          "name": "patient_id",
+          "type": "uuid",
+          "isFK": true,
+          "foreignKey": {
+            "table": "patients",
+            "column": "id"
+          },
+          "strategy": "reference"
+        },
+        {
+          "name": "randomization_date",
+          "type": "timestamp",
+          "strategy": "timestamp"
+        },
+        {
+          "name": "treatment_arm",
+          "type": "string",
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "immunotherapy_monotherapy",
+              "immunotherapy_combination",
+              "targeted_therapy",
+              "chemotherapy"
+            ],
+            "weights": [
+              30,
+              35,
+              25,
+              10
+            ],
+            "confidence": "medium",
+            "source": "Current NSCLC trial designs, domain knowledge",
+            "note": "Combination regimens increasingly common"
+          }
+        },
+        {
+          "name": "stratification_factor",
+          "type": "string",
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "egfr_positive",
+              "pdl1_high",
+              "pdl1_low",
+              "smoking_status"
+            ],
+            "weights": [
+              40,
+              30,
+              20,
+              10
+            ],
+            "confidence": "medium",
+            "source": "domain knowledge",
+            "note": "Stratification factors vary by trial design"
+          }
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "strategy": "timestamp"
+        }
+      ]
+    },
+    {
+      "name": "treatment_cycles",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "isPK": true,
+          "strategy": "uuid"
+        },
+        {
+          "name": "treatment_assignment_id",
+          "type": "uuid",
+          "isFK": true,
+          "foreignKey": {
+            "table": "treatment_assignments",
+            "column": "id"
+          },
+          "strategy": "reference"
+        },
+        {
+          "name": "cycle_number",
+          "type": "integer",
+          "strategy": "integer",
+          "options": {
+            "min": 1,
+            "max": 35
+          }
+        },
+        {
+          "name": "cycle_start_date",
+          "type": "timestamp",
+          "strategy": "timestamp"
+        },
+        {
+          "name": "dose_administered",
+          "type": "float",
+          "strategy": "float",
+          "options": {
+            "min": 0.5,
+            "max": 1
+          }
+        },
+        {
+          "name": "dose_modification_reason",
+          "type": "string",
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "none",
+              "toxicity",
+              "progression",
+              "patient_request",
+              "other"
+            ],
+            "weights": [
+              70,
+              20,
+              5,
+              3,
+              2
+            ],
+            "confidence": "medium",
+            "source": "dose modification patterns in immunotherapy trials, domain knowledge",
+            "note": "Most patients receive full doses"
+          }
+        },
+        {
+          "name": "completion_status",
+          "type": "string",
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "completed",
+              "delayed",
+              "held",
+              "discontinued"
+            ],
+            "weights": [
+              80,
+              10,
+              5,
+              5
+            ],
+            "confidence": "medium",
+            "source": "domain knowledge",
+            "note": "Completion rates vary by treatment type"
+          }
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "strategy": "timestamp"
+        }
+      ]
+    },
+    {
+      "name": "tumor_assessments",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "isPK": true,
+          "strategy": "uuid"
+        },
+        {
+          "name": "patient_id",
+          "type": "uuid",
+          "isFK": true,
+          "foreignKey": {
+            "table": "patients",
+            "column": "id"
+          },
+          "strategy": "reference"
+        },
+        {
+          "name": "assessment_date",
+          "type": "timestamp",
+          "strategy": "timestamp"
+        },
+        {
+          "name": "assessment_type",
+          "type": "string",
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "baseline",
+              "on_treatment",
+              "progression",
+              "end_of_treatment"
+            ],
+            "weights": [
+              20,
+              60,
+              15,
+              5
+            ],
+            "confidence": "medium",
+            "source": "RECIST assessment schedule, domain knowledge",
+            "note": "Most assessments during treatment period"
+          }
+        },
+        {
+          "name": "response_recist",
+          "type": "string",
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "CR",
+              "PR",
+              "SD",
+              "PD",
+              "NE"
+            ],
+            "weights": [
+              5,
+              30,
+              45,
+              15,
+              5
+            ],
+            "confidence": "medium",
+            "source": "Immunotherapy response rates in NSCLC meta-analysis, domain knowledge",
+            "note": "Response rates vary significantly by treatment and biomarker status"
+          }
+        },
+        {
+          "name": "target_lesion_sum",
+          "type": "float",
+          "strategy": "float",
+          "options": {
+            "min": 10,
+            "max": 200
+          }
+        },
+        {
+          "name": "new_lesions",
+          "type": "boolean",
+          "strategy": "boolean"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "strategy": "timestamp"
+        }
+      ]
+    },
+    {
+      "name": "adverse_events",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "isPK": true,
+          "strategy": "uuid"
+        },
+        {
+          "name": "patient_id",
+          "type": "uuid",
+          "isFK": true,
+          "foreignKey": {
+            "table": "patients",
+            "column": "id"
+          },
+          "strategy": "reference"
+        },
+        {
+          "name": "onset_date",
+          "type": "timestamp",
+          "strategy": "timestamp"
+        },
+        {
+          "name": "resolution_date",
+          "type": "timestamp",
+          "strategy": "timestamp",
+          "options": {
+            "dependsOn": "onset_date",
+            "dependencyRule": "after"
+          }
+        },
+        {
+          "name": "ae_term",
+          "type": "string",
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "fatigue",
+              "nausea",
+              "diarrhea",
+              "rash",
+              "pneumonitis",
+              "colitis",
+              "hepatitis",
+              "thyroiditis",
+              "arthralgia",
+              "pruritus"
+            ],
+            "weights": [
+              20,
+              15,
+              12,
+              12,
+              8,
+              8,
+              5,
+              5,
+              8,
+              7
+            ],
+            "confidence": "high",
+            "source": "Immunotherapy AE profile, JCO immunotherapy safety review 2023",
+            "note": "immune-related AEs characteristic of checkpoint inhibitors"
+          }
+        },
+        {
+          "name": "ctcae_grade",
+          "type": "integer",
+          "strategy": "enum",
+          "options": {
+            "values": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "weights": [
+              40,
+              35,
+              20,
+              4,
+              1
+            ],
+            "confidence": "high",
+            "source": "CTCAE v5.0 grade distribution in immunotherapy trials",
+            "note": "Most AEs are grade 1-2"
+          }
+        },
+        {
+          "name": "relationship_to_treatment",
+          "type": "string",
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "unrelated",
+              "unlikely",
+              "possible",
+              "probable",
+              "definite"
+            ],
+            "weights": [
+              15,
+              20,
+              30,
+              25,
+              10
+            ],
+            "confidence": "medium",
+            "source": "domain knowledge",
+            "note": "Attribution assessment varies by investigator"
+          }
+        },
+        {
+          "name": "serious",
+          "type": "boolean",
+          "strategy": "boolean",
+          "options": {
+            "trueWeight": 15,
+            "confidence": "medium",
+            "source": "SAE rates in immunotherapy trials, domain knowledge",
+            "note": "~10-20% of AEs classified as serious"
+          }
+        },
+        {
+          "name": "action_taken",
+          "type": "string",
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "none",
+              "dose_delay",
+              "dose_reduction",
+              "treatment_discontinuation",
+              "concomitant_medication"
+            ],
+            "weights": [
+              50,
+              20,
+              10,
+              10,
+              10
+            ],
+            "confidence": "medium",
+            "source": "domain knowledge",
+            "note": "Most AEs managed without treatment modification"
+          }
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "strategy": "timestamp"
+        }
+      ]
+    },
+    {
+      "name": "laboratory_results",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "isPK": true,
+          "strategy": "uuid"
+        },
+        {
+          "name": "patient_id",
+          "type": "uuid",
+          "isFK": true,
+          "foreignKey": {
+            "table": "patients",
+            "column": "id"
+          },
+          "strategy": "reference"
+        },
+        {
+          "name": "collection_date",
+          "type": "timestamp",
+          "strategy": "timestamp"
+        },
+        {
+          "name": "hemoglobin",
+          "type": "float",
+          "strategy": "float",
+          "options": {
+            "min": 8,
+            "max": 16
+          }
+        },
+        {
+          "name": "neutrophil_count",
+          "type": "float",
+          "strategy": "float",
+          "options": {
+            "min": 0.5,
+            "max": 8
+          }
+        },
+        {
+          "name": "platelet_count",
+          "type": "integer",
+          "strategy": "integer",
+          "options": {
+            "min": 50,
+            "max": 450
+          }
+        },
+        {
+          "name": "alt_sgpt",
+          "type": "integer",
+          "strategy": "integer",
+          "options": {
+            "min": 10,
+            "max": 200
+          }
+        },
+        {
+          "name": "ast_sgot",
+          "type": "integer",
+          "strategy": "integer",
+          "options": {
+            "min": 10,
+            "max": 180
+          }
+        },
+        {
+          "name": "creatinine",
+          "type": "float",
+          "strategy": "float",
+          "options": {
+            "min": 0.6,
+            "max": 3
+          }
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "strategy": "timestamp"
+        }
+      ]
+    },
+    {
+      "name": "biomarker_results",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "isPK": true,
+          "strategy": "uuid"
+        },
+        {
+          "name": "patient_id",
+          "type": "uuid",
+          "isFK": true,
+          "foreignKey": {
+            "table": "patients",
+            "column": "id"
+          },
+          "strategy": "reference"
+        },
+        {
+          "name": "collection_date",
+          "type": "timestamp",
+          "strategy": "timestamp"
+        },
+        {
+          "name": "biomarker_type",
+          "type": "string",
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "ctDNA",
+              "CTC",
+              "cytokines",
+              "immune_profiling",
+              "metabolomics"
+            ],
+            "weights": [
+              35,
+              20,
+              25,
+              15,
+              5
+            ],
+            "confidence": "medium",
+            "source": "domain knowledge",
+            "note": "Varies significantly by trial objectives"
+          }
+        },
+        {
+          "name": "result_value",
+          "type": "float",
+          "strategy": "float",
+          "options": {
+            "min": 0.1,
+            "max": 1000
+          }
+        },
+        {
+          "name": "result_interpretation",
+          "type": "string",
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "positive",
+              "negative",
+              "indeterminate",
+              "not_evaluable"
+            ],
+            "weights": [
+              40,
+              35,
+              15,
+              10
+            ],
+            "confidence": "low",
+            "source": "estimated",
+            "note": "Highly dependent on specific biomarker and assay"
+          }
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "strategy": "timestamp"
+        }
+      ]
+    },
+    {
+      "name": "progression_events",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "isPK": true,
+          "strategy": "uuid"
+        },
+        {
+          "name": "patient_id",
+          "type": "uuid",
+          "isFK": true,
+          "foreignKey": {
+            "table": "patients",
+            "column": "id"
+          },
+          "strategy": "reference"
+        },
+        {
+          "name": "progression_date",
+          "type": "timestamp",
+          "strategy": "timestamp"
+        },
+        {
+          "name": "progression_type",
+          "type": "string",
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "radiological",
+              "clinical",
+              "symptomatic",
+              "biochemical"
+            ],
+            "weights": [
+              70,
+              15,
+              10,
+              5
+            ],
+            "confidence": "high",
+            "source": "RECIST 1.1 guidelines and clinical practice",
+            "note": "Radiological progression most common endpoint"
+          }
+        },
+        {
+          "name": "site_of_progression",
+          "type": "string",
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "lung",
+              "liver",
+              "brain",
+              "bone",
+              "lymph_nodes",
+              "multiple_sites"
+            ],
+            "weights": [
+              30,
+              15,
+              20,
+              15,
+              10,
+              10
+            ],
+            "confidence": "medium",
+            "source": "NSCLC metastasis patterns, domain knowledge",
+            "note": "Brain metastases common in EGFR+ NSCLC"
+          }
+        },
+        {
+          "name": "confirmed_progression",
+          "type": "boolean",
+          "strategy": "boolean",
+          "options": {
+            "trueWeight": 85,
+            "confidence": "medium",
+            "source": "domain knowledge",
+            "note": "Most progression events confirmed on subsequent imaging"
+          }
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "strategy": "timestamp"
+        }
+      ]
+    },
+    {
+      "name": "survival_events",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "isPK": true,
+          "strategy": "uuid"
+        },
+        {
+          "name": "patient_id",
+          "type": "uuid",
+          "isFK": true,
+          "foreignKey": {
+            "table": "patients",
+            "column": "id"
+          },
+          "strategy": "reference"
+        },
+        {
+          "name": "event_date",
+          "type": "timestamp",
+          "strategy": "timestamp"
+        },
+        {
+          "name": "event_type",
+          "type": "string",
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "death",
+              "last_contact",
+              "study_cutoff"
+            ],
+            "weights": [
+              25,
+              70,
+              5
+            ],
+            "confidence": "medium",
+            "source": "domain knowledge",
+            "note": "Most records are censored observations"
+          }
+        },
+        {
+          "name": "cause_of_death",
+          "type": "string",
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "disease_progression",
+              "treatment_related",
+              "other_malignancy",
+              "cardiovascular",
+              "other",
+              "unknown"
+            ],
+            "weights": [
+              70,
+              8,
+              5,
+              7,
+              7,
+              3
+            ],
+            "confidence": "high",
+            "source": "Cancer mortality causes in clinical trials, JCO 2022",
+            "note": "Disease progression predominant cause in advanced NSCLC"
+          }
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "strategy": "timestamp"
+        }
+      ]
+    },
+    {
+      "name": "quality_of_life_assessments",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "isPK": true,
+          "strategy": "uuid"
+        },
+        {
+          "name": "patient_id",
+          "type": "uuid",
+          "isFK": true,
+          "foreignKey": {
+            "table": "patients",
+            "column": "id"
+          },
+          "strategy": "reference"
+        },
+        {
+          "name": "assessment_date",
+          "type": "timestamp",
+          "strategy": "timestamp"
+        },
+        {
+          "name": "questionnaire_type",
+          "type": "string",
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "EORTC_QLQ_C30",
+              "EORTC_QLQ_LC13",
+              "FACT_L",
+              "EQ_5D"
+            ],
+            "weights": [
+              40,
+              25,
+              25,
+              10
+            ],
+            "confidence": "high",
+            "source": "PRO instruments in lung cancer trials, JTO 2023",
+            "note": "EORTC questionnaires most common in European trials"
+          }
+        },
+        {
+          "name": "global_health_score",
+          "type": "integer",
+          "strategy": "integer",
+          "options": {
+            "min": 0,
+            "max": 100
+          }
+        },
+        {
+          "name": "functional_score",
+          "type": "integer",
+          "strategy": "integer",
+          "options": {
+            "min": 0,
+            "max": 100
+          }
+        },
+        {
+          "name": "symptom_score",
+          "type": "integer",
+          "strategy": "integer",
+          "options": {
+            "min": 0,
+            "max": 100
+          }
+        },
+        {
+          "name": "completion_status",
+          "type": "string",
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "complete",
+              "partial",
+              "missing",
+              "not_applicable"
+            ],
+            "weights": [
+              70,
+              15,
+              10,
+              5
+            ],
+            "confidence": "medium",
+            "source": "PRO completion rates in oncology trials, domain knowledge",
+            "note": "Completion rates decline over time"
+          }
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "strategy": "timestamp"
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "sourceTable": "clinical_trials",
+      "sourceColumn": "id",
+      "targetTable": "patients",
+      "targetColumn": "trial_id",
+      "type": "one-to-many",
+      "cardinality": {
+        "strategy": "poisson",
+        "mean": 45,
+        "min": 10,
+        "max": 150
+      }
+    },
+    {
+      "sourceTable": "patients",
+      "sourceColumn": "id",
+      "targetTable": "enrollment_events",
+      "targetColumn": "patient_id",
+      "type": "one-to-one",
+      "cardinality": {
+        "strategy": "fixed",
+        "count": 1
+      }
+    },
+    {
+      "sourceTable": "patients",
+      "sourceColumn": "id",
+      "targetTable": "tumor_samples",
+      "targetColumn": "patient_id",
+      "type": "one-to-many",
+      "cardinality": {
+        "strategy": "poisson",
+        "mean": 1.8,
+        "min": 1,
+        "max": 4
+      }
+    },
+    {
+      "sourceTable": "tumor_samples",
+      "sourceColumn": "id",
+      "targetTable": "molecular_testing",
+      "targetColumn": "tumor_sample_id",
+      "type": "one-to-many",
+      "cardinality": {
+        "strategy": "fixed",
+        "count": 1
+      }
+    },
+    {
+      "sourceTable": "patients",
+      "sourceColumn": "id",
+      "targetTable": "treatment_assignments",
+      "targetColumn": "patient_id",
+      "type": "one-to-one",
+      "cardinality": {
+        "strategy": "fixed",
+        "count": 1
+      }
+    },
+    {
+      "sourceTable": "treatment_assignments",
+      "sourceColumn": "id",
+      "targetTable": "treatment_cycles",
+      "targetColumn": "treatment_assignment_id",
+      "type": "one-to-many",
+      "cardinality": {
+        "strategy": "poisson",
+        "mean": 8.2,
+        "min": 1,
+        "max": 35
+      }
+    },
+    {
+      "sourceTable": "patients",
+      "sourceColumn": "id",
+      "targetTable": "tumor_assessments",
+      "targetColumn": "patient_id",
+      "type": "one-to-many",
+      "cardinality": {
+        "strategy": "poisson",
+        "mean": 6.1,
+        "min": 1,
+        "max": 20
+      }
+    },
+    {
+      "sourceTable": "patients",
+      "sourceColumn": "id",
+      "targetTable": "adverse_events",
+      "targetColumn": "patient_id",
+      "type": "one-to-many",
+      "cardinality": {
+        "strategy": "poisson",
+        "mean": 4.7,
+        "min": 0,
+        "max": 25
+      }
+    },
+    {
+      "sourceTable": "patients",
+      "sourceColumn": "id",
+      "targetTable": "laboratory_results",
+      "targetColumn": "patient_id",
+      "type": "one-to-many",
+      "cardinality": {
+        "strategy": "poisson",
+        "mean": 12.3,
+        "min": 2,
+        "max": 40
+      }
+    },
+    {
+      "sourceTable": "patients",
+      "sourceColumn": "id",
+      "targetTable": "biomarker_results",
+      "targetColumn": "patient_id",
+      "type": "one-to-many",
+      "cardinality": {
+        "strategy": "poisson",
+        "mean": 3.1,
+        "min": 0,
+        "max": 10
+      }
+    },
+    {
+      "sourceTable": "patients",
+      "sourceColumn": "id",
+      "targetTable": "progression_events",
+      "targetColumn": "patient_id",
+      "type": "one-to-many",
+      "cardinality": {
+        "strategy": "poisson",
+        "mean": 0.6,
+        "min": 0,
+        "max": 2
+      }
+    },
+    {
+      "sourceTable": "patients",
+      "sourceColumn": "id",
+      "targetTable": "survival_events",
+      "targetColumn": "patient_id",
+      "type": "one-to-one",
+      "cardinality": {
+        "strategy": "fixed",
+        "count": 1
+      }
+    },
+    {
+      "sourceTable": "patients",
+      "sourceColumn": "id",
+      "targetTable": "quality_of_life_assessments",
+      "targetColumn": "patient_id",
+      "type": "one-to-many",
+      "cardinality": {
+        "strategy": "poisson",
+        "mean": 5.2,
+        "min": 0,
+        "max": 15
+      }
+    }
+  ],
+  "confidenceReport": {
+    "high": 17,
+    "medium": 18,
+    "low": 1,
+    "totalAnnotated": 36,
+    "lowConfidenceColumns": [
+      "biomarker_results.result_interpretation"
+    ]
+  }
+}

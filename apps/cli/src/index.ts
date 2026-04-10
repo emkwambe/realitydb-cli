@@ -18,6 +18,8 @@ import { explainCommand } from './commands/explain.js';
 import { benchmarkCommand } from './commands/benchmark.js';
 import { anomalyCommand } from './commands/anomaly.js';
 import { ciStartCommand } from './commands/ci.js';
+import { ruleListCommand } from './commands/rule.js';
+import { generateTemplateCommand } from './commands/generate-template.js';
 import { captureCommand } from './commands/capture.js';
 import { loadCommand } from './commands/load.js';
 // import { templatesCommand, templatesInitCommand, templatesValidateCommand } from './commands/templates'; // TODO: re-enable after @databox/templates is wired
@@ -30,6 +32,7 @@ import {
   normalizeTables,
   topologicalSort,
   distributeRows,
+  distributeRowsVariable,
   generateData,
   generateCreateTable,
   generateInsertStatements,
@@ -186,7 +189,10 @@ async function runHandler(options: any) {
       const ordered = topologicalSort(tables);
 
       // Distribute rows
-      const rowsPerTable = distributeRows(ordered, rows);
+      // Use variable cardinality if pack has relationship configs
+    const rowsPerTable = pack?.relationships?.some((r: any) => r.cardinality)
+      ? distributeRowsVariable(ordered, rows, pack)
+      : distributeRows(ordered, rows);
 
       // Show table plan
       for (const t of ordered) {
@@ -554,6 +560,30 @@ program
   .option('-o, --output <file>', 'Output file path (default: platform-specific)')
   .option('--connection-var <name>', 'Environment variable name for DB connection', 'DATABASE_URL')
   .action(ciStartCommand);
+
+// AI TEMPLATE GENERATION
+
+program
+  .command('generate:template')
+  .description('AI-generate a research-based template with confidence scoring')
+  .option('-d, --domain <type>', 'Domain: oncology, banking, cybersecurity, etc.')
+  .option('--prompt <text>', 'Specific requirements for the template')
+  .option('-t, --tables <number>', 'Approximate number of tables', '14')
+  .option('--research-based', 'Include citations and confidence levels (default: true)')
+  .option('--no-research-based', 'Skip research-based annotations')
+  .option('-o, --output <file>', 'Output file path')
+  .option('--model <name>', 'Claude model to use', 'claude-sonnet-4-20250514')
+  .action(generateTemplateCommand);
+
+// RULE COMMANDS
+
+program
+  .command('rule:list')
+  .description('Show all lifecycle rules, temporal rules, and weighted enums in a pack')
+  .requiredOption('-p, --pack <file>', 'RealityPack JSON file')
+  .option('--table <n>', 'Filter by table name')
+  .option('--json', 'Machine-readable JSON output')
+  .action(ruleListCommand);
 
 // PACK COMMANDS (Template management)
 

@@ -26,6 +26,58 @@ export function topologicalSort(tables: NormalizedTable[]): NormalizedTable[] {
   return result;
 }
 
+
+// --- Variable Cardinality Support ---
+
+function samplePoisson(lambda: number): number {
+  if (lambda <= 0) return 0;
+  if (lambda < 30) {
+    const L = Math.exp(-lambda);
+    let k = 0;
+    let p = 1;
+    do { k++; p *= Math.random(); } while (p > L);
+    return k - 1;
+  } else {
+    const u = Math.random();
+    const z = Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * Math.random());
+    return Math.max(0, Math.round(lambda + Math.sqrt(lambda) * z));
+  }
+}
+
+function sampleCardinality(config: any): number {
+  if (!config || !config.strategy) return 1;
+  let count: number;
+  switch (config.strategy) {
+    case 'fixed':
+      count = config.mean || 1;
+      break;
+    case 'poisson':
+      count = samplePoisson(config.mean || 1);
+      break;
+    case 'uniform':
+      count = Math.floor(Math.random() * ((config.max || 3) - (config.min || 1) + 1)) + (config.min || 1);
+      break;
+    default:
+      count = 1;
+  }
+  if (config.min !== undefined) count = Math.max(count, config.min);
+  if (config.max !== undefined) count = Math.min(count, config.max);
+  return Math.max(0, Math.round(count));
+}
+
+// Build cardinality lookup from pack relationships
+export function buildCardinalityMap(pack: any): Record<string, any> {
+  const map: Record<string, any> = {};
+  const rels = pack?.relationships || [];
+  for (const rel of rels) {
+    const target = rel.targetTable || rel.child;
+    if (target && rel.cardinality) {
+      map[target] = rel.cardinality;
+    }
+  }
+  return map;
+}
+
 export function distributeRows(ordered: NormalizedTable[], totalRows: number): Record<string, number> {
   const rowsPerTable: Record<string, number> = {};
   const rootCount = ordered.filter(t => t.foreignKeys.length === 0).length;
@@ -47,10 +99,73 @@ export function distributeRows(ordered: NormalizedTable[], totalRows: number): R
   return rowsPerTable;
 }
 
+
+
+// Variable cardinality distribution — uses pack relationship configs
+export function distributeRowsVariable(
+  ordered: NormalizedTable[],
+  totalRows: number,
+  pack: any
+): Record<string, number> {
+  const cardMap = buildCardinalityMap(pack);
+  const hasAnyCardinality = Object.keys(cardMap).length > 0;
+  
+  // If no cardinality configs, fall back to original fixed distribution
+  if (!hasAnyCardinality) {
+    return distributeRows(ordered, totalRows);
+  }
+  
+  const rowsPerTable: Record<string, number> = {};
+  
+  // Step 1: Determine root table rows
+  const rootTables = ordered.filter(t => t.foreignKeys.length === 0);
+  const rootCount = rootTables.length || 1;
+  
+  // Allocate ~30% of total rows to roots, rest driven by cardinality
+  const rootBudget = Math.ceil(totalRows * 0.3);
+  const rootRowsEach = Math.max(1, Math.ceil(rootBudget / rootCount));
+  
+  for (const t of rootTables) {
+    rowsPerTable[t.name] = rootRowsEach;
+  }
+  
+  // Step 2: For each child table, compute rows based on cardinality
+  const childTables = ordered.filter(t => t.foreignKeys.length > 0);
+  for (const t of childTables) {
+    const config = cardMap[t.name];
+    if (config) {
+      // Find the primary parent table
+      const parentName = t.foreignKeys[0]?.references?.table;
+      const parentRows = rowsPerTable[parentName] || rootRowsEach;
+      
+      // Sample total child rows using mean * parentRows
+      const mean = config.mean || 1;
+      const estimatedChildRows = Math.round(parentRows * mean);
+      rowsPerTable[t.name] = Math.max(1, estimatedChildRows);
+    } else {
+      // No cardinality config — use half of primary parent
+      const parentName = t.foreignKeys[0]?.references?.table;
+      const parentRows = rowsPerTable[parentName] || rootRowsEach;
+      rowsPerTable[t.name] = Math.max(1, Math.round(parentRows * 0.5));
+    }
+  }
+  
+  // Step 3: Scale to hit approximate total
+  const totalPlanned = Object.values(rowsPerTable).reduce((a, b) => a + b, 0);
+  if (totalPlanned > 0) {
+    const scale = totalRows / totalPlanned;
+    for (const name of Object.keys(rowsPerTable)) {
+      rowsPerTable[name] = Math.max(1, Math.round(rowsPerTable[name] * scale));
+    }
+  }
+  
+  return rowsPerTable;
+}
+
 export function generateData(
   ordered: NormalizedTable[],
   rowsPerTable: Record<string, number>,
-  _pack: any,
+  pack: any,
 ): GenerationResult {
   const startTime = Date.now();
   const generatedIds: Record<string, any[]> = {};
