@@ -12,6 +12,7 @@ import { packListCommand, packInfoCommand, packValidateCommand } from './command
 import { upgradeCommand } from './commands/upgrade.js';
 import { auditCommand } from './commands/audit.js';
 import { simulateCommand } from './commands/simulate.js';
+import { splitCommand } from './commands/split.js';
 import { captureCommand } from './commands/capture.js';
 import { loadCommand } from './commands/load.js';
 // import { templatesCommand, templatesInitCommand, templatesValidateCommand } from './commands/templates'; // TODO: re-enable after @databox/templates is wired
@@ -453,6 +454,38 @@ program
   .option('-s, --seed <number>', 'Deterministic seed')
   .option('--list-scenarios', 'List all available scenarios')
   .action(async (...args: any[]) => { const _g = gateCommand('simulate'); if (!_g.allowed) { printUpgradePrompt(_g.reason!); process.exit(1); } await simulateCommand(...args); })
+
+// SPLIT COMMAND (ML train/test/validation splits)
+
+program
+  .command('split')
+  .description('Generate ML train/test/validation splits with FK integrity')
+  .requiredOption('-p, --pack <file>', 'RealityPack JSON file')
+  .option('-r, --rows <number>', 'Total rows to generate', '10000')
+  .option('-o, --output <dir>', 'Output directory')
+  .option('-f, --format <type>', 'Output format: csv, json, sql', 'csv')
+  .option('-s, --seed <number>', 'Deterministic seed', '42')
+  .option('--train <ratio>', 'Train split ratio', '0.7')
+  .option('--test <ratio>', 'Test split ratio', '0.2')
+  .option('--validation <ratio>', 'Validation split ratio', '0.1')
+  .option('--strategy <type>', 'Split strategy: random, temporal, stratified', 'random')
+  .option('--stratify-column <col>', 'Column to stratify on (for stratified strategy)')
+  .option('--time-column <col>', 'Timestamp column (for temporal strategy)', 'created_at')
+  .option('--no-validation', 'Skip validation split (80/20 train/test only)')
+  .action((options) => splitCommand({
+    pack: options.pack,
+    rows: options.rows,
+    output: options.output,
+    format: options.format,
+    seed: options.seed,
+    trainRatio: options.train,
+    testRatio: options.test,
+    validationRatio: options.validation,
+    strategy: options.strategy,
+    stratifyColumn: options.stratifyColumn,
+    timeColumn: options.timeColumn,
+    noValidation: options.noValidation,
+  }));
 
 // PACK COMMANDS (Template management)
 

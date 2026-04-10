@@ -1,0 +1,141 @@
+{
+  "generator": "realitydb-split",
+  "strategy": "temporal",
+  "seed": 42,
+  "ratios": {
+    "train": 0.7,
+    "test": 0.2,
+    "validation": 0.1
+  },
+  "stratifyColumn": null,
+  "timeColumn": "created_at",
+  "counts": {
+    "train": 3484,
+    "test": 1004,
+    "validation": 504,
+    "total": 4992
+  },
+  "tables": [
+    {
+      "name": "patients",
+      "train": 291,
+      "test": 83,
+      "validation": 42
+    },
+    {
+      "name": "diagnoses",
+      "train": 145,
+      "test": 42,
+      "validation": 21
+    },
+    {
+      "name": "genomics",
+      "train": 145,
+      "test": 42,
+      "validation": 21
+    },
+    {
+      "name": "treatments",
+      "train": 145,
+      "test": 42,
+      "validation": 21
+    },
+    {
+      "name": "treatment_cycles",
+      "train": 145,
+      "test": 42,
+      "validation": 21
+    },
+    {
+      "name": "imaging_results",
+      "train": 145,
+      "test": 42,
+      "validation": 21
+    },
+    {
+      "name": "lab_results",
+      "train": 145,
+      "test": 42,
+      "validation": 21
+    },
+    {
+      "name": "adverse_events",
+      "train": 145,
+      "test": 42,
+      "validation": 21
+    },
+    {
+      "name": "progression_events",
+      "train": 145,
+      "test": 42,
+      "validation": 21
+    },
+    {
+      "name": "outcomes",
+      "train": 145,
+      "test": 42,
+      "validation": 21
+    },
+    {
+      "name": "biomarkers",
+      "train": 145,
+      "test": 42,
+      "validation": 21
+    },
+    {
+      "name": "vital_signs",
+      "train": 145,
+      "test": 42,
+      "validation": 21
+    },
+    {
+      "name": "concomitant_medications",
+      "train": 145,
+      "test": 42,
+      "validation": 21
+    },
+    {
+      "name": "sites",
+      "train": 291,
+      "test": 83,
+      "validation": 42
+    },
+    {
+      "name": "clinical_trials",
+      "train": 291,
+      "test": 83,
+      "validation": 42
+    },
+    {
+      "name": "enrollments",
+      "train": 145,
+      "test": 42,
+      "validation": 21
+    },
+    {
+      "name": "consent_records",
+      "train": 145,
+      "test": 42,
+      "validation": 21
+    },
+    {
+      "name": "regulatory_submissions",
+      "train": 145,
+      "test": 42,
+      "validation": 21
+    },
+    {
+      "name": "audit_logs",
+      "train": 291,
+      "test": 83,
+      "validation": 42
+    },
+    {
+      "name": "site_monitoring",
+      "train": 145,
+      "test": 42,
+      "validation": 21
+    }
+  ],
+  "generatedAt": "2026-04-10T07:04:28.026Z"
+}
