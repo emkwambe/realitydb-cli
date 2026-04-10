@@ -1,0 +1,697 @@
+{
+  "types": [
+    "extreme-value",
+    "null-injection",
+    "timestamp-anomaly",
+    "negative-value"
+  ],
+  "frequency": 5,
+  "intensity": 2,
+  "totalInjected": 312,
+  "totalRows": 10004,
+  "labelColumn": "_anomaly_label",
+  "perTable": {
+    "patients": {
+      "injected": 41,
+      "total": 833
+    },
+    "diagnoses": {
+      "injected": 12,
+      "total": 417
+    },
+    "genomics": {
+      "injected": 11,
+      "total": 417
+    },
+    "treatments": {
+      "injected": 17,
+      "total": 417
+    },
+    "treatment_cycles": {
+      "injected": 21,
+      "total": 417
+    },
+    "imaging_results": {
+      "injected": 13,
+      "total": 417
+    },
+    "lab_results": {
+      "injected": 25,
+      "total": 417
+    },
+    "adverse_events": {
+      "injected": 10,
+      "total": 417
+    },
+    "progression_events": {
+      "injected": 10,
+      "total": 417
+    },
+    "outcomes": {
+      "injected": 6,
+      "total": 417
+    },
+    "biomarkers": {
+      "injected": 11,
+      "total": 417
+    },
+    "vital_signs": {
+      "injected": 13,
+      "total": 417
+    },
+    "concomitant_medications": {
+      "injected": 9,
+      "total": 417
+    },
+    "sites": {
+      "injected": 20,
+      "total": 833
+    },
+    "clinical_trials": {
+      "injected": 23,
+      "total": 833
+    },
+    "enrollments": {
+      "injected": 12,
+      "total": 417
+    },
+    "consent_records": {
+      "injected": 7,
+      "total": 417
+    },
+    "regulatory_submissions": {
+      "injected": 18,
+      "total": 417
+    },
+    "audit_logs": {
+      "injected": 22,
+      "total": 833
+    },
+    "site_monitoring": {
+      "injected": 11,
+      "total": 417
+    }
+  },
+  "log": [
+    {
+      "table": "patients",
+      "row": 15,
+      "type": "negative_value",
+      "details": "age_at_diagnosis: 67 → -67"
+    },
+    {
+      "table": "patients",
+      "row": 22,
+      "type": "null_injection",
+      "details": "nulled: smoking_status"
+    },
+    {
+      "table": "patients",
+      "row": 50,
+      "type": "timestamp_anomaly",
+      "details": "created_at: 2025-05-30 → 2028-04-09 (future)"
+    },
+    {
+      "table": "patients",
+      "row": 118,
+      "type": "null_injection",
+      "details": "nulled: created_at"
+    },
+    {
+      "table": "patients",
+      "row": 162,
+      "type": "extreme_value",
+      "details": "age_at_diagnosis: 49 → 980 (20x)"
+    },
+    {
+      "table": "patients",
+      "row": 167,
+      "type": "null_injection",
+      "details": "nulled: smoking_status"
+    },
+    {
+      "table": "patients",
+      "row": 181,
+      "type": "timestamp_anomaly",
+      "details": "created_at: 2025-07-11 → 2028-04-09 (future)"
+    },
+    {
+      "table": "patients",
+      "row": 185,
+      "type": "null_injection",
+      "details": "nulled: smoking_status"
+    },
+    {
+      "table": "patients",
+      "row": 217,
+      "type": "extreme_value",
+      "details": "age_at_diagnosis: 76 → 1520 (20x)"
+    },
+    {
+      "table": "patients",
+      "row": 244,
+      "type": "negative_value",
+      "details": "age_at_diagnosis: 21 → -21"
+    },
+    {
+      "table": "patients",
+      "row": 282,
+      "type": "null_injection",
+      "details": "nulled: age_at_diagnosis"
+    },
+    {
+      "table": "patients",
+      "row": 309,
+      "type": "negative_value",
+      "details": "age_at_diagnosis: 53 → -53"
+    },
+    {
+      "table": "patients",
+      "row": 324,
+      "type": "negative_value",
+      "details": "age_at_diagnosis: 37 → -37"
+    },
+    {
+      "table": "patients",
+      "row": 342,
+      "type": "negative_value",
+      "details": "age_at_diagnosis: 68 → -68"
+    },
+    {
+      "table": "patients",
+      "row": 351,
+      "type": "null_injection",
+      "details": "nulled: age_at_diagnosis"
+    },
+    {
+      "table": "patients",
+      "row": 378,
+      "type": "timestamp_anomaly",
+      "details": "created_at: 2025-12-12 → 2028-04-09 (future)"
+    },
+    {
+      "table": "patients",
+      "row": 382,
+      "type": "negative_value",
+      "details": "age_at_diagnosis: 23 → -23"
+    },
+    {
+      "table": "patients",
+      "row": 384,
+      "type": "extreme_value",
+      "details": "age_at_diagnosis: 36 → 720 (20x)"
+    },
+    {
+      "table": "patients",
+      "row": 390,
+      "type": "negative_value",
+      "details": "age_at_diagnosis: 37 → -37"
+    },
+    {
+      "table": "patients",
+      "row": 394,
+      "type": "null_injection",
+      "details": "nulled: age_at_diagnosis"
+    },
+    {
+      "table": "patients",
+      "row": 406,
+      "type": "negative_value",
+      "details": "age_at_diagnosis: 45 → -45"
+    },
+    {
+      "table": "patients",
+      "row": 407,
+      "type": "extreme_value",
+      "details": "age_at_diagnosis: 70 → 1400 (20x)"
+    },
+    {
+      "table": "patients",
+      "row": 476,
+      "type": "extreme_value",
+      "details": "age_at_diagnosis: 68 → 1360 (20x)"
+    },
+    {
+      "table": "patients",
+      "row": 510,
+      "type": "null_injection",
+      "details": "nulled: smoking_status"
+    },
+    {
+      "table": "patients",
+      "row": 541,
+      "type": "extreme_value",
+      "details": "age_at_diagnosis: 39 → 780 (20x)"
+    },
+    {
+      "table": "patients",
+      "row": 549,
+      "type": "null_injection",
+      "details": "nulled: created_at"
+    },
+    {
+      "table": "patients",
+      "row": 572,
+      "type": "negative_value",
+      "details": "age_at_diagnosis: 84 → -84"
+    },
+    {
+      "table": "patients",
+      "row": 593,
+      "type": "timestamp_anomaly",
+      "details": "created_at: 2025-09-27 → 2028-04-09 (future)"
+    },
+    {
+      "table": "patients",
+      "row": 610,
+      "type": "extreme_value",
+      "details": "age_at_diagnosis: 66 → 1320 (20x)"
+    },
+    {
+      "table": "patients",
+      "row": 618,
+      "type": "extreme_value",
+      "details": "age_at_diagnosis: 69 → 1380 (20x)"
+    },
+    {
+      "table": "patients",
+      "row": 672,
+      "type": "extreme_value",
+      "details": "age_at_diagnosis: 30 → 600 (20x)"
+    },
+    {
+      "table": "patients",
+      "row": 677,
+      "type": "negative_value",
+      "details": "age_at_diagnosis: 44 → -44"
+    },
+    {
+      "table": "patients",
+      "row": 687,
+      "type": "null_injection",
+      "details": "nulled: smoking_status"
+    },
+    {
+      "table": "patients",
+      "row": 709,
+      "type": "null_injection",
+      "details": "nulled: smoking_status"
+    },
+    {
+      "table": "patients",
+      "row": 711,
+      "type": "null_injection",
+      "details": "nulled: age_at_diagnosis"
+    },
+    {
+      "table": "patients",
+      "row": 729,
+      "type": "timestamp_anomaly",
+      "details": "created_at: 2025-11-22 → 2028-04-09 (future)"
+    },
+    {
+      "table": "patients",
+      "row": 732,
+      "type": "timestamp_anomaly",
+      "details": "created_at: 2025-05-15 → 2028-04-09 (future)"
+    },
+    {
+      "table": "patients",
+      "row": 747,
+      "type": "null_injection",
+      "details": "nulled: created_at"
+    },
+    {
+      "table": "patients",
+      "row": 748,
+      "type": "timestamp_anomaly",
+      "details": "created_at: 2025-08-29 → 2028-04-09 (future)"
+    },
+    {
+      "table": "patients",
+      "row": 761,
+      "type": "negative_value",
+      "details": "age_at_diagnosis: 38 → -38"
+    },
+    {
+      "table": "patients",
+      "row": 828,
+      "type": "extreme_value",
+      "details": "age_at_diagnosis: 49 → 980 (20x)"
+    },
+    {
+      "table": "diagnoses",
+      "row": 39,
+      "type": "null_injection",
+      "details": "nulled: cancer_type"
+    },
+    {
+      "table": "diagnoses",
+      "row": 49,
+      "type": "null_injection",
+      "details": "nulled: date_of_diagnosis"
+    },
+    {
+      "table": "diagnoses",
+      "row": 96,
+      "type": "null_injection",
+      "details": "nulled: date_of_diagnosis"
+    },
+    {
+      "table": "diagnoses",
+      "row": 98,
+      "type": "timestamp_anomaly",
+      "details": "date_of_diagnosis: 2025-05-08 → 2028-04-09 (future)"
+    },
+    {
+      "table": "diagnoses",
+      "row": 143,
+      "type": "timestamp_anomaly",
+      "details": "date_of_diagnosis: 2026-03-27 → 2028-04-09 (future)"
+    },
+    {
+      "table": "diagnoses",
+      "row": 191,
+      "type": "null_injection",
+      "details": "nulled: cancer_type"
+    },
+    {
+      "table": "diagnoses",
+      "row": 288,
+      "type": "null_injection",
+      "details": "nulled: cancer_type"
+    },
+    {
+      "table": "diagnoses",
+      "row": 323,
+      "type": "null_injection",
+      "details": "nulled: date_of_diagnosis"
+    },
+    {
+      "table": "diagnoses",
+      "row": 330,
+      "type": "timestamp_anomaly",
+      "details": "date_of_diagnosis: 2025-05-28 → 2028-04-09 (future)"
+    },
+    {
+      "table": "diagnoses",
+      "row": 347,
+      "type": "timestamp_anomaly",
+      "details": "date_of_diagnosis: 2025-12-09 → 2028-04-09 (future)"
+    },
+    {
+      "table": "diagnoses",
+      "row": 351,
+      "type": "timestamp_anomaly",
+      "details": "date_of_diagnosis: 2026-01-29 → 2028-04-09 (future)"
+    },
+    {
+      "table": "diagnoses",
+      "row": 392,
+      "type": "null_injection",
+      "details": "nulled: date_of_diagnosis"
+    },
+    {
+      "table": "genomics",
+      "row": 35,
+      "type": "null_injection",
+      "details": "nulled: created_at"
+    },
+    {
+      "table": "genomics",
+      "row": 63,
+      "type": "timestamp_anomaly",
+      "details": "created_at: 2025-09-09 → 2028-04-09 (future)"
+    },
+    {
+      "table": "genomics",
+      "row": 65,
+      "type": "timestamp_anomaly",
+      "details": "created_at: 2025-04-15 → 2028-04-09 (future)"
+    },
+    {
+      "table": "genomics",
+      "row": 100,
+      "type": "timestamp_anomaly",
+      "details": "created_at: 2025-04-22 → 2028-04-09 (future)"
+    },
+    {
+      "table": "genomics",
+      "row": 113,
+      "type": "null_injection",
+      "details": "nulled: created_at"
+    },
+    {
+      "table": "genomics",
+      "row": 116,
+      "type": "timestamp_anomaly",
+      "details": "created_at: 2026-02-09 → 2028-04-09 (future)"
+    },
+    {
+      "table": "genomics",
+      "row": 127,
+      "type": "timestamp_anomaly",
+      "details": "created_at: 2025-09-25 → 2028-04-09 (future)"
+    },
+    {
+      "table": "genomics",
+      "row": 190,
+      "type": "timestamp_anomaly",
+      "details": "created_at: 2025-08-21 → 2028-04-09 (future)"
+    },
+    {
+      "table": "genomics",
+      "row": 211,
+      "type": "timestamp_anomaly",
+      "details": "created_at: 2026-01-08 → 2028-04-09 (future)"
+    },
+    {
+      "table": "genomics",
+      "row": 220,
+      "type": "null_injection",
+      "details": "nulled: created_at"
+    },
+    {
+      "table": "genomics",
+      "row": 343,
+      "type": "timestamp_anomaly",
+      "details": "created_at: 2025-05-06 → 2028-04-09 (future)"
+    },
+    {
+      "table": "treatments",
+      "row": 25,
+      "type": "null_injection",
+      "details": "nulled: start_date"
+    },
+    {
+      "table": "treatments",
+      "row": 29,
+      "type": "null_injection",
+      "details": "nulled: line_of_therapy"
+    },
+    {
+      "table": "treatments",
+      "row": 47,
+      "type": "timestamp_anomaly",
+      "details": "start_date: 2025-08-21 → 2028-04-09 (future)"
+    },
+    {
+      "table": "treatments",
+      "row": 153,
+      "type": "timestamp_anomaly",
+      "details": "start_date: 2025-06-28 → 2028-04-09 (future)"
+    },
+    {
+      "table": "treatments",
+      "row": 180,
+      "type": "extreme_value",
+      "details": "line_of_therapy: 2 → 40 (20x)"
+    },
+    {
+      "table": "treatments",
+      "row": 208,
+      "type": "timestamp_anomaly",
+      "details": "start_date: 2026-01-24 → 2028-04-09 (future)"
+    },
+    {
+      "table": "treatments",
+      "row": 240,
+      "type": "timestamp_anomaly",
+      "details": "start_date: 2025-07-23 → 2028-04-09 (future)"
+    },
+    {
+      "table": "treatments",
+      "row": 246,
+      "type": "null_injection",
+      "details": "nulled: line_of_therapy"
+    },
+    {
+      "table": "treatments",
+      "row": 254,
+      "type": "extreme_value",
+      "details": "line_of_therapy: 5 → 100 (20x)"
+    },
+    {
+      "table": "treatments",
+      "row": 302,
+      "type": "timestamp_anomaly",
+      "details": "start_date: 2025-12-15 → 2028-04-09 (future)"
+    },
+    {
+      "table": "treatments",
+      "row": 303,
+      "type": "timestamp_anomaly",
+      "details": "start_date: 2026-02-05 → 2028-04-09 (future)"
+    },
+    {
+      "table": "treatments",
+      "row": 324,
+      "type": "extreme_value",
+      "details": "line_of_therapy: 5 → 100 (20x)"
+    },
+    {
+      "table": "treatments",
+      "row": 326,
+      "type": "negative_value",
+      "details": "line_of_therapy: 1 → -1"
+    },
+    {
+      "table": "treatments",
+      "row": 327,
+      "type": "negative_value",
+      "details": "line_of_therapy: 3 → -3"
+    },
+    {
+      "table": "treatments",
+      "row": 336,
+      "type": "timestamp_anomaly",
+      "details": "start_date: 2025-12-09 → 2028-04-09 (future)"
+    },
+    {
+      "table": "treatments",
+      "row": 343,
+      "type": "negative_value",
+      "details": "line_of_therapy: 2 → -2"
+    },
+    {
+      "table": "treatments",
+      "row": 349,
+      "type": "timestamp_anomaly",
+      "details": "start_date: 2026-01-13 → 2028-04-09 (future)"
+    },
+    {
+      "table": "treatment_cycles",
+      "row": 44,
+      "type": "null_injection",
+      "details": "nulled: created_at"
+    },
+    {
+      "table": "treatment_cycles",
+      "row": 48,
+      "type": "timestamp_anomaly",
+      "details": "created_at: 2025-12-09 → 2028-04-09 (future)"
+    },
+    {
+      "table": "treatment_cycles",
+      "row": 58,
+      "type": "negative_value",
+      "details": "cycle_number: 91 → -91"
+    },
+    {
+      "table": "treatment_cycles",
+      "row": 61,
+      "type": "extreme_value",
+      "details": "cycle_number: 992 → 19840 (20x)"
+    },
+    {
+      "table": "treatment_cycles",
+      "row": 62,
+      "type": "timestamp_anomaly",
+      "details": "created_at: 2025-06-17 → 2028-04-09 (future)"
+    },
+    {
+      "table": "treatment_cycles",
+      "row": 69,
+      "type": "timestamp_anomaly",
+      "details": "created_at: 2025-05-22 → 2028-04-09 (future)"
+    },
+    {
+      "table": "treatment_cycles",
+      "row": 97,
+      "type": "timestamp_anomaly",
+      "details": "created_at: 2026-02-24 → 2028-04-09 (future)"
+    },
+    {
+      "table": "treatment_cycles",
+      "row": 103,
+      "type": "negative_value",
+      "details": "cycle_number: 111 → -111"
+    },
+    {
+      "table": "treatment_cycles",
+      "row": 185,
+      "type": "extreme_value",
+      "details": "cycle_number: 525 → 10500 (20x)"
+    },
+    {
+      "table": "treatment_cycles",
+      "row": 195,
+      "type": "timestamp_anomaly",
+      "details": "created_at: 2026-01-04 → 2028-04-09 (future)"
+    },
+    {
+      "table": "treatment_cycles",
+      "row": 214,
+      "type": "timestamp_anomaly",
+      "details": "created_at: 2025-11-27 → 2028-04-09 (future)"
+    },
+    {
+      "table": "treatment_cycles",
+      "row": 226,
+      "type": "null_injection",
+      "details": "nulled: cycle_number"
+    },
+    {
+      "table": "treatment_cycles",
+      "row": 235,
+      "type": "negative_value",
+      "details": "cycle_number: 251 → -251"
+    },
+    {
+      "table": "treatment_cycles",
+      "row": 276,
+      "type": "timestamp_anomaly",
+      "details": "created_at: 2025-06-14 → 2028-04-09 (future)"
+    },
+    {
+      "table": "treatment_cycles",
+      "row": 287,
+      "type": "negative_value",
+      "details": "cycle_number: 157 → -157"
+    },
+    {
+      "table": "treatment_cycles",
+      "row": 295,
+      "type": "timestamp_anomaly",
+      "details": "created_at: 2025-11-19 → 2028-04-09 (future)"
+    },
+    {
+      "table": "treatment_cycles",
+      "row": 308,
+      "type": "extreme_value",
+      "details": "cycle_number: 281 → 5620 (20x)"
+    },
+    {
+      "table": "treatment_cycles",
+      "row": 317,
+      "type": "extreme_value",
+      "details": "cycle_number: 196 → 3920 (20x)"
+    },
+    {
+      "table": "treatment_cycles",
+      "row": 326,
+      "type": "extreme_value",
+      "details": "cycle_number: 263 → 5260 (20x)"
+    }
+  ]
+}

@@ -16,6 +16,7 @@ import { splitCommand } from './commands/split.js';
 import { convertCommand } from './commands/convert.js';
 import { explainCommand } from './commands/explain.js';
 import { benchmarkCommand } from './commands/benchmark.js';
+import { anomalyCommand } from './commands/anomaly.js';
 import { captureCommand } from './commands/capture.js';
 import { loadCommand } from './commands/load.js';
 // import { templatesCommand, templatesInitCommand, templatesValidateCommand } from './commands/templates'; // TODO: re-enable after @databox/templates is wired
@@ -518,6 +519,23 @@ program
   .option('-r, --rows <number>', 'Rows per iteration', '10000')
   .option('-n, --iterations <number>', 'Number of iterations', '3')
   .action(benchmarkCommand);
+
+// ANOMALY COMMAND (Inject controlled anomalies for ML training)
+
+program
+  .command('anomaly')
+  .description('Inject controlled, labeled anomalies into generated data')
+  .option('-p, --pack <file>', 'RealityPack JSON file')
+  .option('--inject <types>', 'Comma-separated anomaly types', 'extreme-value')
+  .option('--frequency <percent>', 'Percentage of rows to inject anomalies', '2')
+  .option('-r, --rows <number>', 'Total rows to generate', '10000')
+  .option('-o, --output <file>', 'Output file path')
+  .option('-f, --format <type>', 'Output format: json, csv, sql', 'json')
+  .option('--intensity <level>', 'Anomaly intensity: 1 (subtle) to 5 (extreme)', '2')
+  .option('-s, --seed <number>', 'Deterministic seed')
+  .option('--label-column <name>', 'Name of the anomaly label column', '_anomaly_label')
+  .option('--list-types', 'List all available anomaly types')
+  .action(anomalyCommand);
 
 // PACK COMMANDS (Template management)
 
