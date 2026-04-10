@@ -17,6 +17,7 @@ import { convertCommand } from './commands/convert.js';
 import { explainCommand } from './commands/explain.js';
 import { benchmarkCommand } from './commands/benchmark.js';
 import { anomalyCommand } from './commands/anomaly.js';
+import { ciStartCommand } from './commands/ci.js';
 import { captureCommand } from './commands/capture.js';
 import { loadCommand } from './commands/load.js';
 // import { templatesCommand, templatesInitCommand, templatesValidateCommand } from './commands/templates'; // TODO: re-enable after @databox/templates is wired
@@ -539,6 +540,20 @@ program
   .option('--label-column <name>', 'Name of the anomaly label column', '_anomaly_label')
   .option('--list-types', 'List all available anomaly types')
   .action(anomalyCommand);
+
+// CI/CD COMMANDS
+
+program
+  .command('ci')
+  .description('Generate CI/CD configuration for ephemeral test databases')
+  .option('--platform <type>', 'CI platform: github, gitlab, circleci', 'github')
+  .option('-p, --pack <file>', 'RealityPack template path (relative to repo root)', 'template.json')
+  .option('-r, --rows <number>', 'Rows to generate per CI run', '5000')
+  .option('-s, --seed <number>', 'Deterministic seed', '42')
+  .option('-f, --format <type>', 'Output format: sql, json, csv', 'sql')
+  .option('-o, --output <file>', 'Output file path (default: platform-specific)')
+  .option('--connection-var <name>', 'Environment variable name for DB connection', 'DATABASE_URL')
+  .action(ciStartCommand);
 
 // PACK COMMANDS (Template management)
 
