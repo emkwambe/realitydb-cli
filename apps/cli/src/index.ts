@@ -13,6 +13,9 @@ import { upgradeCommand } from './commands/upgrade.js';
 import { auditCommand } from './commands/audit.js';
 import { simulateCommand } from './commands/simulate.js';
 import { splitCommand } from './commands/split.js';
+import { convertCommand } from './commands/convert.js';
+import { explainCommand } from './commands/explain.js';
+import { benchmarkCommand } from './commands/benchmark.js';
 import { captureCommand } from './commands/capture.js';
 import { loadCommand } from './commands/load.js';
 // import { templatesCommand, templatesInitCommand, templatesValidateCommand } from './commands/templates'; // TODO: re-enable after @databox/templates is wired
@@ -486,6 +489,35 @@ program
     timeColumn: options.timeColumn,
     noValidation: options.noValidation,
   }));
+
+// CONVERT COMMAND
+
+program
+  .command('convert')
+  .description('Convert between data formats (JSON, CSV, SQL)')
+  .requiredOption('-i, --input <file>', 'Input file path')
+  .requiredOption('-f, --format <type>', 'Target format: json, csv, sql')
+  .option('-o, --output <file>', 'Output file path')
+  .action(convertCommand);
+
+// EXPLAIN COMMAND
+
+program
+  .command('explain')
+  .description('Show row distribution plan without generating data')
+  .requiredOption('-p, --pack <file>', 'RealityPack JSON file')
+  .option('-r, --rows <number>', 'Total rows to plan', '10000')
+  .action(explainCommand);
+
+// BENCHMARK COMMAND
+
+program
+  .command('benchmark')
+  .description('Measure generation speed for a template')
+  .requiredOption('-p, --pack <file>', 'RealityPack JSON file')
+  .option('-r, --rows <number>', 'Rows per iteration', '10000')
+  .option('-n, --iterations <number>', 'Number of iterations', '3')
+  .action(benchmarkCommand);
 
 // PACK COMMANDS (Template management)
 
