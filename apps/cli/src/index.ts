@@ -19,6 +19,7 @@ import { benchmarkCommand } from './commands/benchmark.js';
 import { anomalyCommand } from './commands/anomaly.js';
 import { ciStartCommand } from './commands/ci.js';
 import { ruleListCommand } from './commands/rule.js';
+import { weightTuneCommand, ruleAddCommand } from './commands/tune.js';
 import { generateTemplateCommand } from './commands/generate-template.js';
 import { captureCommand } from './commands/capture.js';
 import { loadCommand } from './commands/load.js';
@@ -584,6 +585,34 @@ program
   .option('--table <n>', 'Filter by table name')
   .option('--json', 'Machine-readable JSON output')
   .action(ruleListCommand);
+
+// TUNE COMMAND (adjust enum weights)
+
+program
+  .command('tune')
+  .description('Tune enum weights — list, preview, or apply distribution changes')
+  .requiredOption('-p, --pack <file>', 'RealityPack JSON file')
+  .option('-t, --table <n>', 'Table name')
+  .option('-c, --column <n>', 'Column name')
+  .option('--values <pairs>', 'Value:weight pairs (e.g., "active:85,suspended:10,closed:5")')
+  .option('--preset <type>', 'Apply preset: uniform, pareto, exponential, normal')
+  .option('--preview', 'Show distribution without saving')
+  .action(weightTuneCommand);
+
+// ADD COMMAND (add lifecycle or temporal rules)
+
+program
+  .command('add')
+  .description('Add lifecycle or temporal rules to a template pack')
+  .requiredOption('-p, --pack <file>', 'RealityPack JSON file')
+  .requiredOption('-t, --table <n>', 'Table name')
+  .requiredOption('-c, --column <n>', 'Column name')
+  .option('--trigger <value>', 'Enum value that triggers the rule (lifecycle)')
+  .option('--nullify <fields>', 'Comma-separated fields to NULL when triggered')
+  .option('--temporal', 'Add a temporal dependency instead of lifecycle')
+  .option('--depends-on <col>', 'Column this timestamp depends on (temporal)')
+  .action(ruleAddCommand);
+
 
 // PACK COMMANDS (Template management)
 

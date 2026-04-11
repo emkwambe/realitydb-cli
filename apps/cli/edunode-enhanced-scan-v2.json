@@ -2069,7 +2069,16 @@
               15,
               11
             ],
-            "inferred": true
+            "inferred": true,
+            "lifecycleRules": [
+              {
+                "value": "cancelled",
+                "nullFields": [
+                  "actual_end_date",
+                  "outcome_summary"
+                ]
+              }
+            ]
           }
         },
         {
@@ -2109,7 +2118,11 @@
           "id": "tbl-13-c15",
           "name": "actual_end_date",
           "type": "date",
-          "strategy": "timestamp"
+          "strategy": "timestamp",
+          "options": {
+            "dependsOn": "start_date",
+            "dependencyRule": "after"
+          }
         },
         {
           "id": "tbl-13-c16",
