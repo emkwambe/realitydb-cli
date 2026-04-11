@@ -98,11 +98,49 @@ function inferStrategy(col: ScannedColumn, tableName: string): { strategy: strin
   return { strategy: 'text' };
 }
 
+
+// --- Enhanced Scan: PII Detection Patterns ---
+const PII_PATTERNS: Record<string, RegExp> = {
+  email: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
+  phone: /^[\+]?[\d\s\-\(\)]{7,15}$/,
+  ssn: /^\d{3}-?\d{2}-?\d{4}$/,
+  credit_card: /^\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}$/,
+  ip_address: /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/,
+  date_of_birth: /^(19|20)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/,
+};
+
+const PII_COLUMN_NAMES: Record<string, string> = {
+  email: 'email',
+  phone: 'phone',
+  mobile: 'phone',
+  ssn: 'ssn',
+  social_security: 'ssn',
+  credit_card: 'credit_card',
+  card_number: 'credit_card',
+  ip: 'ip_address',
+  ip_address: 'ip_address',
+  dob: 'date_of_birth',
+  date_of_birth: 'date_of_birth',
+  birth_date: 'date_of_birth',
+  first_name: 'name',
+  last_name: 'name',
+  full_name: 'name',
+  address: 'address',
+  street: 'address',
+  zip: 'address',
+  zipcode: 'address',
+  postal_code: 'address',
+};
+
 export async function scanCommand(options: {
   connection: string;
   output?: string;
   schema?: string;
   format?: string;
+  inferEnums?: boolean;
+  detectPii?: boolean;
+  estimateCardinality?: boolean;
+  sampleSize?: string;
 }): Promise<void> {
   const license = loadLicense();
   const schemaName = options.schema || 'public';
@@ -115,6 +153,9 @@ export async function scanCommand(options: {
   }
   console.log(`   Database: ${masked}`);
   console.log(`   Schema: ${schemaName}`);
+  if (options.inferEnums) console.log(`   Enum inference: ON`);
+  if (options.detectPii) console.log(`   PII detection: ON`);
+  if (options.estimateCardinality) console.log(`   Cardinality estimation: ON`);
   console.log(`${'\u2500'.repeat(40)}`);
   console.log(`   Connecting...`);
 
@@ -197,7 +238,8 @@ export async function scanCommand(options: {
       targetColumn: r.target_column,
     }));
 
-    // Build scanned tables
+
+        // Build scanned tables
     const scannedTables: ScannedTable[] = [];
     for (const tableName of tableNames) {
       const cols = columnsResult.rows
@@ -215,9 +257,183 @@ export async function scanCommand(options: {
       scannedTables.push({
         name: tableName,
         columns: cols,
-        estimatedRows: parseInt(tableRow?.estimated_rows) || 0,
+        estimatedRows: Math.max(0, parseInt(tableRow?.estimated_rows) || 0),
       });
     }
+
+    // === ENHANCED SCAN: Data Sampling ===
+    const sampleSize = options.sampleSize ? parseInt(options.sampleSize) : 1000;
+    const inferredEnums: Record<string, { values: string[]; weights: number[] }> = {};
+    const detectedPII: { table: string; column: string; category: string; confidence: string }[] = [];
+    const cardinalityStats: Record<string, { mean: number; min: number; max: number; strategy: string }> = {};
+
+    if (options.inferEnums || options.detectPii || options.estimateCardinality) {
+      console.log(`   Sampling data (${sampleSize} rows per table)...`);
+    }
+
+    // ENUM INFERENCE: discover actual values and frequencies
+    if (options.inferEnums) {
+      console.log(`   Inferring enum distributions...`);
+      for (const table of scannedTables) {
+        for (const col of table.columns) {
+          // Skip PKs, FKs, timestamps, booleans, numeric types
+          if (col.isPK) continue;
+          const isFk = fks.some(f => f.sourceTable === table.name && f.sourceColumn === col.name);
+          if (isFk) continue;
+          if (['uuid', 'timestamp', 'timestamptz', 'date', 'boolean', 'bool', 'integer', 'int', 'int4', 'int8', 'bigint', 'smallint', 'serial', 'bigserial', 'numeric', 'decimal', 'real', 'float4', 'float8', 'double precision', 'money'].includes(col.dataType.toLowerCase())) continue;
+
+          try {
+            const distinctResult = await client.query(`
+              SELECT ${col.name}::text AS val, COUNT(*) AS cnt
+              FROM ${schemaName}.${table.name}
+              WHERE ${col.name} IS NOT NULL
+              GROUP BY ${col.name}
+              ORDER BY cnt DESC
+              LIMIT 30
+            `);
+
+            const rows = distinctResult.rows;
+            if (rows.length >= 2 && rows.length <= 25) {
+              // This looks like an enum — limited distinct values
+              const total = rows.reduce((s: number, r: any) => s + parseInt(r.cnt), 0);
+              const values = rows.map((r: any) => r.val);
+              const weights = rows.map((r: any) => Math.round((parseInt(r.cnt) / total) * 100));
+
+              // Normalize weights to sum to 100
+              const weightSum = weights.reduce((a: number, b: number) => a + b, 0);
+              if (weightSum > 0 && weightSum !== 100) {
+                const scale = 100 / weightSum;
+                for (let i = 0; i < weights.length; i++) {
+                  weights[i] = Math.round(weights[i] * scale);
+                }
+              }
+
+              inferredEnums[`${table.name}.${col.name}`] = { values, weights };
+            }
+          } catch (e) {
+            // Skip columns that error (e.g., complex types)
+          }
+        }
+      }
+      console.log(`   \u{1F3AF} Discovered ${Object.keys(inferredEnums).length} enum distributions`);
+    }
+
+    // PII DETECTION: sample rows and check patterns
+    if (options.detectPii) {
+      console.log(`   Detecting PII columns...`);
+      for (const table of scannedTables) {
+        for (const col of table.columns) {
+          if (col.isPK) continue;
+          const colNameLower = col.name.toLowerCase();
+
+          // Check by column name first (fast)
+          if (PII_COLUMN_NAMES[colNameLower]) {
+            detectedPII.push({
+              table: table.name,
+              column: col.name,
+              category: PII_COLUMN_NAMES[colNameLower],
+              confidence: 'high',
+            });
+            continue;
+          }
+
+          // Skip known non-PII column name patterns
+          const piiExclusions = ['stripe_', 'subscription_', 'multiplier', 'records_', 'notifications', 'tier', 'status', 'description', 'recipients', 'skipped', 'charge_id', 'payment_intent', 'invoice_id', 'customer_id'];
+          const isExcluded = piiExclusions.some(ex => colNameLower.includes(ex));
+          
+          // Check by partial name match
+          for (const [keyword, category] of Object.entries(PII_COLUMN_NAMES)) {
+            if (colNameLower.includes(keyword) && !isExcluded && !detectedPII.some(p => p.table === table.name && p.column === col.name)) {
+              detectedPII.push({
+                table: table.name,
+                column: col.name,
+                category,
+                confidence: 'medium',
+              });
+              break;
+            }
+          }
+
+          // Check by data pattern (sample a few rows) — skip excluded columns
+          if (!isExcluded && !detectedPII.some(p => p.table === table.name && p.column === col.name)) {
+            if (['varchar', 'character varying', 'text', 'char'].includes(col.dataType.toLowerCase())) {
+              try {
+                const sampleResult = await client.query(`
+                  SELECT ${col.name}::text AS val
+                  FROM ${schemaName}.${table.name}
+                  WHERE ${col.name} IS NOT NULL
+                  LIMIT 20
+                `);
+
+                for (const [patternName, pattern] of Object.entries(PII_PATTERNS)) {
+                  const matches = sampleResult.rows.filter((r: any) => r.val && pattern.test(r.val.trim()));
+                  if (matches.length >= sampleResult.rows.length * 0.8 && sampleResult.rows.length >= 5) {
+                    detectedPII.push({
+                      table: table.name,
+                      column: col.name,
+                      category: patternName,
+                      confidence: 'pattern',
+                    });
+                    break;
+                  }
+                }
+              } catch (e) {
+                // Skip
+              }
+            }
+          }
+        }
+      }
+      if (detectedPII.length > 0) {
+        console.log(`   \u{1F6A8} Found ${detectedPII.length} PII columns:`);
+        for (const pii of detectedPII) {
+          console.log(`      \u{1F534} ${pii.table}.${pii.column} \u2192 ${pii.category} (confidence: ${pii.confidence})`);
+        }
+      } else {
+        console.log(`   \u{1F7E2} No PII detected`);
+      }
+    }
+
+    // CARDINALITY ESTIMATION: count child rows per parent
+    if (options.estimateCardinality) {
+      console.log(`   Estimating cardinality...`);
+      for (const fk of fks) {
+        try {
+          const cardResult = await client.query(`
+            SELECT
+              AVG(cnt) AS mean_count,
+              MIN(cnt) AS min_count,
+              MAX(cnt) AS max_count,
+              STDDEV(cnt) AS std_count
+            FROM (
+              SELECT ${fk.sourceColumn}, COUNT(*) AS cnt
+              FROM ${schemaName}.${fk.sourceTable}
+              GROUP BY ${fk.sourceColumn}
+            ) sub
+          `);
+
+          const r = cardResult.rows[0];
+          if (r && r.mean_count) {
+            const mean = parseFloat(parseFloat(r.mean_count).toFixed(1));
+            const min = parseInt(r.min_count) || 0;
+            const max = parseInt(r.max_count) || 1;
+            const std = parseFloat(r.std_count || '0');
+
+            // Choose strategy based on distribution shape
+            let strategy = 'poisson';
+            if (std < 0.5) strategy = 'fixed';
+            if (min === max) strategy = 'fixed';
+            if (min === 0) strategy = 'poisson'; // zero-inflated possibility
+
+            cardinalityStats[`${fk.sourceTable}.${fk.sourceColumn}`] = { mean, min, max, strategy };
+            console.log(`      ${fk.sourceTable} → ${fk.targetTable}: mean=${mean}, range=[${min},${max}], strategy=${strategy}`);
+          }
+        } catch (e) {
+          // Skip
+        }
+      }
+    }
+
 
     // Display scan results
     console.log(`\n   Scan Results`);
@@ -230,6 +446,17 @@ export async function scanCommand(options: {
     }
 
     console.log(`\n   \u{1F517} ${fks.length} foreign key relationships`);
+
+    // Enhanced scan summary
+    if (options.inferEnums) {
+      console.log(`   \u{1F3AF} ${Object.keys(inferredEnums).length} enum distributions inferred from live data`);
+    }
+    if (options.detectPii) {
+      console.log(`   \u{1F6A8} ${detectedPII.length} PII columns detected`);
+    }
+    if (options.estimateCardinality) {
+      console.log(`   \u{1F4CA} ${Object.keys(cardinalityStats).length} cardinality distributions estimated`);
+    }
 
     // Generate Studio v4.3.0 pack
     const tableIdMap = new Map<string, string>();
@@ -264,9 +491,26 @@ export async function scanCommand(options: {
 
         // Infer strategy if not PK and not FK
         if (!col.isPK && !fk) {
-          const inferred = inferStrategy(col, table.name);
-          colDef.strategy = inferred.strategy;
-          if (inferred.options) colDef.options = inferred.options;
+          // Check if we have real enum data from sampling
+          const enumKey = `${table.name}.${col.name}`;
+          if (options.inferEnums && inferredEnums[enumKey]) {
+            colDef.strategy = 'enum';
+            colDef.options = {
+              values: inferredEnums[enumKey].values,
+              weights: inferredEnums[enumKey].weights,
+              inferred: true,
+            };
+          } else {
+            const inferred = inferStrategy(col, table.name);
+            colDef.strategy = inferred.strategy;
+            if (inferred.options) colDef.options = inferred.options;
+          }
+
+          // Mark PII columns
+          const piiHit = detectedPII.find(p => p.table === table.name && p.column === col.name);
+          if (piiHit) {
+            colDef.pii = { category: piiHit.category, confidence: piiHit.confidence };
+          }
         }
 
         return colDef;
@@ -291,11 +535,21 @@ export async function scanCommand(options: {
           if (targetTableId && targetColId) {
             col.fkTarget = { tableId: targetTableId, columnId: targetColId };
             relIdx++;
+            // Add cardinality if estimated
+            const cardKey = `${table.name}.${col.name}`;
+            const card = options.estimateCardinality && cardinalityStats[cardKey] ? {
+              strategy: cardinalityStats[cardKey].strategy,
+              mean: cardinalityStats[cardKey].mean,
+              min: cardinalityStats[cardKey].min,
+              max: cardinalityStats[cardKey].max,
+            } : undefined;
+
             relationships.push({
               id: `rel-${String(relIdx).padStart(2, '0')}`,
               sourceTableId: targetTableId,
               sourceColumnId: targetColId,
               targetTableId: table.id,
+              ...(card ? { cardinality: card } : {}),
               targetColumnId: col.id,
               type: 'one-to-many',
             });

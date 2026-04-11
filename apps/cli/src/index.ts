@@ -643,6 +643,10 @@ program
   .requiredOption('-c, --connection <string>', 'Database connection string')
   .option('-o, --output <file>', 'Output file path')
   .option('--schema <name>', 'PostgreSQL schema to scan', 'public')
+  .option('--infer-enums', 'Sample data to discover enum values and weights')
+  .option('--detect-pii', 'Detect PII columns by name and data patterns')
+  .option('--estimate-cardinality', 'Estimate child-per-parent row distributions')
+  .option('--sample-size <n>', 'Rows to sample per table', '1000')
   .action(scanCommand);
 
 // RESET COMMAND (Drop seeded tables)
