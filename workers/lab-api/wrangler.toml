@@ -1,0 +1,23 @@
+name = "realitydb-lab-api"
+main = "src/index.ts"
+compatibility_date = "2024-06-20"
+
+[vars]
+ENVIRONMENT = "production"
+
+# Neon API key — set via `wrangler secret put NEON_API_KEY`
+# NEON_API_KEY = ""
+# NEON_PROJECT_ID = ""
+
+[[d1_databases]]
+binding = "DB"
+database_name = "realitydb-labs"
+database_id = "TODO_CREATE_D1_DATABASE"
+
+[[r2_buckets]]
+binding = "TEMPLATES"
+bucket_name = "realitydb-templates"
+
+# Hourly cron to clean up expired labs
+[triggers]
+crons = ["0 * * * *"]
