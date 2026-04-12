@@ -19,6 +19,17 @@ CREATE TABLE IF NOT EXISTS labs (
 CREATE INDEX IF NOT EXISTS idx_labs_user ON labs(user_id);
 CREATE INDEX IF NOT EXISTS idx_labs_status ON labs(status);
 CREATE INDEX IF NOT EXISTS idx_labs_expires ON labs(expires_at);
+
+CREATE TABLE IF NOT EXISTS saved_queries (
+  id TEXT PRIMARY KEY,
+  lab_id TEXT NOT NULL,
+  title TEXT NOT NULL DEFAULT 'Untitled',
+  sql TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (lab_id) REFERENCES labs(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_saved_queries_lab ON saved_queries(lab_id);
 `;
 
 export async function initDB(db: D1Database): Promise<void> {
@@ -67,4 +78,23 @@ export async function softDeleteLab(db: D1Database, id: string): Promise<void> {
   await db.prepare(
     "UPDATE labs SET status = 'expired', deleted_at = datetime('now') WHERE id = ?"
   ).bind(id).run();
+}
+
+// ---------------------------------------------------------------------------
+// Saved Queries
+// ---------------------------------------------------------------------------
+
+export interface SavedQuery {
+  id: string;
+  lab_id: string;
+  title: string;
+  sql: string;
+  created_at: string;
+}
+
+export async function getSavedQueries(db: D1Database, labId: string): Promise<SavedQuery[]> {
+  const result = await db.prepare(
+    'SELECT * FROM saved_queries WHERE lab_id = ? ORDER BY created_at ASC'
+  ).bind(labId).all<SavedQuery>();
+  return result.results;
 }
