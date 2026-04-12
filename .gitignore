@@ -174,3 +174,5 @@ banking_*.json
 banking_*.json
 *_500k.*
 *_100k.*
+
+.wrangler/
