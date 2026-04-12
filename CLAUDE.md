@@ -131,6 +131,43 @@ User gets: postgresql://lab_abc123:pass@ep-xyz.neon.tech/neondb
 ### MVP Seeding Strategy
 Pre-generate SQL files for each template at fixed row counts (5k, 10k, 50k, 100k). Store in Cloudflare R2. Worker fetches and executes — no engine-in-Worker complexity.
 
+### CRITICAL DESIGN DECISION: Pre-Generated SQL (MVP) vs Dynamic Generation (Post-MVP)
+
+| Aspect | MVP (Pre-Generated) | Post-MVP (Dynamic) |
+|--------|---------------------|---------------------|
+| How it works | Worker fetches `.sql` from R2, executes on Neon branch | Worker runs RealityDB engine via WASM, streams to Neon |
+| Complexity | Low — fetch file + execute SQL | High — WASM bundle, memory management, chunked generation |
+| Reliability | High — tiny failure surface | Risky — engine-in-Worker introduces multiple failure points |
+| Latency | Fast — SQL execution only | Slower — engine init + generation + execution |
+| Flexibility | Limited to pre-generated row counts (5k/10k/50k/100k) | Full — any row count, any custom pack |
+| Time to ship | 2-3 weeks | 4-6 weeks |
+
+**Decision: Pre-generated SQL for MVP.** This is a strategic simplification, not a compromise. Ship fast, iterate later.
+
+### Post-MVP Evolution Roadmap
+
+| Phase | Feature | Depends On | Priority |
+|-------|---------|------------|----------|
+| MVP | `lab create/list/connect/extend/delete/share` | Pre-gen SQL + Neon + D1 | P0 |
+| MVP+1 | `lab snapshot` — save state before destructive testing | Neon Time Travel API | P1 |
+| MVP+2 | `lab logs <name>` — stream Worker logs for debugging | Worker log forwarding | P1 |
+| MVP+3 | `lab ci init` — generate GitHub/GitLab YAML for lab-in-CI | Template YAML generator | P1 |
+| V2 | `lab split` — create train/val/test branch triplets | Neon branching × 3 | P1 |
+| V2 | `lab simulate` — inject fraud-spike/churn-wave into live lab | Engine in Worker (WASM) | P2 |
+| V2 | `lab audit` / `lab report` — compliance trail per lab | D1 audit table | P1 |
+| V2 | `lab analyze privacy` — k-anonymity/l-diversity on lab data | Statistical library in Worker | P2 |
+| V3 | Dynamic generation via WASM engine | `generateDataChunked()` + WASM build | P2 |
+| V3 | Team lab visibility — org-level lab management | Supabase RLS + org model | P2 |
+
+### Resilience & Cost Safety
+
+| Risk | Mitigation |
+|------|-----------|
+| CRON cleanup fails → orphaned Neon branches | Circuit breaker: if cleanup skips >3 cycles, send alert via Cloudflare Worker email. Also run manual cleanup command: `realitydb lab gc --force` |
+| Neon free tier exhausted (10 branches, 190 compute hours) | Gate by tier. Free=1 lab/4h TTL. Auto-suspend on idle. Monitor via telemetry. |
+| R2 pre-gen SQL files outdated after template update | CI pipeline: re-generate SQL on template change, upload to R2. Include version hash in filename. |
+| Lab actively in use when TTL expires | Warn at <1h remaining (CLI shows warning on `lab connect`). `lab extend` doesn't interrupt connections. |
+
 ### EXISTING INFRASTRUCTURE (in realitydb-sandbox repo)
 The Sandbox repo at `C:\Users\HP\Documents\realitydb-sandbox\` already has:
 - `workers/neon/` — Neon worker scaffold (CHECK THIS FIRST before creating new)
@@ -206,6 +243,66 @@ realitydb lab share my-test                               # Read-only connection
 4. Store as Cloudflare Worker secret: `npx wrangler secret put NEON_API_KEY`
 5. Create R2 bucket: `npx wrangler r2 bucket create realitydb-templates`
 6. Create D1 database: `npx wrangler d1 create realitydb-labs`
+
+### CRITICAL ENGINE REQUIREMENT: Chunked Generation
+The current `generateData()` generates all rows in memory. For the Worker (128MB limit), add a chunked generator to `packages/engine/src/engine.ts`:
+
+```typescript
+export function* generateDataChunked(
+  ordered: NormalizedTable[],
+  rowsPerTable: Record<string, number>,
+  pack: any,
+  chunkSize: number = 50000,
+): Generator<{ table: string; rows: any[] }> {
+  const generatedIds: Record<string, any[]> = {};
+  
+  for (const table of ordered) {
+    const total = rowsPerTable[table.name];
+    const ids: any[] = [];
+    
+    for (let offset = 0; offset < total; offset += chunkSize) {
+      const batchSize = Math.min(chunkSize, total - offset);
+      const rows = generateBatch(table, batchSize, generatedIds, pack);
+      rows.forEach(r => { if (r.id) ids.push(r.id); });
+      yield { table: table.name, rows };
+    }
+    
+    generatedIds[table.name] = ids;
+  }
+}
+```
+
+The Worker consumes this:
+```typescript
+for (const { table, rows } of generateDataChunked(ordered, rowsPerTable, pack)) {
+  const sql = generateInsertStatements(table, rows);
+  await neon.query(sql);  // Stream to Neon, release memory
+}
+```
+
+### Worker CPU Limits
+- Free plan: 30s CPU per request — sufficient for <100K rows
+- Paid plan ($5/mo): 15 min CPU — sufficient for 2M rows
+- For >2M rows: Use Cloudflare Durable Objects (long-running tasks)
+
+Add to `wrangler.toml`:
+```toml
+[durable_objects]
+bindings = [
+  { name = "GENERATOR", class_name = "DataGenerator" }
+]
+
+[[migrations]]
+tag = "v1"
+new_classes = ["DataGenerator"]
+```
+
+### Sandbox Repo Integration
+The Sandbox repo (`C:\Users\HP\Documents\realitydb-sandbox\`) already has:
+- `workers/neon/` — **Inspect this first.** May already have Neon branch creation.
+- `src/sandbox.ts` — PGLite engine. For cloud labs, this needs an HTTP client variant (`cloudSandbox.ts`) that calls the Worker API instead of PGLite.
+- `src/CloudSandbox.tsx` — UI component for cloud sandboxes (may already handle the session flow).
+- 90% of frontend components are reusable (SQLEditor, ResultsPanel, ChartPanel, SchemaERD, QueryStats).
 
 ---
 
