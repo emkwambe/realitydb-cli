@@ -69,10 +69,30 @@ function sampleCardinality(config: any): number {
 export function buildCardinalityMap(pack: any): Record<string, any> {
   const map: Record<string, any> = {};
   const rels = pack?.relationships || [];
+  const tables = pack?.tables || [];
+
+  // Build ID → name lookup for scan-format packs (tbl-01 → table_name)
+  const idToName: Record<string, string> = {};
+  for (const t of tables) {
+    if (t.id && t.name) {
+      idToName[t.id] = t.name;
+    }
+  }
+
   for (const rel of rels) {
-    const target = rel.targetTable || rel.child;
-    if (target && rel.cardinality) {
-      map[target] = rel.cardinality;
+    if (!rel.cardinality) continue;
+
+    // Resolve target table name from either format
+    let targetName = rel.targetTable || rel.child;
+    if (!targetName && rel.targetTableId) {
+      targetName = idToName[rel.targetTableId];
+    }
+
+    if (targetName) {
+      // If multiple relationships point to same table, keep the one with highest mean
+      if (!map[targetName] || (rel.cardinality.mean || 1) > (map[targetName].mean || 1)) {
+        map[targetName] = rel.cardinality;
+      }
     }
   }
   return map;
@@ -110,52 +130,73 @@ export function distributeRowsVariable(
   const cardMap = buildCardinalityMap(pack);
   const hasAnyCardinality = Object.keys(cardMap).length > 0;
   
-  // If no cardinality configs, fall back to original fixed distribution
   if (!hasAnyCardinality) {
     return distributeRows(ordered, totalRows);
   }
   
   const rowsPerTable: Record<string, number> = {};
   
-  // Step 1: Determine root table rows
   const rootTables = ordered.filter(t => t.foreignKeys.length === 0);
+  const childTables = ordered.filter(t => t.foreignKeys.length > 0);
   const rootCount = rootTables.length || 1;
   
-  // Allocate ~30% of total rows to roots, rest driven by cardinality
-  const rootBudget = Math.ceil(totalRows * 0.3);
-  const rootRowsEach = Math.max(1, Math.ceil(rootBudget / rootCount));
+  // Step 1: Give roots a fair share — at least totalRows / (tables * 0.5)
+  const rootRowsEach = Math.max(10, Math.ceil(totalRows / (ordered.length * 2)));
   
   for (const t of rootTables) {
     rowsPerTable[t.name] = rootRowsEach;
   }
   
-  // Step 2: For each child table, compute rows based on cardinality
-  const childTables = ordered.filter(t => t.foreignKeys.length > 0);
+  // Step 2: For each child, compute rows from cardinality relative to its PRIMARY parent
   for (const t of childTables) {
     const config = cardMap[t.name];
     if (config) {
-      // Find the primary parent table
       const parentName = t.foreignKeys[0]?.references?.table;
       const parentRows = rowsPerTable[parentName] || rootRowsEach;
-      
-      // Sample total child rows using mean * parentRows
       const mean = config.mean || 1;
-      const estimatedChildRows = Math.round(parentRows * mean);
+      // Cap the mean to prevent explosion (max 20x parent)
+      const cappedMean = Math.min(mean, 20);
+      const estimatedChildRows = Math.round(parentRows * cappedMean);
       rowsPerTable[t.name] = Math.max(1, estimatedChildRows);
     } else {
-      // No cardinality config — use half of primary parent
+      // No cardinality — default to same as parent
       const parentName = t.foreignKeys[0]?.references?.table;
       const parentRows = rowsPerTable[parentName] || rootRowsEach;
-      rowsPerTable[t.name] = Math.max(1, Math.round(parentRows * 0.5));
+      rowsPerTable[t.name] = Math.max(1, parentRows);
     }
   }
   
-  // Step 3: Scale to hit approximate total
+  // Step 3: Scale to hit target total while preserving relative proportions
   const totalPlanned = Object.values(rowsPerTable).reduce((a, b) => a + b, 0);
-  if (totalPlanned > 0) {
+  if (totalPlanned > 0 && totalPlanned !== totalRows) {
     const scale = totalRows / totalPlanned;
     for (const name of Object.keys(rowsPerTable)) {
       rowsPerTable[name] = Math.max(1, Math.round(rowsPerTable[name] * scale));
+    }
+  }
+  
+  // Step 4: Ensure no single table exceeds 40% of total (prevent explosion)
+  const maxPerTable = Math.ceil(totalRows * 0.4);
+  let needsRescale = false;
+  for (const name of Object.keys(rowsPerTable)) {
+    if (rowsPerTable[name] > maxPerTable) {
+      rowsPerTable[name] = maxPerTable;
+      needsRescale = true;
+    }
+  }
+  
+  // Redistribute excess to underpopulated tables
+  if (needsRescale) {
+    const currentTotal = Object.values(rowsPerTable).reduce((a, b) => a + b, 0);
+    const deficit = totalRows - currentTotal;
+    if (deficit > 0) {
+      const smallTables = Object.entries(rowsPerTable)
+        .filter(([_, v]) => v < maxPerTable)
+        .sort((a, b) => a[1] - b[1]);
+      const perTable = Math.ceil(deficit / smallTables.length);
+      for (const [name] of smallTables) {
+        rowsPerTable[name] = Math.min(maxPerTable, rowsPerTable[name] + perTable);
+      }
     }
   }
   
