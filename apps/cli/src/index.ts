@@ -20,6 +20,8 @@ import { anomalyCommand } from './commands/anomaly.js';
 import { ciStartCommand } from './commands/ci.js';
 import { ruleListCommand } from './commands/rule.js';
 import { weightTuneCommand, ruleAddCommand } from './commands/tune.js';
+import { validateCommand } from './commands/validate.js';
+import { auditExportCommand } from './commands/audit-export.js';
 import { generateTemplateCommand } from './commands/generate-template.js';
 import { captureCommand } from './commands/capture.js';
 import { loadCommand } from './commands/load.js';
@@ -195,6 +197,20 @@ async function runHandler(options: any) {
       ? distributeRowsVariable(ordered, rows, pack)
       : distributeRows(ordered, rows);
 
+    // Apply cardinality scale factor
+    const cardScale = options.cardinalityScale ? parseFloat(options.cardinalityScale) : 1.0;
+    if (cardScale !== 1.0 && pack?.relationships?.some((r: any) => r.cardinality)) {
+      const rootNames = new Set(ordered.filter(t => t.foreignKeys.length === 0).map(t => t.name));
+      for (const name of Object.keys(rowsPerTable)) {
+        if (!rootNames.has(name)) {
+          rowsPerTable[name] = Math.max(1, Math.round(rowsPerTable[name] * cardScale));
+        }
+      }
+      // Recalculate total
+      const newTotal = Object.values(rowsPerTable).reduce((a, b) => a + b, 0);
+      console.log(`   \u{1F4CF} Cardinality scale: ${cardScale}x (adjusted total: ${newTotal.toLocaleString()} rows)`);
+    }
+
       // Show table plan
       for (const t of ordered) {
         const fkInfo = t.foreignKeys.length > 0
@@ -234,6 +250,36 @@ async function runHandler(options: any) {
 
       // Generate data
       const { allData, actualTotal, elapsed } = generateData(ordered, rowsPerTable, pack);
+
+    // PII Auto-Masking
+    if (options.maskPii) {
+      const tables = pack?.tables || [];
+      let maskedCount = 0;
+      for (const table of tables) {
+        const cols = Array.isArray(table.columns) ? table.columns : Object.values(table.columns || {});
+        for (const col of cols as any[]) {
+          if (col.pii && allData[table.name]) {
+            const category = col.pii.category;
+            for (const row of allData[table.name]) {
+              if (row[col.name] !== null && row[col.name] !== undefined) {
+                if (category === 'email') row[col.name] = 'masked_' + Math.random().toString(36).substring(2, 8) + '@example.com';
+                else if (category === 'name') row[col.name] = 'REDACTED';
+                else if (category === 'phone') row[col.name] = '555-000-' + String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+                else if (category === 'date_of_birth') row[col.name] = '1990-01-01';
+                else if (category === 'address') row[col.name] = '123 Masked St';
+                else if (category === 'ssn') row[col.name] = '***-**-' + String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+                else if (category === 'ip_address') row[col.name] = '10.0.0.' + Math.floor(Math.random() * 255);
+                else row[col.name] = 'MASKED';
+                maskedCount++;
+              }
+            }
+          }
+        }
+      }
+      if (maskedCount > 0) {
+        console.log(`   \u{1F512} PII masked: ${maskedCount.toLocaleString()} values across detected PII columns`);
+      }
+    }
     recordRowUsage(actualTotal); // Track monthly usage
 
       if (format === 'sql') {
@@ -378,6 +424,8 @@ program
   .option('--schema-only', 'Output only CREATE TABLE statements (sql format)')
   .option('--data-only', 'Output only INSERT statements, no CREATE TABLE (sql format)')
   .option('--drop-tables', 'Include DROP TABLE IF EXISTS before CREATE (sql format)')
+  .option('--mask-pii', 'Auto-mask PII columns detected during scan')
+  .option('--cardinality-scale <n>', 'Scale cardinality multipliers (0.5 halves, 2.0 doubles)', '1.0')
   .action(runHandler);
 
 function printSummary(outputFile: string, actualTotal: number, elapsed: string) {
@@ -612,6 +660,28 @@ program
   .option('--temporal', 'Add a temporal dependency instead of lifecycle')
   .option('--depends-on <col>', 'Column this timestamp depends on (temporal)')
   .action(ruleAddCommand);
+
+// VALIDATE COMMAND
+
+program
+  .command('validate')
+  .description('Validate a template pack for schema integrity, FK references, and rule consistency')
+  .requiredOption('-p, --pack <file>', 'RealityPack JSON file')
+  .option('--level <type>', 'Validation level: standard, strict', 'standard')
+  .action(validateCommand);
+
+// AUDIT EXPORT COMMAND
+
+program
+  .command('audit:export')
+  .description('Export audit log for compliance reporting')
+  .option('-f, --format <type>', 'Export format: json, csv', 'json')
+  .option('--since <date>', 'Filter entries after date (YYYY-MM-DD)')
+  .option('--sign', 'Add SHA-256 cryptographic signature')
+  .option('-o, --output <file>', 'Output file path')
+  .option('--limit <n>', 'Max entries to export', '1000')
+  .action(auditExportCommand);
+
 
 
 // PACK COMMANDS (Template management)

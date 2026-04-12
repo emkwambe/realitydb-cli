@@ -2,6 +2,8 @@ import {
   normalizeTables,
   topologicalSort,
   distributeRows,
+  distributeRowsVariable,
+  buildCardinalityMap,
 } from '@realitydb/engine';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -27,7 +29,12 @@ export async function explainCommand(options: {
   }
 
   const ordered = topologicalSort(tables);
-  const rowsPerTable = distributeRows(ordered, rows);
+  // Read pack for cardinality configs
+  const hasCardinality = pack?.relationships?.some((r: any) => r.cardinality);
+  const rowsPerTable = hasCardinality
+    ? distributeRowsVariable(ordered, rows, pack)
+    : distributeRows(ordered, rows);
+  const cardMap = hasCardinality ? buildCardinalityMap(pack) : {};
 
   console.log(`\n\u{1F50D} RealityDB Explain`);
   console.log(`${'\u2500'.repeat(40)}`);
@@ -69,14 +76,18 @@ export async function explainCommand(options: {
     const type = isRoot ? 'root' : `refs: ${fkRefs.join(', ')}`;
 
     console.log(`   ${String(i + 1).padStart(2)}. ${icon} ${table.name}`);
-    console.log(`       Rows: ${tableRows.toLocaleString()} (${pct}%) | ${type}`);
+    const cardInfo = cardMap[table.name] ? ` | cardinality: mean=${cardMap[table.name].mean}, ${cardMap[table.name].strategy}` : '';
+    console.log(`       Rows: ${tableRows.toLocaleString()} (${pct}%) | ${type}${cardInfo}`);
     console.log(`       Columns: ${cols.length} | FKs: ${fkCols.length} | Enums: ${enumCols.length} | Lifecycle: ${lifecycleCols.length}`);
   }
 
   console.log(`\n${'\u2500'.repeat(40)}`);
   console.log(`   \u{1F4CA} Total planned: ${totalPlanned.toLocaleString()} rows`);
   console.log(`   \u{1F7E2} Root tables: ${rootCount} (2x rows)`);
-  console.log(`   \u{1F535} Child tables: ${childCount} (1x rows)`);
+  console.log(`   \u{1F535} Child tables: ${childCount}${hasCardinality ? ' (variable cardinality)' : ' (1x rows)'}`);
+  if (hasCardinality) {
+    console.log(`   \u{1F4CA} Cardinality configs: ${Object.keys(cardMap).length} tables with variable row counts`);
+  }
   console.log(`   \u{1F4C8} Estimated speed: ~${Math.round(rows / 0.05).toLocaleString()} rows/sec`);
   console.log(`   \u23F1\uFE0F  Estimated time: ${(rows / 200000).toFixed(2)}s\n`);
   console.log(`   No data generated. Use 'realitydb run' to generate.\n`);
