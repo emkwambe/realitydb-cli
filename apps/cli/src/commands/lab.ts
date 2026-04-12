@@ -204,22 +204,33 @@ export async function labSnapshotCommand(name: string, options: {
       process.exit(1);
     }
 
-    console.log(`\n\u{1F512} Creating snapshot of "${name}"...`);
+    console.log(`\n\u{1F512} Creating snapshot of '${name}'...\n`);
 
     const snap = await apiCall('POST', `/v1/labs/${lab.id}/snapshot`, {
       name: options.name,
       description: options.description || '',
     });
 
-    console.log(`\n\u{1F4F8} Snapshot Created!`);
-    console.log(`${'\u2500'.repeat(40)}`);
-    console.log(`   ID:        ${snap.id}`);
-    console.log(`   Name:      ${snap.name}`);
-    console.log(`   Lab:       ${name}`);
-    console.log(`   Size:      ${(snap.sizeBytes / 1024).toFixed(1)} KB`);
-    console.log(`   Created:   ${snap.createdAt}`);
-    console.log(`\n   Snapshots persist indefinitely.`);
-    console.log(`   Publish:   realitydb lab publish --snapshot ${snap.id} --title "My Analysis"\n`);
+    function fmtBytes(b: number): string {
+      if (b < 1024) return b + ' B';
+      if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
+      return (b / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    console.log(`   \u{1F4CA} Snapshot: ${snap.name}`);
+    if (snap.description) console.log(`   \u{1F4DD} Description: ${snap.description}`);
+    console.log(`   \u{1F4C1} Schema: ${snap.tableCount || '?'} tables`);
+    console.log(`   \u{1F4C8} Data: ${(snap.totalRows || 0).toLocaleString()} rows (${fmtBytes(snap.sizeBytes || 0)})`);
+    if (snap.savedQueriesCount > 0) console.log(`   \u{1F4BE} Saved queries: ${snap.savedQueriesCount}`);
+    console.log(`   \u{1F517} Template: ${snap.template || 'custom'}`);
+    console.log(`   \u23F1\uFE0F  Created: ${snap.createdAt}`);
+
+    console.log(`\n\u2705 Snapshot created successfully!\n`);
+    console.log(`   Cloud storage: r2://realitydb-snapshots/${snap.id}/`);
+    console.log(`\n   Snapshots persist indefinitely and do not count against your active lab limit.\n`);
+    console.log(`   Next steps:`);
+    console.log(`   \u2022 realitydb lab snapshots ${name}                    # View all snapshots`);
+    console.log(`   \u2022 realitydb lab publish --snapshot ${snap.id} --title "My Analysis"\n`);
   } catch (err: any) {
     console.error(`\n\u274C Snapshot failed: ${err.message}\n`);
   }
@@ -327,6 +338,207 @@ export async function labGalleryCommand(options: {
     }
 
     console.log(`\n${'\u2500'.repeat(80)}\n`);
+  } catch (err: any) {
+    console.error(`\n\u274C ${err.message}\n`);
+  }
+}
+
+
+// ============================================================
+// lab snapshot list
+// ============================================================
+export async function labSnapshotListCommand(name: string): Promise<void> {
+  try {
+    const data = await apiCall('GET', '/v1/labs');
+    const labs = data.labs || [];
+    const lab = labs.find((l: any) => l.name === name || l.id === name);
+
+    if (!lab) {
+      console.error(`\n\u274C Lab "${name}" not found.\n`);
+      process.exit(1);
+    }
+
+    const snapData = await apiCall('GET', `/v1/labs/${lab.id}/snapshots`);
+    const snaps = snapData.snapshots || [];
+
+    if (snaps.length === 0) {
+      console.log(`\n\u{1F4F8} No snapshots for "${name}".\n`);
+      console.log(`   Create one: realitydb lab snapshot ${name} --name "my-analysis"\n`);
+      return;
+    }
+
+    console.log(`\n\u{1F4F8} Snapshots for "${name}" (${snaps.length})\n`);
+    console.log(`   ${'ID'.padEnd(18)} ${'NAME'.padEnd(25)} ${'SIZE'.padEnd(12)} CREATED`);
+    console.log(`${'\u2500'.repeat(80)}`);
+
+    for (const snap of snaps) {
+      const size = snap.size_bytes ? (snap.size_bytes / 1024).toFixed(0) + ' KB' : 'N/A';
+      const created = snap.created_at ? new Date(snap.created_at).toLocaleDateString() : 'N/A';
+      console.log(`   ${(snap.id || '').padEnd(18)} ${(snap.name || '').padEnd(25)} ${size.padEnd(12)} ${created}`);
+    }
+
+    console.log(`${'\u2500'.repeat(80)}\n`);
+  } catch (err: any) {
+    console.error(`\n\u274C ${err.message}\n`);
+  }
+}
+
+// ============================================================
+// lab query save
+// ============================================================
+export async function labQuerySaveCommand(name: string, options: {
+  name: string;
+  sql: string;
+}): Promise<void> {
+  try {
+    const data = await apiCall('GET', '/v1/labs');
+    const labs = data.labs || [];
+    const lab = labs.find((l: any) => l.name === name || l.id === name);
+
+    if (!lab) {
+      console.error(`\n\u274C Lab "${name}" not found.\n`);
+      process.exit(1);
+    }
+
+    const result = await apiCall('POST', `/v1/labs/${lab.id}/queries`, {
+      name: options.name,
+      sql: options.sql,
+    });
+
+    console.log(`\n\u{1F4BE} Query saved: ${result.name}`);
+    console.log(`   ID: ${result.id}\n`);
+  } catch (err: any) {
+    console.error(`\n\u274C ${err.message}\n`);
+  }
+}
+
+// ============================================================
+// lab query list
+// ============================================================
+export async function labQueryListCommand(name: string): Promise<void> {
+  try {
+    const data = await apiCall('GET', '/v1/labs');
+    const labs = data.labs || [];
+    const lab = labs.find((l: any) => l.name === name || l.id === name);
+
+    if (!lab) {
+      console.error(`\n\u274C Lab "${name}" not found.\n`);
+      process.exit(1);
+    }
+
+    const qData = await apiCall('GET', `/v1/labs/${lab.id}/queries`);
+    const queries = qData.queries || [];
+
+    if (queries.length === 0) {
+      console.log(`\n\u{1F4DD} No saved queries for "${name}".\n`);
+      console.log(`   Save one: realitydb lab query save ${name} --name "my-query" --sql "SELECT * FROM ..."\n`);
+      return;
+    }
+
+    console.log(`\n\u{1F4DD} Saved Queries for "${name}" (${queries.length})\n`);
+
+    for (const q of queries) {
+      const time = q.execution_time_ms ? `${q.execution_time_ms}ms` : '';
+      const rows = q.row_count ? `${q.row_count} rows` : '';
+      console.log(`   \u{1F50D} ${q.name} (${q.id})`);
+      console.log(`      ${q.sql_text?.substring(0, 100)}${q.sql_text?.length > 100 ? '...' : ''}`);
+      if (time || rows) console.log(`      ${[time, rows].filter(Boolean).join(' | ')}`);
+      console.log('');
+    }
+  } catch (err: any) {
+    console.error(`\n\u274C ${err.message}\n`);
+  }
+}
+
+// ============================================================
+// lab query run — execute a query against a live lab
+// ============================================================
+export async function labQueryRunCommand(name: string, options: {
+  sql: string;
+  save?: string;
+}): Promise<void> {
+  try {
+    const data = await apiCall('GET', '/v1/labs');
+    const labs = data.labs || [];
+    const lab = labs.find((l: any) => l.name === name || l.id === name);
+
+    if (!lab) {
+      console.error(`\n\u274C Lab "${name}" not found.\n`);
+      process.exit(1);
+    }
+
+    // Execute the query using neon serverless driver
+    const connStr = lab.connection_string;
+    let neonModule: any;
+    try {
+      neonModule = require('@neondatabase/serverless');
+    } catch {
+      console.error(`\n\u274C @neondatabase/serverless not installed.\n   Run: npm install -g @neondatabase/serverless\n`);
+      process.exit(1);
+    }
+
+    const sql = neonModule.neon(connStr);
+    const start = Date.now();
+    const result = await sql(options.sql);
+    const elapsed = Date.now() - start;
+
+    console.log(`\n\u{1F50D} Query Results (${result.length} rows, ${elapsed}ms)\n`);
+
+    if (result.length > 0) {
+      // Print header
+      const cols = Object.keys(result[0]);
+      const widths = cols.map(c => Math.max(c.length, ...result.slice(0, 20).map((r: any) => String(r[c] ?? '').length)));
+      console.log('   ' + cols.map((c, i) => c.padEnd(widths[i])).join('  '));
+      console.log('   ' + widths.map(w => '\u2500'.repeat(w)).join('  '));
+
+      // Print rows (max 20)
+      for (const row of result.slice(0, 20)) {
+        console.log('   ' + cols.map((c, i) => String(row[c] ?? '').padEnd(widths[i])).join('  '));
+      }
+
+      if (result.length > 20) {
+        console.log(`   ... and ${result.length - 20} more rows`);
+      }
+    }
+
+    // Optionally save the query
+    if (options.save) {
+      await apiCall('POST', `/v1/labs/${lab.id}/queries`, {
+        name: options.save,
+        sql: options.sql,
+        executionTimeMs: elapsed,
+        rowCount: result.length,
+        resultPreview: JSON.stringify(result.slice(0, 5)),
+      });
+      console.log(`\n   \u{1F4BE} Query saved as "${options.save}"\n`);
+    }
+
+    console.log('');
+  } catch (err: any) {
+    console.error(`\n\u274C ${err.message}\n`);
+  }
+}
+
+// ============================================================
+// lab share — generate read-only connection string
+// ============================================================
+export async function labShareCommand(name: string): Promise<void> {
+  try {
+    const data = await apiCall('GET', '/v1/labs');
+    const labs = data.labs || [];
+    const lab = labs.find((l: any) => l.name === name || l.id === name);
+
+    if (!lab) {
+      console.error(`\n\u274C Lab "${name}" not found.\n`);
+      process.exit(1);
+    }
+
+    const share = await apiCall('POST', `/v1/labs/${lab.id}/share`);
+
+    console.log(`\n\u{1F517} Share "${name}"\n`);
+    console.log(`   Connection (read-only):\n   ${share.connectionString}\n`);
+    console.log(`   Expires: ${share.expiresAt}`);
+    console.log(`   \u{26A0}\uFE0F  Recipients can query but should not modify data.\n`);
   } catch (err: any) {
     console.error(`\n\u274C ${err.message}\n`);
   }

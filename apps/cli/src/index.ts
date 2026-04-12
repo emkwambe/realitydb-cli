@@ -4,7 +4,7 @@ import { loginCommand } from './commands/login';
 import { logoutCommand } from './commands/logout';
 import { statusCommand } from './commands/status';
 import { seedCommand } from './commands/seed.js';
-import { labCreateCommand, labListCommand, labConnectCommand, labExtendCommand, labDeleteCommand, labSnapshotCommand, labPublishCommand, labForkCommand, labGalleryCommand } from './commands/lab';
+import { labCreateCommand, labListCommand, labConnectCommand, labExtendCommand, labDeleteCommand, labSnapshotCommand, labPublishCommand, labForkCommand, labGalleryCommand, labSnapshotListCommand, labQuerySaveCommand, labQueryListCommand, labQueryRunCommand, labShareCommand } from './commands/lab';
 import { resetCommand } from './commands/reset.js';
 import { scanCommand } from './commands/scan.js';
 import { initCommand } from './commands/init.js';
@@ -898,6 +898,35 @@ lab
   .option('--template <n>', 'Filter by template')
   .option('-q, --search <text>', 'Search by title or description')
   .action(labGalleryCommand);
+
+lab
+  .command('snapshots <n>')
+  .description('List snapshots for a lab')
+  .action(labSnapshotListCommand);
+
+lab
+  .command('query:save <n>')
+  .description('Save a SQL query to a lab session')
+  .requiredOption('--name <query-name>', 'Name for the saved query')
+  .requiredOption('--sql <query>', 'SQL query text')
+  .action(labQuerySaveCommand);
+
+lab
+  .command('query:list <n>')
+  .description('List saved queries for a lab')
+  .action(labQueryListCommand);
+
+lab
+  .command('query:run <n>')
+  .description('Execute a SQL query against a live lab')
+  .requiredOption('--sql <query>', 'SQL query to execute')
+  .option('--save <name>', 'Save the query with this name')
+  .action(labQueryRunCommand);
+
+lab
+  .command('share <n>')
+  .description('Generate a shareable connection string')
+  .action(labShareCommand);
 
 program
   .command('analytics')

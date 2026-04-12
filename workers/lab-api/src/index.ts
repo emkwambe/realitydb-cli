@@ -362,9 +362,10 @@ app.post('/v1/labs/:id/snapshot', async (c) => {
   // Export the lab data as SQL dump via Neon
   const db = neon(lab.connection_string as string);
   let sqlDump = '';
+  let tables: any[] = [];
   try {
     // Get all table names
-    const tables = await db('SELECT tablename FROM pg_tables WHERE schemaname = \'public\'');
+    tables = await db('SELECT tablename FROM pg_tables WHERE schemaname = \'public\'');
     
     // For each table, get CREATE TABLE + data
     for (const t of tables) {
@@ -391,26 +392,48 @@ app.post('/v1/labs/:id/snapshot', async (c) => {
     console.error('Snapshot export error:', e.message);
   }
 
+  // Count tables and rows from the dump (parsed from comments, no extra queries)
+  const tableNames = tables.map((t: any) => t.tablename);
+  const rowsByTable: Record<string, number> = {};
+  let totalRows = 0;
+  const rowPattern = /-- Table: (\w+) \((\d+) rows\)/g;
+  let rmatch;
+  while ((rmatch = rowPattern.exec(sqlDump)) !== null) {
+    rowsByTable[rmatch[1]] = parseInt(rmatch[2]);
+    totalRows += parseInt(rmatch[2]);
+  }
+  // Count saved queries for this lab
+  const queryCount = await env.DB.prepare('SELECT COUNT(*) as c FROM saved_queries WHERE lab_id = ?').bind(lab.id as string).first();
+  const savedQueriesCount = parseInt((queryCount as any)?.c || '0');
+
   // Store in R2
   await env.TEMPLATES.put(r2Key, sqlDump);
+
+  const now = new Date().toISOString();
 
   // Store metadata in D1
   await env.DB.prepare(
     'INSERT INTO snapshots (id, lab_id, user_id, name, description, template, seed, rows, tables_count, schema_hash, r2_key, size_bytes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
   ).bind(
     snapshotId, lab.id, lab.user_id, body.name, body.description || '',
-    lab.template, null, lab.rows, 0,
-    '', r2Key, sqlDump.length,
-    new Date().toISOString()
+    lab.template, null, totalRows, tableNames.length,
+    '', r2Key, sqlDump.length, now
   ).run();
 
   return c.json({
     id: snapshotId,
     name: body.name,
+    description: body.description || '',
     labId: lab.id,
-    r2Key,
+    template: lab.template,
+    tableCount: tableNames.length,
+    tables: tableNames,
+    totalRows,
+    rowsByTable,
+    savedQueriesCount,
     sizeBytes: sqlDump.length,
-    createdAt: new Date().toISOString(),
+    r2Key,
+    createdAt: now,
   }, 201);
 });
 
