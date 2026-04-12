@@ -1,0 +1,11 @@
+name = "realitydb-telemetry"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "realitydb-telemetry"
+database_id = "bcc7b1a1-81f9-4671-a0bd-d5beca95f9b6"
+
+[vars]
+ENVIRONMENT = "production"

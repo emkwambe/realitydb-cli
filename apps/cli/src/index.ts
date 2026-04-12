@@ -1,4 +1,5 @@
 import { Command } from 'commander';
+import { sendTelemetry } from './telemetry.js';
 import { loginCommand } from './commands/login';
 import { logoutCommand } from './commands/logout';
 import { statusCommand } from './commands/status';
@@ -261,6 +262,19 @@ async function runHandler(options: any) {
       format: format,
       duration: parseFloat(elapsed) * 1000,
     });
+
+    // Send anonymous telemetry (fire-and-forget)
+    sendTelemetry({
+      command: 'run',
+      rows: actualTotal,
+      tables: ordered.length,
+      format: format,
+      durationMs: Math.round(parseFloat(elapsed) * 1000),
+      features: [
+        options.maskPii ? 'mask-pii' : '',
+        options.cardinalityScale !== '1.0' ? 'cardinality-scale' : '',
+      ].filter(Boolean),
+    }).catch(() => {});
 
     // PII Auto-Masking
     if (options.maskPii) {

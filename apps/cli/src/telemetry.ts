@@ -1,7 +1,11 @@
-const TELEMETRY_URL = 'https://api.realitydb.dev/v1/telemetry';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
+
+const TELEMETRY_URL = 'https://realitydb-telemetry.eddy-078.workers.dev/v1/telemetry';
+const REALITYDB_DIR = path.join(os.homedir(), '.realitydb');
 
 interface TelemetryEvent {
-  event: string;
   clientId: string;
   tier: string;
   command: string;
@@ -10,64 +14,46 @@ interface TelemetryEvent {
   format?: string;
   durationMs?: number;
   features?: string[];
-  timestamp: string;
+  cliVersion?: string;
+  osPlatform?: string;
 }
 
-let telemetryEnabled = true;
-
-export function disableTelemetry(): void {
-  telemetryEnabled = false;
+function isOptedOut(): boolean {
+  return fs.existsSync(path.join(REALITYDB_DIR, 'no-telemetry'));
 }
 
-export async function sendTelemetry(event: TelemetryEvent): Promise<void> {
-  if (!telemetryEnabled) return;
-
-  // Check opt-out
-  const fs = require('fs');
-  const path = require('path');
-  const os = require('os');
-  const optOutFile = path.join(os.homedir(), '.realitydb', 'no-telemetry');
-  if (fs.existsSync(optOutFile)) return;
-
-  try {
-    // Fire-and-forget — never block the CLI
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 2000);
-
-    await fetch(TELEMETRY_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(event),
-      signal: controller.signal,
-    }).catch(() => {});
-
-    clearTimeout(timeout);
-  } catch {
-    // Silently fail — telemetry must never break the CLI
-  }
+function getClientId(): string {
+  const clientIdFile = path.join(REALITYDB_DIR, 'client_id');
+  try { return fs.readFileSync(clientIdFile, 'utf-8').trim(); } catch { return 'unknown'; }
 }
 
-export function buildTelemetryEvent(data: Partial<TelemetryEvent>): TelemetryEvent {
-  const fs = require('fs');
-  const path = require('path');
-  const os = require('os');
+export async function sendTelemetry(data: Partial<TelemetryEvent>): Promise<void> {
+  if (isOptedOut()) return;
 
-  let clientId = 'unknown';
-  const clientIdFile = path.join(os.homedir(), '.realitydb', 'client_id');
-  try { clientId = fs.readFileSync(clientIdFile, 'utf-8').trim(); } catch {}
-
-  const { getTier } = require('../gate');
-
-  return {
-    event: 'command',
-    clientId,
-    tier: getTier(),
+  const event: TelemetryEvent = {
+    clientId: data.clientId || getClientId(),
+    tier: data.tier || 'free',
     command: data.command || 'unknown',
     rows: data.rows,
     tables: data.tables,
     format: data.format,
     durationMs: data.durationMs,
     features: data.features,
-    timestamp: new Date().toISOString(),
+    cliVersion: data.cliVersion || 'unknown',
+    osPlatform: os.platform(),
   };
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2000);
+    await fetch(TELEMETRY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(event),
+      signal: controller.signal,
+    }).catch(() => {});
+    clearTimeout(timeout);
+  } catch {
+    // Never block the CLI
+  }
 }
