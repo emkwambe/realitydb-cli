@@ -21,6 +21,7 @@ import { ciStartCommand } from './commands/ci.js';
 import { ruleListCommand } from './commands/rule.js';
 import { weightTuneCommand, ruleAddCommand } from './commands/tune.js';
 import { validateCommand } from './commands/validate.js';
+import { menuCommand } from './commands/menu.js';
 import { auditExportCommand } from './commands/audit-export.js';
 import { generateTemplateCommand } from './commands/generate-template.js';
 import { captureCommand } from './commands/capture.js';
@@ -802,5 +803,11 @@ program
 if (process.argv.length <= 2) {
   program.help();
 }
+
+
+program
+  .command('menu')
+  .description('Interactive command menu — guided navigation for all features')
+  .action(menuCommand);
 
 program.parse();
