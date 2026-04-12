@@ -4,6 +4,7 @@ import { loginCommand } from './commands/login';
 import { logoutCommand } from './commands/logout';
 import { statusCommand } from './commands/status';
 import { seedCommand } from './commands/seed.js';
+import { labCreateCommand, labListCommand, labConnectCommand, labExtendCommand, labDeleteCommand, labSnapshotCommand, labPublishCommand, labForkCommand, labGalleryCommand } from './commands/lab';
 import { resetCommand } from './commands/reset.js';
 import { scanCommand } from './commands/scan.js';
 import { initCommand } from './commands/init.js';
@@ -831,6 +832,73 @@ if (process.argv.length <= 2) {
 
 program
   
+
+// LAB COMMANDS (Simulation Lab — disposable PostgreSQL databases)
+
+const lab = program.command('lab').description('Simulation Lab — disposable PostgreSQL databases');
+
+lab
+  .command('create <template>')
+  .description('Create a disposable database from a template')
+  .option('-r, --rows <n>', 'Row count (5000, 10000, 50000, 100000)', '5000')
+  .option('--ttl <duration>', 'Time to live (4h, 24h, 72h, 7d)', '4h')
+  .option('--name <alias>', 'Custom name for the lab')
+  .action(labCreateCommand);
+
+lab
+  .command('list')
+  .description('List active labs')
+  .option('--all', 'Include expired labs')
+  .action(labListCommand);
+
+lab
+  .command('connect <n>')
+  .description('Show connection string for a lab')
+  .action(labConnectCommand);
+
+lab
+  .command('extend <n>')
+  .description('Extend a lab\'s TTL')
+  .requiredOption('--ttl <duration>', 'Additional time (e.g., 24h, 48h, 7d)')
+  .action(labExtendCommand);
+
+lab
+  .command('delete <n>')
+  .description('Destroy a lab and its database')
+  .action(labDeleteCommand);
+
+lab
+  .command('snapshot <n>')
+  .description('Create an immutable snapshot of a lab')
+  .requiredOption('--name <snapshot-name>', 'Name for the snapshot')
+  .option('--description <text>', 'Description of this snapshot')
+  .action(labSnapshotCommand);
+
+lab
+  .command('publish')
+  .description('Publish a snapshot to the public gallery')
+  .requiredOption('--snapshot <id>', 'Snapshot ID to publish')
+  .requiredOption('--title <text>', 'Title for the publication')
+  .option('--authors <names>', 'Author names')
+  .option('--description <text>', 'Description')
+  .option('--tags <csv>', 'Comma-separated tags')
+  .option('--license <type>', 'License (default: CC-BY-4.0)', 'CC-BY-4.0')
+  .action(labPublishCommand);
+
+lab
+  .command('fork <slug>')
+  .description('Fork a published lab from the gallery')
+  .option('--name <alias>', 'Custom name for the fork')
+  .action(labForkCommand);
+
+lab
+  .command('gallery')
+  .description('Browse published labs')
+  .option('--tag <tag>', 'Filter by tag')
+  .option('--template <n>', 'Filter by template')
+  .option('-q, --search <text>', 'Search by title or description')
+  .action(labGalleryCommand);
+
 program
   .command('analytics')
   .description('Show detailed usage analytics, command frequency, and compliance limits')
