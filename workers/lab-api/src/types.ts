@@ -3,23 +3,22 @@ export interface Env {
   TEMPLATES: R2Bucket;
   NEON_API_KEY: string;
   NEON_PROJECT_ID: string;
-  ENVIRONMENT: string;
+  LAB_API_KEY: string;
 }
 
 export interface Lab {
   id: string;
+  user_id: string;
   name: string;
   template: string;
   rows: number;
-  table_count: number;
-  status: 'creating' | 'seeding' | 'ready' | 'error' | 'expired';
-  branch_id: string;
+  neon_branch_id: string;
+  neon_endpoint_id: string;
   connection_string: string;
-  read_only_connection?: string;
-  tier: string;
+  status: 'active' | 'expired' | 'error';
   created_at: string;
   expires_at: string;
-  error_message?: string;
+  deleted_at: string | null;
 }
 
 export interface CreateLabRequest {
@@ -27,14 +26,5 @@ export interface CreateLabRequest {
   rows?: number;
   ttl?: string;
   name?: string;
-  tier?: string;
-}
-
-export interface NeonBranch {
-  id: string;
-  name: string;
-  endpoints: Array<{
-    id: string;
-    host: string;
-  }>;
+  apiKey: string;
 }
