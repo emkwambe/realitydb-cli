@@ -68,6 +68,14 @@ export function generateByStrategy(strategy: string, options: any, colName?: str
     }
     case 'address':
       return `${Math.floor(Math.random() * 9999)} Main St, City, ST ${Math.floor(10000 + Math.random() * 89999)}`;
+    case 'future_date': {
+      const future = new Date(Date.now() + Math.floor(Math.random() * 365 * 24 * 60 * 60 * 1000));
+      return future.toISOString();
+    }
+    case 'random_string': {
+      const words = ['alpha', 'bravo', 'charlie', 'delta', 'echo', 'foxtrot', 'golf', 'hotel', 'india', 'juliet', 'kilo', 'lima', 'mike', 'nova', 'oscar', 'papa', 'quebec', 'romeo', 'sierra', 'tango'];
+      return words[Math.floor(Math.random() * words.length)] + '-' + words[Math.floor(Math.random() * words.length)] + '-' + Math.floor(Math.random() * 10000);
+    }
     default:
       return `mock_${strategy}_${Math.floor(Math.random() * 1000)}`;
   }
