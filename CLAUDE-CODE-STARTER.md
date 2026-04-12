@@ -1,188 +1,175 @@
-# RealityDB SimLab — Claude Code Session Starter
+# RealityDB — Claude Code Directive
 
-## Read First
-Read `CLAUDE.md` in the repo root. It contains the complete architecture, build rules, file locations, and design decisions.
-
-## Context
-RealityDB is a synthetic data platform. The CLI (`@realitydb/cli@2.30.3`, 32 commands) and engine (`packages/engine/`) are built and maintained separately by the developer in Claude chat sessions. **Do NOT modify CLI commands or register new commands in `apps/cli/src/index.ts`.** CLI commands will be added by the developer.
-
-## Your Scope: Infrastructure Only
-
-You are building the **server-side infrastructure** for RealityDB Simulation Lab — the Cloudflare Worker API that creates disposable PostgreSQL databases via Neon.
-
-### What You Build
-
-1. **Cloudflare Worker** (`workers/lab-api/`) — the Lab API backend
-2. **Neon integration** — branch creation, seeding, cleanup
-3. **R2 bucket** — template SQL file storage
-4. **D1 database** — lab metadata storage
-5. **Pre-generated SQL files** — generate using the existing CLI, upload to R2
-
-### What You Do NOT Build
-
-- CLI commands (no `lab.ts`, no changes to `index.ts`)
-- Engine changes (no modifications to `packages/engine/`)
-- Gate.ts changes (no tier modifications)
-- Telemetry changes
-- Any new npm commands
+## Read CLAUDE.md in repo root first. It has the full architecture.
 
 ---
 
-## Phase 1: Inspect Existing Infrastructure
+## COMPLETED INFRASTRUCTURE (Do NOT rebuild any of this)
 
-Before building anything new, inspect what already exists in the Sandbox repo:
+### Lab API Worker (`realitydb-lab-api.eddy-078.workers.dev`)
+- **Source:** `workers/lab-api/src/index.ts` (single-file Hono Worker, 15 endpoints)
+- **D1:** `realitydb-labs` (ID: `1fa51a0c-c851-4cec-8e91-ac1ee2079ff8`)
+  - Tables: `labs`, `snapshots`, `published_labs`, `forks`, `saved_queries`
+- **R2:** `realitydb-templates`
+  - Contents: `templates/banking-5k.sql`, `banking-10k.sql`, `banking-50k.sql`, `banking-100k.sql`
+- **Neon:** Project `bold-mouse-18187324` (PostgreSQL 17, US East 1)
+- **Secrets set:** `NEON_API_KEY`, `NEON_PROJECT_ID`, `LAB_API_KEY` (`rdb_lab_mpingo_2026`)
+- **CRON:** Hourly expired lab cleanup active
+- **Gallery:** 1 published lab live
+
+### Telemetry Worker (`realitydb-telemetry.eddy-078.workers.dev`)
+- D1: `realitydb-telemetry` (ID: `bcc7b1a1-81f9-4671-a0bd-d5beca95f9b6`)
+
+### CLI (`@realitydb/cli@2.32.0` on npm)
+- 41+ commands including 14 lab commands
+- Smoke test: 29/29 green (`apps/cli/smoke-test.cjs`)
+- **Do NOT modify `apps/cli/` or `packages/engine/`** — CLI and engine are maintained by the developer
+
+### Sandbox (`sandbox.realitydb.dev`)
+- Separate repo: `C:\Users\HP\Documents\realitydb-sandbox\`
+- PGlite-based SQL learning environment
+- Has `CloudSandbox.tsx`, `DataStorefront.tsx`, `cloudSandboxService.ts`
+- Engine is NOT installed in sandbox (`@realitydb` package not present)
+- Workers exist but are scaffolds only: `workers/neon/` (empty), `workers/stripe/`, `workers/enterprise-api/`, `workers/ai-tutor/`
+
+### Cloudflare Account
+- Account: Mpingo Systems (`078fac3f0858379e6ceae8f4c5874059`)
+- Domain: `realitydb.dev`
+- Workers deployed: `realitydb-lab-api`, `realitydb-telemetry`, `realitydb-sandbox`, `realitydb-studio`, `realitydb-enterprise-api`, `realitydb-neon-worker`
+
+---
+
+## YOUR TASKS (Infrastructure Only)
+
+### Task 1: Sandbox ↔ Lab API Integration
+
+The Sandbox at `sandbox.realitydb.dev` has existing UI components for cloud sandboxes but they are NOT connected to the Lab API. Your job:
+
+1. **Inspect existing UI:**
+   - `C:\Users\HP\Documents\realitydb-sandbox\src\CloudSandbox.tsx` — what does it do currently?
+   - `C:\Users\HP\Documents\realitydb-sandbox\src\cloudSandboxService.ts` — what API does it call?
+   - `C:\Users\HP\Documents\realitydb-sandbox\src\DataStorefront.tsx` — what does this render?
+
+2. **Connect to Lab API:**
+   - Update `cloudSandboxService.ts` to call `https://realitydb-lab-api.eddy-078.workers.dev/v1/labs`
+   - CloudSandbox should: create lab → show connection string → let user run SQL → show results
+   - DataStorefront should: show available templates (banking at 5k/10k/50k/100k) → one-click create
+
+3. **Do NOT install `@realitydb/engine` in the sandbox.** The Lab API handles all data generation via pre-generated SQL in R2. The sandbox just needs HTTP calls to the Lab API.
+
+### Task 2: Lab Gallery UI
+
+Build a gallery page in the sandbox that displays published labs from `GET /v1/gallery`. Allow:
+- Browse published labs with title, author, template, rows, view count, fork count
+- One-click fork via `POST /v1/gallery/:slug/fork`
+- View saved queries for a published lab
+
+Gallery should be accessible at `sandbox.realitydb.dev/gallery` or as a tab in the existing UI.
+
+### Task 3: Jupyter Notebook Export Endpoint
+
+Add a new endpoint to the Lab API Worker:
+
+```
+GET /v1/labs/:id/export?format=notebook
+```
+
+Returns a `.ipynb` JSON file containing:
+- Markdown cell: Title, template, seed, description
+- Markdown cell: Schema (table names + column list as markdown table)
+- Code cell: `pip install psycopg2-binary pandas` setup
+- Code cell: Connection example using `pd.read_sql()`
+- Code cells: Each saved query as a separate cell
+- Markdown cell: Reproducibility info (template + seed = identical data)
+- Markdown cell: BibTeX citation for RealityDB
+
+Implementation: all in `workers/lab-api/src/index.ts` — add a new route.
+
+### Task 4: CI Integration Endpoint
+
+Add to Lab API Worker:
+
+```
+POST /v1/labs/ci
+Body: { "template": "banking", "rows": 5000 }
+Response: { "connectionString": "...", "labId": "...", "expiresAt": "..." }
+```
+
+Simplified endpoint for CI pipelines — no auth header needed (uses API key in body), returns minimal JSON for `DATABASE_URL` extraction.
+
+### Task 5: Template Upload Automation
+
+Create a script at `workers/lab-api/scripts/upload-templates.sh` that:
+1. Takes a template directory and row count as arguments
+2. Runs the CLI `run` command to generate SQL
+3. Uploads to R2 via `wrangler r2 object put`
+
+**Do NOT modify the CLI.** Just call it as an external tool.
 
 ```powershell
-Get-ChildItem C:\Users\HP\Documents\realitydb-sandbox\workers\neon -Recurse | Select-Object FullName
-Get-Content C:\Users\HP\Documents\realitydb-sandbox\workers\neon\src\index.ts
-Get-Content C:\Users\HP\Documents\realitydb-sandbox\workers\neon\wrangler.toml
+# Example usage (PowerShell):
+node C:\Users\HP\Documents\databox\apps\cli\dist\index.js run --pack "path\to\pack.json" --rows 5000 --format sql --drop-tables --seed 42 -o template-5k.sql
+npx wrangler r2 object put realitydb-templates/templates/template-5k.sql --file template-5k.sql --remote
 ```
 
-Also check the enterprise API and cloud sandbox:
+---
+
+## DO NOT TOUCH
+
+- `apps/cli/` — ALL CLI code (commands, gate.ts, telemetry.ts, index.ts)
+- `packages/engine/` — Core data generation engine
+- `workers/telemetry/` — Deployed and working
+- Any npm publish or version bumps
+
+## WHAT YOU CAN MODIFY
+
+- `workers/lab-api/src/index.ts` — Add new endpoints (notebook export, CI endpoint)
+- `C:\Users\HP\Documents\realitydb-sandbox\src/` — Sandbox UI components
+- `C:\Users\HP\Documents\realitydb-sandbox\workers/` — Sandbox worker scaffolds
+- New scripts in `workers/lab-api/scripts/`
+- Documentation files
+
+## BUILD & DEPLOY RULES
+
+### Lab API Worker
 ```powershell
-Get-ChildItem C:\Users\HP\Documents\realitydb-sandbox\workers\enterprise-api -Recurse | Select-Object FullName
-Get-Content C:\Users\HP\Documents\realitydb-sandbox\src\CloudSandbox.tsx | Select-Object -First 50
-Get-Content C:\Users\HP\Documents\realitydb-sandbox\src\cloudSandboxService.ts | Select-Object -First 50
-```
-
-Report what you find before proceeding.
-
-## Phase 2: Pre-Generate Template SQL Files
-
-Use the existing CLI to generate SQL files. Do NOT modify the CLI — just run it:
-
-```powershell
-# Banking (16 tables)
-node C:\Users\HP\Documents\databox\apps\cli\dist\index.js run --pack "C:\Users\HP\Documents\realityDB Packs\Banking\realitydb-studio-pack.json" --rows 5000 --format sql --drop-tables --seed 42 -o C:\Users\HP\Documents\databox\workers\lab-api\templates\banking-5k.sql
-
-node C:\Users\HP\Documents\databox\apps\cli\dist\index.js run --pack "C:\Users\HP\Documents\realityDB Packs\Banking\realitydb-studio-pack.json" --rows 10000 --format sql --drop-tables --seed 42 -o C:\Users\HP\Documents\databox\workers\lab-api\templates\banking-10k.sql
-
-node C:\Users\HP\Documents\databox\apps\cli\dist\index.js run --pack "C:\Users\HP\Documents\realityDB Packs\Banking\realitydb-studio-pack.json" --rows 50000 --format sql --drop-tables --seed 42 -o C:\Users\HP\Documents\databox\workers\lab-api\templates\banking-50k.sql
-
-node C:\Users\HP\Documents\databox\apps\cli\dist\index.js run --pack "C:\Users\HP\Documents\realityDB Packs\Banking\realitydb-studio-pack.json" --rows 100000 --format sql --drop-tables --seed 42 -o C:\Users\HP\Documents\databox\workers\lab-api\templates\banking-100k.sql
-
-# Repeat for: Oncology, Restaurant, Supply Chain
-# Check C:\Users\HP\Documents\realityDB Packs\ for all available packs
-```
-
-## Phase 3: Build the Lab API Worker
-
-Create `workers/lab-api/` in the **databox monorepo** (NOT in the sandbox repo):
-
-```
-workers/lab-api/
-├── src/
-│   ├── index.ts          # Hono router — all endpoints
-│   ├── neon.ts           # Neon API client (createBranch, deleteBranch, getConnectionString)
-│   ├── auth.ts           # API key validation (check against Supabase or simple secret)
-│   ├── seed.ts           # Fetch SQL from R2, execute via @neondatabase/serverless
-│   └── cleanup.ts        # CRON handler: delete expired labs
-├── wrangler.toml         # D1 binding (realitydb-labs) + R2 binding (realitydb-templates)
-└── package.json
-```
-
-### API Endpoints
-
-```
-POST   /v1/labs              → createLab(template, rows, ttl, name, apiKey)
-GET    /v1/labs              → listLabs(apiKey) 
-GET    /v1/labs/:id          → getLab(id, apiKey)
-PATCH  /v1/labs/:id/ttl      → extendTtl(id, hours, apiKey)
-DELETE /v1/labs/:id          → deleteLab(id, apiKey)
-POST   /v1/labs/:id/share    → shareLab(id, apiKey)
-GET    /health               → { status: "ok" }
-```
-
-### D1 Schema
-
-```sql
-CREATE TABLE labs (
-  id TEXT PRIMARY KEY,
-  user_id TEXT NOT NULL,
-  name TEXT NOT NULL,
-  template TEXT NOT NULL,
-  rows INTEGER NOT NULL,
-  neon_branch_id TEXT NOT NULL,
-  neon_endpoint_id TEXT NOT NULL,
-  connection_string TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'active',
-  created_at TEXT NOT NULL,
-  expires_at TEXT NOT NULL,
-  deleted_at TEXT
-);
-
-CREATE INDEX idx_labs_user ON labs(user_id);
-CREATE INDEX idx_labs_status ON labs(status);
-CREATE INDEX idx_labs_expires ON labs(expires_at);
-```
-
-### CRON Cleanup (wrangler.toml)
-
-```toml
-[triggers]
-crons = ["0 * * * *"]
-```
-
-Every hour: query D1 for labs where `expires_at < now()` and `status = 'active'`, call Neon API to delete the branch, update status to `expired`.
-
-### Neon API Usage
-
-```typescript
-// Create branch
-POST https://console.neon.tech/api/v2/projects/{project_id}/branches
-Headers: Authorization: Bearer {NEON_API_KEY}
-Body: { "branch": { "name": "lab-{id}" }, "endpoints": [{ "type": "read_write" }] }
-
-// Delete branch
-DELETE https://console.neon.tech/api/v2/projects/{project_id}/branches/{branch_id}
-Headers: Authorization: Bearer {NEON_API_KEY}
-```
-
-### Seeding Flow
-
-```typescript
-import { neon } from '@neondatabase/serverless';
-
-async function seedBranch(connectionString: string, template: string, rows: number, env: Env) {
-  const key = `templates/${template}-${rows >= 1000 ? rows/1000 + 'k' : rows}.sql`;
-  const object = await env.TEMPLATES.get(key);
-  if (!object) throw new Error(`Template not found: ${key}`);
-  const sql = await object.text();
-  const db = neon(connectionString);
-  const statements = sql.split(';').filter(s => s.trim());
-  for (let i = 0; i < statements.length; i += 50) {
-    const batch = statements.slice(i, i + 50).join(';') + ';';
-    await db(batch);
-  }
-}
-```
-
-## Phase 4: Deploy and Test
-
-```powershell
-npx wrangler d1 create realitydb-labs
-npx wrangler r2 bucket create realitydb-templates
-npx wrangler secret put NEON_API_KEY
-npx wrangler secret put NEON_PROJECT_ID
 cd C:\Users\HP\Documents\databox\workers\lab-api
-npm install
 npx wrangler deploy
-curl https://realitydb-lab-api.eddy-078.workers.dev/health
 ```
 
-## Rules
+### Sandbox
+```powershell
+cd C:\Users\HP\Documents\realitydb-sandbox
+npm run build
+npx wrangler pages deploy dist --project-name realitydb-sandbox --commit-dirty=true
+```
 
-1. **Do NOT modify any files in `apps/cli/` or `packages/engine/`**
-2. Only work in `workers/lab-api/` and related infrastructure
-3. Use the Cloudflare account: Mpingo Systems (078fac3f0858379e6ceae8f4c5874059)
-4. Telemetry Worker already exists at `workers/telemetry/` — don't touch it
-5. Report what you find in `realitydb-sandbox/workers/neon/` before building
-6. If you need Neon credentials or R2 bucket creation, prompt me
+### Testing
+- Lab API health: `curl https://realitydb-lab-api.eddy-078.workers.dev/health`
+- Lab create test: `Invoke-RestMethod -Uri "https://realitydb-lab-api.eddy-078.workers.dev/v1/labs" -Method POST -ContentType "application/json" -Body '{"template":"banking","rows":5000,"ttl":"1h","name":"test","apiKey":"rdb_lab_mpingo_2026"}'`
+- Always delete test labs after: `Invoke-RestMethod -Uri "https://realitydb-lab-api.eddy-078.workers.dev/v1/labs/<id>" -Method DELETE -Headers @{"X-API-Key"="rdb_lab_mpingo_2026"}`
 
-## Start Here
+## TEMPLATE DATASET QUALITY STATUS
 
-1. Read `CLAUDE.md`
-2. Inspect `realitydb-sandbox/workers/neon/`
-3. Pre-generate Banking template SQL at 5k rows
-4. Build Worker skeleton with health check
-5. Report back before proceeding to Neon integration
+Only Banking templates are currently in R2. The developer will generate and upload new high-quality templates (with lifecycle rules, temporal ordering, enum weights) — this is NOT your task. When new templates are uploaded, they will follow the naming convention `templates/{domain}-{rows}k.sql`.
+
+Available row counts: 5k, 10k, 50k, 100k.
+Available templates (planned): banking, fintech, oncology, healthcare, supply-chain, cybersecurity, education.
+
+## KEY CREDENTIALS
+
+| Service | Value |
+|---------|-------|
+| Lab API URL | `https://realitydb-lab-api.eddy-078.workers.dev` |
+| Lab API Key | `rdb_lab_mpingo_2026` |
+| Neon Project | `bold-mouse-18187324` |
+| D1 realitydb-labs | `1fa51a0c-c851-4cec-8e91-ac1ee2079ff8` |
+| R2 bucket | `realitydb-templates` |
+| Cloudflare Account | Mpingo Systems (`078fac3f0858379e6ceae8f4c5874059`) |
+
+## START HERE
+
+1. Read `CLAUDE.md` in repo root
+2. Inspect `C:\Users\HP\Documents\realitydb-sandbox\src\CloudSandbox.tsx` and `cloudSandboxService.ts`
+3. Report what they currently do before making changes
+4. Then proceed with Task 1 (Sandbox ↔ Lab API connection)
