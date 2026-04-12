@@ -1,0 +1,18 @@
+name = "realitydb-lab-api"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "realitydb-labs"
+database_id = "1fa51a0c-c851-4cec-8e91-ac1ee2079ff8"
+
+[[r2_buckets]]
+binding = "TEMPLATES"
+bucket_name = "realitydb-templates"
+
+[vars]
+ENVIRONMENT = "production"
+
+[triggers]
+crons = ["0 * * * *"]
