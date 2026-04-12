@@ -1,0 +1,138 @@
+id,created_at,updated_at,name,slug,contact_email,is_active
+1fb0cceb-f78a-45b8-c341-4466918aeea6,2026-02-22T16:38:26.777Z,2026-04-02T15:37:30.964Z,The Brass Tap,sample_text_7008,masked_bism1z@example.com,true
+0bae4337-f442-4b2c-24a0-f224bb1ec58b,2025-04-17T10:39:02.130Z,2025-12-25T12:12:56.886Z,The Rustic Fork,sample_text_5507,masked_u87yz7@example.com,false
+af2fd48c-3dbc-4905-8d31-400d7be0d349,2025-10-07T21:02:39.406Z,2026-01-08T03:15:39.662Z,The Local Table,sample_text_2228,masked_112e2x@example.com,false
+4db58da8-5907-4f49-25a8-14e4b78ecbfa,2026-01-27T16:21:13.413Z,2025-05-15T08:36:01.140Z,Maple Street Diner,sample_text_2827,masked_16z26p@example.com,true
+8ea338b1-6978-4e24-59ea-df6d45f2096a,2025-10-07T16:52:58.645Z,2025-12-09T22:34:16.227Z,Green Leaf Bistro,sample_text_7269,masked_1722jl@example.com,true
+ee0624bd-c2f9-4df3-441f-35ca8d02735b,2025-05-08T02:39:52.155Z,2026-03-05T00:36:48.660Z,Harbor Grill,sample_text_6120,masked_dpfoce@example.com,false
+91d4bea7-5d61-45d1-8267-ed27a1043b23,2025-07-09T10:01:01.814Z,2025-06-02T06:32:25.741Z,The Rustic Fork,sample_text_7314,masked_f814oe@example.com,false
+33a35c8e-330f-48fb-1e24-abd8dab515d0,2026-02-16T16:16:30.350Z,2026-01-04T15:28:28.847Z,Stone Oven Bakery,sample_text_3777,masked_e2zykr@example.com,true
+8b3e3aaa-12a4-47f2-dc00-8d6035412b3f,2026-03-12T02:02:16.495Z,2025-10-24T11:36:38.990Z,Sage & Thyme,sample_text_6712,masked_loueao@example.com,true
+5518a8d0-7eca-400c-c4e7-e2bcc4ab1b41,2025-09-23T11:27:25.745Z,2025-06-17T06:43:07.048Z,Cloud Nine Cafe,sample_text_3036,masked_5mgnwz@example.com,false
+4a231176-3fb0-48cc-1dfb-3d551cbae37b,2025-05-07T02:27:55.478Z,2025-06-18T18:39:36.692Z,Sage & Thyme,sample_text_8263,masked_sl804w@example.com,false
+68eb1fc7-2d36-4965-0552-dc9fae688b8c,2025-08-25T02:53:01.549Z,2025-04-24T21:47:14.958Z,The Brass Tap,sample_text_7334,masked_z2k9jh@example.com,true
+b4e27059-1099-41de-a8f4-1ef62cc78002,2025-09-10T05:19:55.029Z,2025-07-02T08:37:59.877Z,Luna Restaurant,sample_text_6830,masked_38quvo@example.com,true
+e99b5a42-2386-49ed-4678-fb93b040e3eb,2026-04-02T21:20:14.731Z,2025-05-12T00:54:42.951Z,Fresh & Co,sample_text_973,masked_l5ju2o@example.com,true
+f0f22337-7152-4fca-4051-1a05943cf0db,2025-12-01T23:30:44.139Z,2025-08-23T15:12:43.234Z,Blue Ocean Sushi,sample_text_7439,masked_zihcah@example.com,true
+315e6c93-1524-428a-018f-c6a5e22a737a,2025-09-13T16:42:18.351Z,2025-05-10T19:41:25.978Z,Mountain View Cafe,sample_text_8156,masked_id94yd@example.com,false
+e51eb9fa-258a-493e-54c8-a8718c060bd3,2025-11-18T05:41:07.658Z,2025-08-25T09:31:53.490Z,Golden Plate,sample_text_1440,masked_2bnwdo@example.com,false
+d2092b6c-e221-41b2-b0c2-0a4e43286141,2025-12-23T02:44:50.175Z,2026-01-26T08:17:32.825Z,Red Pepper Thai,sample_text_7663,masked_aj35ox@example.com,true
+2dbe6ccd-ff74-4acc-b180-925c3079fe66,2026-01-06T08:13:24.336Z,2025-10-03T08:37:54.039Z,Corner Deli,sample_text_9765,masked_sv0fve@example.com,true
+3dfababb-8107-4775-c180-ee744641f957,2026-02-21T21:06:41.948Z,2025-06-24T16:10:29.242Z,Green Leaf Bistro,sample_text_351,masked_nzs81w@example.com,false
+f835b19a-d8e7-41f9-5659-7c693c281b65,2025-07-27T00:24:14.930Z,2026-01-31T05:21:03.214Z,Stone Oven Bakery,sample_text_6560,masked_3iblci@example.com,true
+072f3b05-1672-4f0e-c38a-d8c61a217b1c,2025-09-20T06:48:25.045Z,2026-02-16T13:18:05.819Z,Sunrise Bistro,sample_text_7642,masked_4ykojg@example.com,true
+e0283b19-10bb-407a-a608-15a17b75e7b2,2026-03-10T21:04:19.825Z,2025-08-05T16:49:22.008Z,Golden Plate,sample_text_8516,masked_pqlhcc@example.com,true
+c2972da9-cb04-4ea6-a5b8-987698570acb,2026-03-26T15:39:24.679Z,2025-12-17T02:42:01.471Z,Fresh & Co,sample_text_9351,masked_pmgx0z@example.com,false
+52ddf43c-9764-448e-3978-280c9eedce1f,2025-11-27T06:01:23.603Z,2026-02-09T00:00:41.054Z,The Rustic Fork,sample_text_3155,masked_c52zd4@example.com,false
+6446f96c-a2ae-4972-be7e-4ec690d90f35,2025-11-27T06:43:20.378Z,2025-12-06T00:07:56.935Z,Cloud Nine Cafe,sample_text_6360,masked_7ov5gw@example.com,false
+2467e8f8-bd1e-4c22-1812-4e7edaf1751b,2025-07-02T17:09:01.647Z,2026-04-03T05:52:30.967Z,The Local Table,sample_text_8016,masked_k6oj74@example.com,true
+d3e0d12a-91b8-4f44-9031-068cd548ddd4,2025-12-09T09:11:52.334Z,2025-08-12T10:31:38.565Z,Sunrise Bistro,sample_text_5203,masked_mhzclq@example.com,true
+c3e6f619-7332-44e7-53f6-d62300420379,2025-08-03T12:34:59.886Z,2025-11-01T08:56:34.909Z,Sunrise Bistro,sample_text_7864,masked_eyvzsy@example.com,true
+11725650-46a5-4386-70e3-1913d39ea1ea,2025-11-24T21:03:20.088Z,2026-02-02T17:20:12.920Z,Luna Restaurant,sample_text_6527,masked_112pl0@example.com,true
+8604c720-9164-4798-945f-9d3abf194271,2026-02-13T18:04:50.878Z,2025-11-28T20:29:48.056Z,Oak & Vine,sample_text_2121,masked_skhs3w@example.com,true
+8022a52b-a85f-4b8e-90eb-061a477faef8,2025-04-30T18:19:51.869Z,2025-11-05T16:33:44.654Z,Maple Street Diner,sample_text_9928,masked_ivfo0a@example.com,true
+91ab6386-ded8-4d31-90e1-7f809ed51576,2025-04-26T10:37:48.639Z,2025-11-10T10:24:54.287Z,Red Pepper Thai,sample_text_3725,masked_psck6t@example.com,false
+6b010bbc-6ef3-475c-b705-8dc4c56a68e3,2025-07-15T18:19:25.788Z,2025-06-23T21:45:18.681Z,Harbor Grill,sample_text_2304,masked_04ww0r@example.com,true
+0a81977b-ea89-4c5b-832b-0194966cc691,2025-11-24T02:56:23.129Z,2025-10-22T17:32:34.209Z,Cloud Nine Cafe,sample_text_8586,masked_w4qfao@example.com,false
+ea3b65d0-3f77-4430-2383-f4641406c53c,2025-04-29T01:13:29.461Z,2025-07-15T16:50:08.326Z,Cloud Nine Cafe,sample_text_4054,masked_5cb191@example.com,true
+b021f0d7-d834-44f3-b436-be3a350ad823,2025-10-31T18:22:23.851Z,2025-08-24T22:09:03.951Z,The Brass Tap,sample_text_9527,masked_tcp70s@example.com,true
+ac7c6ed7-e51a-412d-16ea-bc518b028566,2026-02-09T16:59:22.673Z,2026-03-23T13:23:06.708Z,Blue Ocean Sushi,sample_text_240,masked_hufqz7@example.com,false
+54b35bd9-83fe-4f9e-42ef-82a90f42c041,2025-09-19T02:53:08.590Z,2025-09-01T08:36:39.718Z,Mountain View Cafe,sample_text_1023,masked_n2xn7i@example.com,false
+fd0ab9bf-9de5-49cc-8228-38a48af15552,2026-03-02T00:49:21.746Z,2026-02-25T13:16:08.814Z,Harbor Grill,sample_text_4425,masked_301d31@example.com,true
+16c0ad2b-a7ac-431f-2050-aab571d79dc9,2025-06-22T13:21:03.797Z,2026-03-02T19:18:04.427Z,Maple Street Diner,sample_text_6702,masked_qv6id7@example.com,true
+ec026f3e-896e-4ea7-c4ce-22ff613977a8,2025-07-11T18:53:10.065Z,2025-06-08T21:48:04.216Z,City Kitchen,sample_text_1168,masked_9ly89s@example.com,true
+25774e83-4f3c-43d1-c391-0d4bbeccc730,2025-10-28T05:30:19.043Z,2025-09-22T09:18:07.796Z,Red Pepper Thai,sample_text_2571,masked_hu2s1o@example.com,false
+9be9490a-19cf-437f-9db4-7eb4ae362fac,2025-09-15T23:28:57.923Z,2025-12-05T08:44:24.587Z,Stone Oven Bakery,sample_text_6074,masked_647zbf@example.com,true
+cd7b1e50-a49f-46c3-24fb-327bda08c6ad,2025-10-13T11:07:49.417Z,2025-05-19T21:53:08.773Z,Mountain View Cafe,sample_text_9863,masked_na67d9@example.com,true
+0d15c286-4496-444b-b5ab-4e7122ed6c1f,2025-11-07T18:08:30.991Z,2025-11-22T02:44:13.583Z,The Local Table,sample_text_5921,masked_kkhflx@example.com,true
+69735b69-09d5-4134-eb41-b9fda79e0ea3,2025-11-04T07:43:23.749Z,2025-10-17T00:38:10.989Z,Stone Oven Bakery,sample_text_1252,masked_bor8id@example.com,true
+90b57a9b-8af1-45f6-a993-a7dd2eae8708,2025-11-11T22:25:08.299Z,2025-10-11T00:30:19.867Z,Oak & Vine,sample_text_2014,masked_phzj4z@example.com,false
+154f9476-15ca-45f8-f49f-a67bb6fee8be,2026-03-27T15:22:02.086Z,2026-02-18T09:32:04.272Z,Stone Oven Bakery,sample_text_2252,masked_lkrb3x@example.com,false
+c9f46f9b-03ae-42dd-fb36-6cbe6b00d024,2025-09-07T12:25:48.294Z,2025-11-17T03:35:16.283Z,Sage & Thyme,sample_text_2128,masked_ydpmrn@example.com,true
+c12f747a-db99-4f3a-9bae-6b4484c92be4,2026-03-10T05:56:48.235Z,2026-01-03T07:14:02.910Z,Maple Street Diner,sample_text_9727,masked_06lcx7@example.com,false
+13e80715-bc5d-44b6-87f8-40ca6793d3ab,2026-02-19T07:28:01.029Z,2025-09-07T05:01:07.734Z,Harbor Grill,sample_text_9049,masked_rtfxh3@example.com,false
+8ebc3010-8c09-40b3-b8c6-806efd9936c9,2025-11-23T04:34:31.037Z,2025-08-09T15:42:13.063Z,The Brass Tap,sample_text_7425,masked_n3yul4@example.com,false
+b8ae85f2-d000-489b-6a33-c0b8d4b696ed,2026-01-14T09:21:13.360Z,2025-10-19T02:06:48.901Z,Stone Oven Bakery,sample_text_5535,masked_skbcun@example.com,false
+f7205e7e-3638-426f-6c3a-639e6f7adcd7,2025-07-19T22:51:49.389Z,2025-04-22T20:13:36.109Z,Stone Oven Bakery,sample_text_1250,masked_ny7c27@example.com,false
+1e89632f-dcf9-4fc5-97e6-f0f0ffb7ca45,2025-07-21T00:53:28.045Z,2025-10-10T12:28:40.209Z,Blue Ocean Sushi,sample_text_2349,masked_x2atsy@example.com,false
+1f19b424-2b4d-4223-2786-150e31fe8dde,2025-04-24T09:53:46.133Z,2025-08-12T09:03:36.502Z,Blue Ocean Sushi,sample_text_5640,masked_kogod8@example.com,true
+511dd89e-b1fb-4f83-646a-4a69329a323f,2025-11-12T19:40:01.354Z,2026-03-27T11:42:05.534Z,Harbor Grill,sample_text_226,masked_x8a5cs@example.com,true
+ff615df9-ec18-4504-7791-4c4c20119824,2025-04-30T22:08:29.778Z,2025-04-25T03:26:59.700Z,Harbor Grill,sample_text_7329,masked_drrzik@example.com,false
+c81e2bd0-d9d6-4def-3e94-4ce73a6fa588,2025-06-06T20:47:01.384Z,2026-01-05T16:36:45.910Z,City Kitchen,sample_text_4325,masked_ertcy5@example.com,true
+82632ebb-25b1-4970-c1cf-8a8fc332a920,2025-12-19T18:36:07.585Z,2025-08-07T21:43:08.698Z,Sage & Thyme,sample_text_1434,masked_0vycx4@example.com,true
+d02b6510-6832-4300-1ead-dac99e1242ba,2025-09-22T20:16:59.081Z,2026-03-29T10:42:20.987Z,Red Pepper Thai,sample_text_885,masked_813yv7@example.com,true
+e942daf5-9d5b-41da-89d4-99a752b72411,2026-01-23T09:15:29.075Z,2025-10-02T00:57:13.059Z,Green Leaf Bistro,sample_text_6857,masked_6ms5jf@example.com,true
+82ec6b80-f748-44bd-3fdf-aabb8e7e1abc,2025-10-28T04:07:19.024Z,2025-08-13T05:31:39.160Z,Harbor Grill,sample_text_8142,masked_v706ac@example.com,false
+31a43428-08ef-4d76-ff7b-a866ce827ea0,2025-10-16T12:50:18.599Z,2025-05-24T07:28:49.032Z,Green Leaf Bistro,sample_text_2948,masked_bmz7cu@example.com,false
+c34e6ad0-6cab-4fbe-a643-d6d32d083917,2025-05-11T10:03:17.462Z,2025-12-05T19:31:40.024Z,Sunrise Bistro,sample_text_1919,masked_tfacgp@example.com,true
+aa872689-8fac-488c-1031-858269f89dba,2025-08-23T00:19:16.599Z,2025-08-12T02:30:22.807Z,Mountain View Cafe,sample_text_6709,masked_urd6c6@example.com,true
+c7765746-6b12-4c70-d28e-f9acd902836d,2025-04-14T13:37:06.028Z,2025-07-02T06:52:19.993Z,City Kitchen,sample_text_578,masked_ivi55s@example.com,false
+da520750-5ef1-48e9-0bc2-b6e32773ffb5,2025-12-15T06:09:55.768Z,2026-04-02T10:56:08.504Z,Luna Restaurant,sample_text_5817,masked_pi910k@example.com,true
+99f10ed3-34a8-4858-6cb3-77ec4531ad8f,2025-10-27T18:27:14.573Z,2025-10-11T06:23:55.462Z,Green Leaf Bistro,sample_text_4019,masked_usxo56@example.com,false
+f6a24f7a-c892-450d-43df-837b272473a0,2026-01-19T09:21:20.866Z,2026-03-28T00:20:41.953Z,Firebird Pizza,sample_text_7977,masked_jwq2u1@example.com,true
+e387344b-e23e-4ac2-d8a0-050db8635e43,2025-07-10T18:18:48.753Z,2026-01-09T22:46:05.375Z,Luna Restaurant,sample_text_8360,masked_9ylfs5@example.com,true
+9d4e7537-dba8-49ce-e5bc-6a9cdb6ee963,2026-01-24T15:25:40.633Z,2025-06-02T01:39:58.268Z,Fresh & Co,sample_text_9569,masked_bvzy54@example.com,false
+28b8b851-82ed-4bdc-3273-c04c5c2876e9,2025-04-21T20:49:00.878Z,2026-04-11T12:50:00.409Z,The Brass Tap,sample_text_3689,masked_gtdzlc@example.com,false
+c38f3c20-0754-4e15-cd02-98e7eb641f55,2026-02-02T08:12:01.270Z,2026-02-03T18:35:55.067Z,Corner Deli,sample_text_6870,masked_quepjt@example.com,true
+deaaed0f-51a1-4c14-3b88-59bf701b7a92,2025-06-30T13:25:20.256Z,2025-07-04T14:24:45.477Z,The Brass Tap,sample_text_947,masked_afob1c@example.com,false
+59180287-10ec-471c-829b-bb5556a6a428,2025-06-12T16:27:50.469Z,2025-11-12T11:46:40.835Z,The Brass Tap,sample_text_1881,masked_0qz8f9@example.com,false
+1ccf6fb0-728d-4a69-284d-a94890c35a52,2026-04-02T04:44:11.164Z,2025-11-06T10:29:58.938Z,Golden Plate,sample_text_4757,masked_kw3pji@example.com,true
+a5b9fb4e-6483-4ae7-306e-4d1ff8b6524c,2025-11-16T13:51:18.878Z,2025-11-26T04:32:23.056Z,Sunrise Bistro,sample_text_4885,masked_d7bdcb@example.com,false
+e7b80081-9ad3-4a6f-0e9a-feeffae2e9cb,2025-08-19T17:11:10.074Z,2026-02-20T17:06:29.676Z,The Brass Tap,sample_text_9683,masked_s0xbsb@example.com,false
+e529e20d-efcf-4148-3149-16376b7d5c5e,2025-09-24T22:27:16.480Z,2025-07-23T22:40:41.285Z,Golden Plate,sample_text_5488,masked_7m910j@example.com,false
+c3226a93-7ef1-4b75-cce1-1c7e66111de2,2026-02-07T08:49:02.601Z,2025-08-07T00:25:01.968Z,City Kitchen,sample_text_3007,masked_dwthrz@example.com,false
+9bc64abc-0809-41ec-b3a0-e782db86a1e5,2025-08-22T06:41:14.252Z,2025-06-03T02:46:31.434Z,Golden Plate,sample_text_5671,masked_76w7ij@example.com,false
+6b9757fc-3d00-4ea1-371b-cb199a033b99,2025-05-12T15:19:12.779Z,2025-07-16T16:47:08.781Z,Mountain View Cafe,sample_text_7391,masked_m73am4@example.com,true
+8c49e120-b096-4ca8-1ab2-8e9b5ec362fa,2025-11-24T07:13:15.325Z,2025-10-17T14:15:48.908Z,Oak & Vine,sample_text_7496,masked_7bhev1@example.com,false
+9d752064-2aae-4fd4-6b79-ca70ad9b51eb,2025-05-04T00:25:37.171Z,2025-08-26T00:15:24.827Z,Sage & Thyme,sample_text_4701,masked_enrkln@example.com,false
+e0c29622-35d7-4c52-1bfd-fe5760428daf,2025-10-22T05:02:26.429Z,2025-09-30T02:30:29.381Z,The Rustic Fork,sample_text_8883,masked_hispoh@example.com,false
+898b5121-ca7e-4f3c-c4e4-1e225e596ef1,2026-03-10T17:29:08.541Z,2026-04-06T18:50:08.514Z,Cloud Nine Cafe,sample_text_3413,masked_m1zp3t@example.com,true
+b5bd216b-a1bc-4524-b22d-d4c250f26877,2025-08-12T18:45:34.011Z,2025-05-17T09:25:24.573Z,Stone Oven Bakery,sample_text_7683,masked_qp2bhk@example.com,true
+e95518da-13c6-48d8-1d97-c19202f871af,2025-10-17T20:16:22.356Z,2025-05-05T11:15:20.946Z,Luna Restaurant,sample_text_1152,masked_ov607d@example.com,true
+45ecc89b-841a-47fe-75ab-b4917d5c4c9a,2025-10-28T23:19:10.396Z,2025-10-18T08:14:04.399Z,Green Leaf Bistro,sample_text_2005,masked_xfrqcz@example.com,true
+7afec617-06e5-456a-741b-25396ef1ba1a,2025-04-15T02:55:35.729Z,2026-04-07T19:37:12.654Z,Corner Deli,sample_text_3090,masked_mn9zwt@example.com,true
+9d158f93-55f6-4d1b-118a-3ed0c13a0475,2025-11-10T12:01:09.020Z,2025-09-16T23:16:48.008Z,Maple Street Diner,sample_text_2597,masked_ub8smg@example.com,false
+841c0562-2bf3-450e-a453-8246f3119158,2025-06-14T06:21:47.805Z,2026-04-10T19:18:38.113Z,Firebird Pizza,sample_text_2028,masked_7dr7bc@example.com,true
+d9a1c323-8f2c-4544-557b-c00c99f39204,2025-08-20T22:51:47.750Z,2025-07-05T05:38:54.902Z,Firebird Pizza,sample_text_9460,masked_aar2o7@example.com,true
+1f279f7c-063c-4b6a-8947-83312b0fece0,2025-11-28T00:09:55.226Z,2026-02-09T14:51:28.508Z,Sunrise Bistro,sample_text_8964,masked_r2xctq@example.com,false
+bed6d358-55a7-4606-aa40-10d30ba16e40,2025-05-23T04:44:07.345Z,2025-04-29T15:27:38.581Z,Golden Plate,sample_text_9439,masked_iqun24@example.com,false
+269f9e4f-b09c-4989-873e-7723dab1608a,2026-04-01T20:19:38.128Z,2025-11-30T03:50:27.455Z,The Rustic Fork,sample_text_3533,masked_kgt1dk@example.com,true
+0796cd12-bdab-489d-f524-68714ff9f946,2026-04-08T23:38:59.001Z,2025-10-14T19:43:34.585Z,The Rustic Fork,sample_text_1884,masked_fkpchq@example.com,false
+85331e09-74ca-4451-937e-4a43dea59235,2025-10-20T14:29:21.526Z,2025-11-12T09:20:11.065Z,Maple Street Diner,sample_text_6078,masked_befcgu@example.com,false
+857367e8-adbb-4d36-fc06-6791711e4ead,2025-10-06T22:45:58.228Z,2026-02-25T12:41:13.557Z,The Local Table,sample_text_4492,masked_qfvphs@example.com,false
+9ac4b8c0-84dd-4488-7e6f-ffe68335c8f6,2025-10-30T16:07:59.809Z,2025-04-21T12:37:57.164Z,Oak & Vine,sample_text_5435,masked_zzcxvm@example.com,true
+5a48fb76-a683-441d-d650-f2d68c20f820,2025-05-22T07:46:13.301Z,2025-06-22T06:54:15.085Z,Green Leaf Bistro,sample_text_7423,masked_385euh@example.com,true
+637ea0cd-fd00-4af4-3963-296c3dcc70ef,2026-02-17T16:55:29.791Z,2025-11-05T12:40:44.899Z,Firebird Pizza,sample_text_9580,masked_o1x973@example.com,false
+0cfc7595-23c0-4cf8-6f03-11d90c403216,2026-01-01T09:06:34.058Z,2025-05-22T02:58:45.331Z,Luna Restaurant,sample_text_627,masked_qqikxu@example.com,false
+ae98fe4e-001c-4117-5a7e-b9a0223368c6,2025-08-18T09:25:38.991Z,2025-04-23T03:26:44.756Z,City Kitchen,sample_text_1600,masked_swhr35@example.com,true
+28cc7e6f-2ba2-4c24-4280-02f2fd907283,2026-01-13T05:08:16.724Z,2025-09-02T20:14:50.306Z,Sage & Thyme,sample_text_639,masked_yfq5nd@example.com,true
+4ef24930-df4b-4609-2026-e4aa5bc27b26,2026-02-16T11:11:12.987Z,2026-03-19T01:52:41.592Z,Sunrise Bistro,sample_text_7577,masked_pw0r29@example.com,false
+ffb9e66a-80b4-4a8e-0ef6-a55ac6e077b2,2025-12-19T21:42:52.529Z,2025-08-19T13:33:18.789Z,Green Leaf Bistro,sample_text_8438,masked_wyeiq9@example.com,false
+00fbd581-a4e8-4021-7a78-9c1de04838f7,2026-01-08T07:57:08.916Z,2025-08-25T23:14:20.760Z,Harbor Grill,sample_text_3934,masked_mjwm6b@example.com,false
+41ce5e85-e446-4361-bf5e-b67c57d566ed,2025-10-16T11:41:33.033Z,2025-11-19T20:17:38.688Z,The Brass Tap,sample_text_8923,masked_y2ocm0@example.com,false
+ae119b17-bb13-43be-fae1-37d2bda5e01c,2025-08-11T15:54:33.249Z,2026-01-23T07:14:17.976Z,Blue Ocean Sushi,sample_text_1961,masked_fuhm4l@example.com,false
+37382a41-994e-40ac-db46-36f887ea9257,2026-01-29T04:18:52.917Z,2025-12-03T20:21:05.033Z,Harbor Grill,sample_text_2823,masked_v6l2l7@example.com,true
+36025fe2-e9a7-4bde-d217-82bdbb68e3dd,2025-06-07T04:15:19.724Z,2026-02-28T06:43:00.923Z,The Rustic Fork,sample_text_266,masked_zssyy4@example.com,false
+6ef4cabc-a7ea-4b45-c8d6-cf7e09557185,2025-12-29T20:26:27.517Z,2026-04-10T00:10:39.567Z,Luna Restaurant,sample_text_2990,masked_zwa1j6@example.com,true
+cafc3a04-201c-4016-8d4d-b9572f5f19af,2025-07-23T06:51:15.019Z,2025-12-20T21:47:47.160Z,Cloud Nine Cafe,sample_text_976,masked_pl32pt@example.com,false
+e78ad109-8734-4032-00b4-5b581b4850ff,2025-11-04T22:22:03.762Z,2026-02-17T04:00:16.788Z,Fresh & Co,sample_text_1674,masked_x9yzft@example.com,true
+87beb82a-c8f6-4115-50ff-02cf2e1e370e,2025-12-15T14:37:45.467Z,2025-04-21T20:55:13.827Z,Luna Restaurant,sample_text_9346,masked_9b8wv1@example.com,true
+5c47a12d-4ac4-448a-957d-d1b615507ffc,2025-12-21T07:26:53.356Z,2025-04-20T13:44:59.393Z,The Rustic Fork,sample_text_4800,masked_4vnpoa@example.com,true
+61caf6e9-3c08-4822-fcb0-d566a09c116a,2025-06-08T09:42:32.697Z,2025-05-28T09:36:30.405Z,City Kitchen,sample_text_1819,masked_hq19no@example.com,false
+f55976c8-5fb5-497e-19cf-4b0eee6a2937,2025-09-17T15:35:55.347Z,2025-04-29T06:11:17.591Z,Fresh & Co,sample_text_5401,masked_k20pyl@example.com,false
+f2b8911e-4737-4f0b-de56-d1b8d22aca15,2025-08-07T05:57:09.524Z,2026-02-02T20:53:26.608Z,Fresh & Co,sample_text_2288,masked_gr7m8j@example.com,false
+eb0a6da6-64d8-4809-4502-405089227b79,2025-09-20T19:51:44.603Z,2026-04-07T00:14:19.350Z,Blue Ocean Sushi,sample_text_7451,masked_uvnayb@example.com,false
+69ba870e-5480-4a0d-5c0e-02c56d4e540f,2025-09-28T05:29:28.206Z,2025-12-13T09:22:19.108Z,The Rustic Fork,sample_text_866,masked_0o916h@example.com,false
+0f6fafea-ad8d-4a75-b22a-d1ab75fa9281,2025-06-22T02:27:23.017Z,2025-05-27T09:17:50.181Z,Firebird Pizza,sample_text_6975,masked_xs1qrp@example.com,false
+70a8bc96-59f8-4595-9508-1ae97035633f,2025-08-20T21:18:20.504Z,2025-06-16T04:36:15.233Z,Blue Ocean Sushi,sample_text_2199,masked_hdgzry@example.com,false
+2dbc7e1b-126b-40e2-10ae-0cbabc7d29eb,2025-10-08T15:42:14.118Z,2025-09-13T10:23:31.499Z,Cloud Nine Cafe,sample_text_3846,masked_q56qcq@example.com,true
+f487f97e-cb5f-46bd-69ce-5cb0896feefa,2025-09-23T10:34:32.918Z,2025-09-24T16:30:28.890Z,Sage & Thyme,sample_text_625,masked_z8qx7j@example.com,true
+b286994a-b940-487b-afc3-b703bc07fdd0,2025-05-06T20:13:36.664Z,2026-01-29T09:17:46.049Z,Fresh & Co,sample_text_296,masked_y1y858@example.com,true
+7d26deac-5a8f-4f92-b81c-36c2ba146414,2025-08-24T02:35:07.914Z,2026-03-05T11:04:12.624Z,Maple Street Diner,sample_text_3193,masked_f4fd2x@example.com,true
+eb5adcd2-0f1f-4d4f-dbc6-d7da35462003,2025-07-05T05:44:00.164Z,2025-09-27T18:50:45.010Z,Sunrise Bistro,sample_text_384,masked_zh7hlz@example.com,true
+6ed10963-6998-4313-4e31-6293de4c2c8b,2026-03-03T06:53:37.922Z,2026-01-28T05:08:26.527Z,Golden Plate,sample_text_9159,masked_q0pjg8@example.com,true
+f1e994f4-b491-4fdf-84f3-6e1f13441e48,2025-04-27T04:35:06.311Z,2025-10-09T03:03:40.516Z,Stone Oven Bakery,sample_text_6357,masked_c6rqku@example.com,false
+661dd5cb-682e-4a00-b75d-d1dd11876af3,2025-10-03T00:38:43.795Z,2025-05-04T01:23:58.542Z,Sage & Thyme,sample_text_6260,masked_m6vun3@example.com,true
+a682d4f4-a8b4-45df-3346-2163f3452484,2025-11-07T05:49:58.751Z,2025-07-26T20:02:12.926Z,Corner Deli,sample_text_8360,masked_xv083p@example.com,false
+1607d2c5-7644-45b9-c528-cf70285c1572,2025-07-12T17:56:10.978Z,2025-04-15T04:47:33.139Z,The Rustic Fork,sample_text_5138,masked_myc1fr@example.com,true
+3ee7492f-8f00-46dc-dbe8-070bd5a2b712,2025-06-06T22:04:35.403Z,2025-08-11T04:13:41.391Z,City Kitchen,sample_text_1140,masked_pnu8zd@example.com,true

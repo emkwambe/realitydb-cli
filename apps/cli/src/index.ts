@@ -21,6 +21,7 @@ import { ciStartCommand } from './commands/ci.js';
 import { ruleListCommand } from './commands/rule.js';
 import { weightTuneCommand, ruleAddCommand } from './commands/tune.js';
 import { validateCommand } from './commands/validate.js';
+import { enhancedStatusCommand } from './commands/enhanced-status.js';
 import { menuCommand } from './commands/menu.js';
 import { auditExportCommand } from './commands/audit-export.js';
 import { generateTemplateCommand } from './commands/generate-template.js';
@@ -28,7 +29,7 @@ import { captureCommand } from './commands/capture.js';
 import { loadCommand } from './commands/load.js';
 // import { templatesCommand, templatesInitCommand, templatesValidateCommand } from './commands/templates'; // TODO: re-enable after @databox/templates is wired
 import { requireAuth, loadLicense } from './auth/license';
-import { gateCommand, gateRows, gateLifecycleRules, printUpgradePrompt, stripLifecycleRules, printLifecycleWarning, recordRowUsage } from './gate.js';
+import { gateCommand, gateRows, gateLifecycleRules, printUpgradePrompt, stripLifecycleRules, printLifecycleWarning, recordRowUsage, recordOperation } from './gate.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -251,6 +252,15 @@ async function runHandler(options: any) {
 
       // Generate data
       const { allData, actualTotal, elapsed } = generateData(ordered, rowsPerTable, pack);
+
+    // Record operation for analytics
+    recordOperation({
+      command: 'run',
+      pack: options.pack,
+      rows: actualTotal,
+      format: format,
+      duration: parseFloat(elapsed) * 1000,
+    });
 
     // PII Auto-Masking
     if (options.maskPii) {
@@ -806,7 +816,14 @@ if (process.argv.length <= 2) {
 
 
 program
-  .command('menu')
+  
+program
+  .command('analytics')
+  .description('Show detailed usage analytics, command frequency, and compliance limits')
+  .action(enhancedStatusCommand);
+
+program
+.command('menu')
   .description('Interactive command menu — guided navigation for all features')
   .action(menuCommand);
 
