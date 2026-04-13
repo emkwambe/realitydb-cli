@@ -1,162 +1,274 @@
-# RealityDB — Claude Code Directive
+# RealityDB SimLab — Claude Code Infrastructure Directive
 
-## Read CLAUDE.md in repo root first. It has the full architecture.
-
----
-
-## COMPLETED INFRASTRUCTURE (Do NOT rebuild any of this)
-
-### Lab API Worker (`realitydb-lab-api.eddy-078.workers.dev`)
-- **Source:** `workers/lab-api/src/index.ts` (single-file Hono Worker, 15 endpoints)
-- **D1:** `realitydb-labs` (ID: `1fa51a0c-c851-4cec-8e91-ac1ee2079ff8`)
-  - Tables: `labs`, `snapshots`, `published_labs`, `forks`, `saved_queries`
-- **R2:** `realitydb-templates`
-  - Contents: `templates/banking-5k.sql`, `banking-10k.sql`, `banking-50k.sql`, `banking-100k.sql`
-- **Neon:** Project `bold-mouse-18187324` (PostgreSQL 17, US East 1)
-- **Secrets set:** `NEON_API_KEY`, `NEON_PROJECT_ID`, `LAB_API_KEY` (`rdb_lab_mpingo_2026`)
-- **CRON:** Hourly expired lab cleanup active
-- **Gallery:** 1 published lab live
-
-### Telemetry Worker (`realitydb-telemetry.eddy-078.workers.dev`)
-- D1: `realitydb-telemetry` (ID: `bcc7b1a1-81f9-4671-a0bd-d5beca95f9b6`)
-
-### CLI (`@realitydb/cli@2.32.0` on npm)
-- 41+ commands including 14 lab commands
-- Smoke test: 29/29 green (`apps/cli/smoke-test.cjs`)
-- **Do NOT modify `apps/cli/` or `packages/engine/`** — CLI and engine are maintained by the developer
-
-### Sandbox (`sandbox.realitydb.dev`)
-- Separate repo: `C:\Users\HP\Documents\realitydb-sandbox\`
-- PGlite-based SQL learning environment
-- Has `CloudSandbox.tsx`, `DataStorefront.tsx`, `cloudSandboxService.ts`
-- Engine is NOT installed in sandbox (`@realitydb` package not present)
-- Workers exist but are scaffolds only: `workers/neon/` (empty), `workers/stripe/`, `workers/enterprise-api/`, `workers/ai-tutor/`
-
-### Cloudflare Account
-- Account: Mpingo Systems (`078fac3f0858379e6ceae8f4c5874059`)
-- Domain: `realitydb.dev`
-- Workers deployed: `realitydb-lab-api`, `realitydb-telemetry`, `realitydb-sandbox`, `realitydb-studio`, `realitydb-enterprise-api`, `realitydb-neon-worker`
+## Read `CLAUDE.md` in the databox repo root first.
 
 ---
 
-## YOUR TASKS (Infrastructure Only)
-
-### Task 1: Sandbox ↔ Lab API Integration
-
-The Sandbox at `sandbox.realitydb.dev` has existing UI components for cloud sandboxes but they are NOT connected to the Lab API. Your job:
-
-1. **Inspect existing UI:**
-   - `C:\Users\HP\Documents\realitydb-sandbox\src\CloudSandbox.tsx` — what does it do currently?
-   - `C:\Users\HP\Documents\realitydb-sandbox\src\cloudSandboxService.ts` — what API does it call?
-   - `C:\Users\HP\Documents\realitydb-sandbox\src\DataStorefront.tsx` — what does this render?
-
-2. **Connect to Lab API:**
-   - Update `cloudSandboxService.ts` to call `https://realitydb-lab-api.eddy-078.workers.dev/v1/labs`
-   - CloudSandbox should: create lab → show connection string → let user run SQL → show results
-   - DataStorefront should: show available templates (banking at 5k/10k/50k/100k) → one-click create
-
-3. **Do NOT install `@realitydb/engine` in the sandbox.** The Lab API handles all data generation via pre-generated SQL in R2. The sandbox just needs HTTP calls to the Lab API.
-
-### Task 2: Lab Gallery UI
-
-Build a gallery page in the sandbox that displays published labs from `GET /v1/gallery`. Allow:
-- Browse published labs with title, author, template, rows, view count, fork count
-- One-click fork via `POST /v1/gallery/:slug/fork`
-- View saved queries for a published lab
-
-Gallery should be accessible at `sandbox.realitydb.dev/gallery` or as a tab in the existing UI.
-
-### Task 3: Jupyter Notebook Export Endpoint
-
-Add a new endpoint to the Lab API Worker:
-
-```
-GET /v1/labs/:id/export?format=notebook
-```
-
-Returns a `.ipynb` JSON file containing:
-- Markdown cell: Title, template, seed, description
-- Markdown cell: Schema (table names + column list as markdown table)
-- Code cell: `pip install psycopg2-binary pandas` setup
-- Code cell: Connection example using `pd.read_sql()`
-- Code cells: Each saved query as a separate cell
-- Markdown cell: Reproducibility info (template + seed = identical data)
-- Markdown cell: BibTeX citation for RealityDB
-
-Implementation: all in `workers/lab-api/src/index.ts` — add a new route.
-
-### Task 4: CI Integration Endpoint
-
-Add to Lab API Worker:
-
-```
-POST /v1/labs/ci
-Body: { "template": "banking", "rows": 5000 }
-Response: { "connectionString": "...", "labId": "...", "expiresAt": "..." }
-```
-
-Simplified endpoint for CI pipelines — no auth header needed (uses API key in body), returns minimal JSON for `DATABASE_URL` extraction.
-
-### Task 5: Template Upload Automation
-
-Create a script at `workers/lab-api/scripts/upload-templates.sh` that:
-1. Takes a template directory and row count as arguments
-2. Runs the CLI `run` command to generate SQL
-3. Uploads to R2 via `wrangler r2 object put`
-
-**Do NOT modify the CLI.** Just call it as an external tool.
-
-```powershell
-# Example usage (PowerShell):
-node C:\Users\HP\Documents\databox\apps\cli\dist\index.js run --pack "path\to\pack.json" --rows 5000 --format sql --drop-tables --seed 42 -o template-5k.sql
-npx wrangler r2 object put realitydb-templates/templates/template-5k.sql --file template-5k.sql --remote
-```
-
----
-
-## DO NOT TOUCH
-
-- `apps/cli/` — ALL CLI code (commands, gate.ts, telemetry.ts, index.ts)
-- `packages/engine/` — Core data generation engine
-- `workers/telemetry/` — Deployed and working
-- Any npm publish or version bumps
-
-## WHAT YOU CAN MODIFY
-
-- `workers/lab-api/src/index.ts` — Add new endpoints (notebook export, CI endpoint)
-- `C:\Users\HP\Documents\realitydb-sandbox\src/` — Sandbox UI components
-- `C:\Users\HP\Documents\realitydb-sandbox\workers/` — Sandbox worker scaffolds
-- New scripts in `workers/lab-api/scripts/`
-- Documentation files
-
-## BUILD & DEPLOY RULES
+## INFRASTRUCTURE STATUS (All Deployed & Verified)
 
 ### Lab API Worker
-```powershell
-cd C:\Users\HP\Documents\databox\workers\lab-api
-npx wrangler deploy
+- **URL:** `https://realitydb-lab-api.eddy-078.workers.dev`
+- **Source:** `C:\Users\HP\Documents\databox\workers\lab-api\src\index.ts` (single Hono router file)
+- **Account:** Mpingo Systems (`078fac3f0858379e6ceae8f4c5874059`)
+- **Auth:** API key `rdb_lab_mpingo_2026` via `X-API-Key` header or `Authorization: Bearer` header
+
+### Neon PostgreSQL
+- **Project:** `bold-mouse-18187324`
+- **Region:** US East 1 (N. Virginia), PostgreSQL 17
+- **Branch creation:** ~3 seconds per lab
+- **Password:** Returned in `connection_uris[0].connection_uri` from branch creation API
+- **Fallback:** `reveal_password` endpoint if password not in create response
+
+### D1 Database: `realitydb-labs`
+- **ID:** `1fa51a0c-c851-4cec-8e91-ac1ee2079ff8`
+- **Tables:** `labs`, `snapshots`, `published_labs`, `forks`, `saved_queries`
+
+### R2 Bucket: `realitydb-templates`
+- **Contents:**
+  - `templates/banking-5k.sql` (953 KB, 16 tables, lifecycle + temporal rules)
+  - `templates/banking-10k.sql` (1.8 MB)
+  - `templates/banking-50k.sql` (9.1 MB)
+  - `templates/banking-100k.sql` (18.2 MB)
+
+### Telemetry Worker
+- **URL:** `https://realitydb-telemetry.eddy-078.workers.dev`
+- **D1:** `realitydb-telemetry` (ID: `bcc7b1a1-81f9-4671-a0bd-d5beca95f9b6`)
+- **DO NOT MODIFY**
+
+### Other Deployed Workers (on Mpingo Systems account)
+- `realitydb-sandbox` — Cloudflare Pages, SQL learning environment
+- `realitydb-studio` — Cloudflare Pages, schema designer
+- `realitydb-enterprise-api` — scaffold only
+- `realitydb-neon-worker` — scaffold only (empty src)
+
+---
+
+## LAB API ENDPOINTS (18 total, all live)
+
+### Core Lab Management
+```
+POST   /v1/labs                    → Create lab (Neon branch + seed from R2)
+GET    /v1/labs                    → List labs (?all=true for expired)
+GET    /v1/labs/:id                → Get lab details + connection string
+PATCH  /v1/labs/:id/ttl            → Extend TTL
+DELETE /v1/labs/:id                → Delete lab + destroy Neon branch
+POST   /v1/labs/:id/share          → Get shareable read-only connection
 ```
 
-### Sandbox
+### Snapshots & Queries
+```
+POST   /v1/labs/:id/snapshot       → Create snapshot (SQL dump to R2, returns table/row counts)
+GET    /v1/labs/:id/snapshots      → List snapshots
+POST   /v1/labs/:id/queries        → Save a query
+GET    /v1/labs/:id/queries        → List saved queries
+```
+
+### Gallery (Publishing Pipeline)
+```
+POST   /v1/publish                 → Publish snapshot to gallery
+GET    /v1/gallery                 → Browse published labs (?tag=, ?template=, ?q=)
+GET    /v1/gallery/:slug           → View published lab (increments view count)
+POST   /v1/gallery/:slug/fork      → Fork a published lab
+```
+
+### Export & CI
+```
+GET    /v1/labs/:id/export?format=notebook  → Download Jupyter .ipynb
+POST   /v1/labs/ci                          → Minimal CI endpoint (2h TTL, auto-named)
+```
+
+### System
+```
+GET    /health                     → { status: "ok", service: "realitydb-lab-api" }
+CRON   0 * * * *                   → Hourly cleanup of expired labs
+```
+
+---
+
+## CLI LAB COMMANDS (14 commands, published @realitydb/cli@2.32.1)
+
+```
+realitydb lab create <template> [--rows N] [--ttl Xh] [--name alias]
+realitydb lab list [--all]
+realitydb lab connect <name>
+realitydb lab extend <name> --ttl <duration>
+realitydb lab delete <name>
+realitydb lab snapshot <name> --name <snapshot-name> [--description text]
+realitydb lab snapshots <name>
+realitydb lab publish --snapshot <id> --title <text> [--authors] [--tags] [--license]
+realitydb lab gallery [--tag X] [--template X] [-q search]
+realitydb lab fork <slug> [--name alias]
+realitydb lab query:save <name> --name <qname> --sql <query>
+realitydb lab query:list <name>
+realitydb lab query:run <name> --sql <query> [--save qname]
+realitydb lab share <name>
+```
+
+---
+
+## SANDBOX REPO (`C:\Users\HP\Documents\realitydb-sandbox\`)
+
+### Existing Files Relevant to SimLab
+```
+src/CloudSandbox.tsx          — Cloud sandbox UI component (needs Lab API connection)
+src/cloudSandboxService.ts    — Service layer (needs to call Lab API instead of local)
+src/DataStorefront.tsx         — Data storefront UI (574 lines, needs pricing + Lab API)
+src/dataStorefrontService.ts   — Storefront service layer
+src/TemplateGallery.tsx        — Template browsing (reusable)
+src/App.tsx                    — Main app router
+```
+
+### Workers in Sandbox Repo
+```
+workers/neon/       — EMPTY (just .wrangler/tmp, no source)
+workers/stripe/     — Stripe payment worker (check if functional)
+workers/enterprise-api/  — Enterprise API scaffold
+workers/ai-tutor/   — AI tutor Cloudflare Worker
+workers/lti/        — LTI integration scaffold
+workers/api-gateway/ — API gateway scaffold
+```
+
+### Build & Deploy
 ```powershell
 cd C:\Users\HP\Documents\realitydb-sandbox
 npm run build
 npx wrangler pages deploy dist --project-name realitydb-sandbox --commit-dirty=true
 ```
 
-### Testing
-- Lab API health: `curl https://realitydb-lab-api.eddy-078.workers.dev/health`
-- Lab create test: `Invoke-RestMethod -Uri "https://realitydb-lab-api.eddy-078.workers.dev/v1/labs" -Method POST -ContentType "application/json" -Body '{"template":"banking","rows":5000,"ttl":"1h","name":"test","apiKey":"rdb_lab_mpingo_2026"}'`
-- Always delete test labs after: `Invoke-RestMethod -Uri "https://realitydb-lab-api.eddy-078.workers.dev/v1/labs/<id>" -Method DELETE -Headers @{"X-API-Key"="rdb_lab_mpingo_2026"}`
+---
 
-## TEMPLATE DATASET QUALITY STATUS
+## YOUR TASKS (Infrastructure Only)
 
-Only Banking templates are currently in R2. The developer will generate and upload new high-quality templates (with lifecycle rules, temporal ordering, enum weights) — this is NOT your task. When new templates are uploaded, they will follow the naming convention `templates/{domain}-{rows}k.sql`.
+### Task 1: Connect Sandbox UI to Lab API
 
-Available row counts: 5k, 10k, 50k, 100k.
-Available templates (planned): banking, fintech, oncology, healthcare, supply-chain, cybersecurity, education.
+**Inspect first, report before changing:**
+```powershell
+Get-Content C:\Users\HP\Documents\realitydb-sandbox\src\CloudSandbox.tsx
+Get-Content C:\Users\HP\Documents\realitydb-sandbox\src\cloudSandboxService.ts
+Get-Content C:\Users\HP\Documents\realitydb-sandbox\src\DataStorefront.tsx
+```
 
-## KEY CREDENTIALS
+**Goal:** Update `cloudSandboxService.ts` to call the live Lab API:
+```typescript
+const LAB_API = 'https://realitydb-lab-api.eddy-078.workers.dev';
+
+async function createLab(template: string, rows: number) {
+  const res = await fetch(`${LAB_API}/v1/labs`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
+    body: JSON.stringify({ template, rows, ttl: '4h', name: `sandbox-${Date.now()}` })
+  });
+  return res.json();
+}
+```
+
+**CloudSandbox flow:**
+1. User selects template (banking) + row count (5k/10k/50k/100k)
+2. Calls Lab API to create lab
+3. Shows progress/loading state
+4. Displays connection string + lab info
+5. Opens SQL editor connected to the Neon branch
+6. User can run queries, save queries, take snapshots
+
+**Do NOT install `@realitydb/engine` in the sandbox repo.** The Lab API handles all generation.
+
+### Task 2: Gallery Page
+
+Build a gallery browsing page that calls `GET /v1/gallery`:
+
+**UI Requirements:**
+- Card grid with title, author, template, row count, views, forks, tags
+- Search/filter by tag and template
+- Each card shows: Fork button, Notebook download link, View details
+- Fork button calls `POST /v1/gallery/:slug/fork` and shows new connection string
+- Notebook download links to `GET /v1/labs/:id/export?format=notebook`
+
+**Route:** Add as a new tab/page in the sandbox app, accessible at `/gallery`
+
+### Task 3: Data Store with Pricing Tiers
+
+Update `DataStorefront.tsx` to show tiered pricing:
+
+**Free (5K rows):** Available without auth for all templates
+**Core ($49/mo):** 10K-50K rows
+**Compliance ($199/mo):** 100K+ rows
+**One-time purchase:** Individual datasets (e.g., $49 for 100K banking, $149 for 100K oncology)
+
+Add D1 table for purchases:
+```sql
+CREATE TABLE IF NOT EXISTS dataset_purchases (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  template TEXT NOT NULL,
+  rows INTEGER NOT NULL,
+  price_cents INTEGER NOT NULL,
+  stripe_payment_id TEXT,
+  status TEXT DEFAULT 'pending',
+  created_at TEXT NOT NULL,
+  completed_at TEXT
+);
+```
+
+Add store endpoints to Lab API Worker:
+```
+GET  /v1/store              → List available datasets with prices
+GET  /v1/store/:template    → Dataset details + 5-row preview
+POST /v1/store/:template/buy → Initiate purchase (can be stubbed for now)
+```
+
+Pricing config:
+```json
+{
+  "banking": { "5k": 0, "10k": 4900, "50k": 4900, "100k": 7900 },
+  "oncology": { "5k": 0, "10k": 4900, "50k": 9900, "100k": 14900 },
+  "healthcare": { "5k": 0, "10k": 4900, "50k": 9900, "100k": 14900 },
+  "supply-chain": { "5k": 0, "10k": 4900, "50k": 4900, "100k": 7900 }
+}
+```
+
+### Task 4: Review Checklist
+
+Before marking any task complete, verify:
+
+**Lab API:**
+- [ ] `GET /health` → `{ status: "ok" }`
+- [ ] `POST /v1/labs` → creates lab, returns connection string with password
+- [ ] `GET /v1/labs` → lists active labs
+- [ ] `DELETE /v1/labs/:id` → deletes Neon branch
+- [ ] `POST /v1/labs/:id/snapshot` → returns table count, row count, template
+- [ ] `GET /v1/labs/:id/export?format=notebook` → valid .ipynb JSON
+- [ ] `POST /v1/labs/ci` → minimal JSON for CI pipelines
+- [ ] `GET /v1/gallery` → returns published labs
+- [ ] `POST /v1/gallery/:slug/fork` → creates new lab from published data
+- [ ] CRON cleanup runs hourly
+
+**Sandbox UI:**
+- [ ] CloudSandbox connects to Lab API (not PGlite) for cloud mode
+- [ ] Template selector shows available templates with row count options
+- [ ] Lab creation shows progress, then connection string
+- [ ] SQL editor works against live Neon connection
+- [ ] Gallery page displays published labs
+- [ ] Fork button creates a new lab
+- [ ] DataStorefront shows pricing tiers
+
+**General:**
+- [ ] No `@realitydb/engine` installed in sandbox repo
+- [ ] No modifications to `apps/cli/` or `packages/engine/` in databox repo
+- [ ] Worker deploys without errors
+- [ ] Sandbox builds and deploys to Cloudflare Pages
+
+---
+
+## CRITICAL RULES
+
+1. **Do NOT modify `apps/cli/`, `packages/engine/`, or `workers/telemetry/`** in the databox repo
+2. **Do NOT run `pnpm add` or `pnpm remove` in `apps/cli/`** — this breaks the engine workspace junction
+3. **Do NOT install `@realitydb/engine` in the sandbox repo** — Lab API handles generation
+4. Only modify: `workers/lab-api/src/index.ts` (add endpoints), sandbox repo files
+5. Report what you find in sandbox files BEFORE making changes
+6. If you need Neon credentials or R2 uploads, prompt the developer
+
+## CREDENTIALS
 
 | Service | Value |
 |---------|-------|
@@ -166,10 +278,12 @@ Available templates (planned): banking, fintech, oncology, healthcare, supply-ch
 | D1 realitydb-labs | `1fa51a0c-c851-4cec-8e91-ac1ee2079ff8` |
 | R2 bucket | `realitydb-templates` |
 | Cloudflare Account | Mpingo Systems (`078fac3f0858379e6ceae8f4c5874059`) |
+| Sandbox Pages project | `realitydb-sandbox` |
+| Sandbox deploy | `npx wrangler pages deploy dist --project-name realitydb-sandbox --commit-dirty=true` |
 
 ## START HERE
 
-1. Read `CLAUDE.md` in repo root
-2. Inspect `C:\Users\HP\Documents\realitydb-sandbox\src\CloudSandbox.tsx` and `cloudSandboxService.ts`
-3. Report what they currently do before making changes
-4. Then proceed with Task 1 (Sandbox ↔ Lab API connection)
+1. Read `CLAUDE.md` in the databox repo
+2. Inspect sandbox files: `CloudSandbox.tsx`, `cloudSandboxService.ts`, `DataStorefront.tsx`
+3. Report what each file currently does
+4. Then proceed with Task 1 (connect to Lab API)
