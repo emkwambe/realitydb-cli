@@ -18,6 +18,103 @@ interface CreateLabRequest {
   ttl?: string;
   name?: string;
   apiKey?: string;
+  userId?: string;
+}
+
+// ── Tier Definitions ────────────────────────────────────────
+
+const TIER_LIMITS: Record<string, { maxRows: number; maxActiveLabs: number; downloadsPerMonth: number; labsDaily: number }> = {
+  free:       { maxRows: 5000,    maxActiveLabs: 2,  downloadsPerMonth: 0,  labsDaily: 5 },
+  core:       { maxRows: 50000,   maxActiveLabs: 3,  downloadsPerMonth: 2,  labsDaily: 10 },
+  compliance: { maxRows: 100000,  maxActiveLabs: 10, downloadsPerMonth: 5,  labsDaily: 20 },
+  enterprise: { maxRows: 1000000, maxActiveLabs: -1, downloadsPerMonth: -1, labsDaily: -1 },
+};
+
+const DATASET_PRICING: Record<string, Record<string, number>> = {
+  banking:        { '5k': 0, '10k': 4900, '50k': 4900, '100k': 7900 },
+  oncology:       { '5k': 0, '10k': 4900, '50k': 9900, '100k': 14900 },
+  healthcare:     { '5k': 0, '10k': 4900, '50k': 9900, '100k': 14900 },
+  'supply-chain': { '5k': 0, '10k': 4900, '50k': 4900, '100k': 7900 },
+};
+
+// ── Badge Definitions ───────────────────────────────────────
+
+const BADGE_DEFINITIONS: Record<string, { name: string; description: string; tiers: { bronze: number; silver: number; gold: number; platinum: number } }> = {
+  join_master:      { name: 'JOIN Master', description: 'Complete all JOIN challenges with 80%+', tiers: { bronze: 3, silver: 6, gold: 10, platinum: 15 } },
+  window_pro:       { name: 'Window Functions Pro', description: 'Complete window function challenges', tiers: { bronze: 2, silver: 5, gold: 8, platinum: 12 } },
+  aggregation:      { name: 'Aggregation Expert', description: 'All GROUP BY + HAVING challenges', tiers: { bronze: 3, silver: 6, gold: 10, platinum: 15 } },
+  schema_navigator: { name: 'Schema Navigator', description: 'Query across 5+ tables in one session', tiers: { bronze: 1, silver: 3, gold: 5, platinum: 10 } },
+  data_detective:   { name: 'Data Detective', description: 'Find the trap in challenges', tiers: { bronze: 2, silver: 5, gold: 8, platinum: 12 } },
+  volume_handler:   { name: 'Volume Handler', description: 'Complete challenges on 50K+ row labs', tiers: { bronze: 1, silver: 3, gold: 5, platinum: 10 } },
+  certified_pro:    { name: 'Certified Professional', description: 'Earn certifications', tiers: { bronze: 1, silver: 2, gold: 3, platinum: 3 } },
+};
+
+// ── Entitlement Helpers ─────────────────────────────────────
+
+async function getEntitlement(db: D1Database, userId: string) {
+  const ent = await db.prepare('SELECT * FROM entitlements WHERE user_id = ? AND status = ?')
+    .bind(userId, 'active').first();
+  if (ent) return ent;
+  // Return free tier defaults
+  return {
+    tier: 'free',
+    max_rows: 5000,
+    max_active_labs: 2,
+    downloads_per_month: 0,
+    downloads_used_this_month: 0,
+    labs_created_today: 0,
+    labs_daily_limit: 5,
+  };
+}
+
+async function checkLabCreationAllowed(db: D1Database, userId: string, requestedRows: number): Promise<{ allowed: boolean; reason?: string; tier: string }> {
+  const ent = await getEntitlement(db, userId);
+  const tier = ent.tier as string;
+  const limits = TIER_LIMITS[tier] || TIER_LIMITS.free;
+
+  // Check row limit
+  if (requestedRows > limits.maxRows) {
+    return { allowed: false, reason: `Your ${tier} tier allows up to ${limits.maxRows} rows. Upgrade for more.`, tier };
+  }
+
+  // Check active lab count
+  if (limits.maxActiveLabs !== -1) {
+    const active = await db.prepare("SELECT COUNT(*) as c FROM labs WHERE user_id = ? AND status = 'active'")
+      .bind(userId).first();
+    const count = parseInt((active as any)?.c || '0');
+    if (count >= limits.maxActiveLabs) {
+      return { allowed: false, reason: `You have ${count} active labs (limit: ${limits.maxActiveLabs}). Delete a lab or upgrade.`, tier };
+    }
+  }
+
+  // Check daily rate limit
+  if (limits.labsDaily !== -1) {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const today = await db.prepare("SELECT COUNT(*) as c FROM labs WHERE user_id = ? AND created_at LIKE ?")
+      .bind(userId, todayStr + '%').first();
+    const todayCount = parseInt((today as any)?.c || '0');
+    if (todayCount >= limits.labsDaily) {
+      return { allowed: false, reason: `Daily lab creation limit reached (${limits.labsDaily}/day). Try again tomorrow.`, tier };
+    }
+  }
+
+  // Check if user has a one-time purchase for higher rows
+  if (requestedRows > limits.maxRows) {
+    const rowLabel = requestedRows >= 1000 ? `${requestedRows / 1000}k` : String(requestedRows);
+    const purchase = await db.prepare(
+      "SELECT * FROM dataset_purchases WHERE user_id = ? AND rows >= ? AND status = 'completed' AND lab_credits_remaining > 0"
+    ).bind(userId, requestedRows).first();
+
+    if (purchase) {
+      // Decrement lab credit
+      await db.prepare('UPDATE dataset_purchases SET lab_credits_remaining = lab_credits_remaining - 1 WHERE id = ?')
+        .bind(purchase.id).run();
+      return { allowed: true, tier: tier + '+purchase' };
+    }
+    return { allowed: false, reason: `Row count ${requestedRows} requires a higher tier or one-time purchase.`, tier };
+  }
+
+  return { allowed: true, tier };
 }
 
 // Neon API helpers
@@ -136,7 +233,16 @@ app.post('/v1/labs', async (c) => {
   const rows = body.rows || 5000;
   const ttl = body.ttl || '4h';
   const name = body.name || `lab-${Date.now().toString(36)}`;
+  const userId = body.userId || 'api-user';
   const id = `lab-${crypto.randomUUID().split('-')[0]}`;
+
+  // Check entitlements (skip for api-user default to maintain backward compat)
+  if (userId !== 'api-user') {
+    const check = await checkLabCreationAllowed(env.DB, userId, rows);
+    if (!check.allowed) {
+      return c.json({ error: check.reason, tier: check.tier, upgradeRequired: true }, 403);
+    }
+  }
 
   // Validate template + rows combo exists in R2
   const rowLabel = rows >= 1000 ? `${rows / 1000}k` : String(rows);
@@ -236,7 +342,7 @@ app.post('/v1/labs', async (c) => {
       `INSERT INTO labs (id, user_id, name, template, rows, neon_branch_id, neon_endpoint_id, connection_string, status, created_at, expires_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)`
     ).bind(
-      id, 'api-user', name, template, rows,
+      id, userId, name, template, rows,
       branch.branchId, branch.endpointId,
       connectionString,
       now.toISOString(), expiresAt.toISOString()
@@ -853,6 +959,300 @@ app.post('/v1/labs/ci', async (c) => {
   } catch (err: any) {
     return c.json({ error: `CI lab creation failed: ${err.message}` }, 500);
   }
+});
+
+// ============================================================
+// CERTIFICATE VERIFICATION (PUBLIC — no auth required)
+// ============================================================
+
+// Verify a certificate by cert_id
+app.get('/v1/certs/:certId/verify', async (c) => {
+  const env = c.env;
+  const certId = c.req.param('certId');
+
+  const cert = await env.DB.prepare('SELECT * FROM certificates WHERE cert_id = ?').bind(certId).first();
+  if (!cert) {
+    return c.json({ valid: false, error: 'Certificate not found' }, 404);
+  }
+
+  // Increment verified_count
+  await env.DB.prepare('UPDATE certificates SET verified_count = verified_count + 1 WHERE cert_id = ?')
+    .bind(certId).run();
+
+  return c.json({
+    valid: true,
+    certId: cert.cert_id,
+    level: cert.level,
+    score: cert.score,
+    grade: cert.grade,
+    displayName: cert.display_name,
+    challengeCount: cert.challenge_count,
+    timeTakenSeconds: cert.time_taken_seconds,
+    templateUsed: cert.template_used,
+    issuedAt: cert.issued_at,
+    verifiedCount: (cert.verified_count as number) + 1,
+  });
+});
+
+// Sync a certificate from the frontend (called after exam completion)
+app.post('/v1/certs', async (c) => {
+  const env = c.env;
+  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
+
+  const body = await c.req.json<{
+    certId: string;
+    userId: string;
+    attemptId?: string;
+    level: string;
+    score: number;
+    grade: string;
+    displayName?: string;
+    challengeCount?: number;
+    timeTakenSeconds?: number;
+    templateUsed?: string;
+    issuedAt: string;
+  }>();
+
+  const id = 'cert-' + crypto.randomUUID().split('-')[0];
+
+  await env.DB.prepare(
+    `INSERT INTO certificates (id, cert_id, user_id, attempt_id, level, score, grade, display_name, challenge_count, time_taken_seconds, template_used, issued_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(cert_id) DO UPDATE SET score = excluded.score, grade = excluded.grade`
+  ).bind(
+    id, body.certId, body.userId, body.attemptId || null,
+    body.level, body.score, body.grade, body.displayName || null,
+    body.challengeCount || null, body.timeTakenSeconds || null,
+    body.templateUsed || null, body.issuedAt
+  ).run();
+
+  return c.json({ synced: true, certId: body.certId }, 201);
+});
+
+// List all certificates for a user
+app.get('/v1/certs', async (c) => {
+  const env = c.env;
+  const userId = c.req.query('userId');
+  if (!userId) return c.json({ error: 'userId query parameter required' }, 400);
+
+  const result = await env.DB.prepare(
+    'SELECT cert_id, level, score, grade, display_name, issued_at FROM certificates WHERE user_id = ? ORDER BY issued_at DESC'
+  ).bind(userId).all();
+
+  return c.json({ certificates: result.results });
+});
+
+// ============================================================
+// ENTITLEMENT ENDPOINTS
+// ============================================================
+
+// Get user's current entitlement/tier
+app.get('/v1/entitlements/:userId', async (c) => {
+  const env = c.env;
+  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
+
+  const ent = await getEntitlement(env.DB, c.req.param('userId'));
+  return c.json(ent);
+});
+
+// Set/update user entitlement (called by Stripe webhook or admin)
+app.put('/v1/entitlements/:userId', async (c) => {
+  const env = c.env;
+  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
+
+  const userId = c.req.param('userId');
+  const body = await c.req.json<{
+    tier: string;
+    stripeCustomerId?: string;
+    stripeSubscriptionId?: string;
+    periodEnd?: string;
+  }>();
+
+  const limits = TIER_LIMITS[body.tier];
+  if (!limits) return c.json({ error: `Unknown tier: ${body.tier}` }, 400);
+
+  const now = new Date().toISOString();
+  const id = 'ent-' + crypto.randomUUID().split('-')[0];
+
+  await env.DB.prepare(
+    `INSERT INTO entitlements (id, user_id, tier, max_rows, max_active_labs, downloads_per_month, labs_daily_limit, stripe_customer_id, stripe_subscription_id, current_period_end, status, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
+     ON CONFLICT(user_id) DO UPDATE SET tier = excluded.tier, max_rows = excluded.max_rows, max_active_labs = excluded.max_active_labs, downloads_per_month = excluded.downloads_per_month, labs_daily_limit = excluded.labs_daily_limit, stripe_customer_id = excluded.stripe_customer_id, stripe_subscription_id = excluded.stripe_subscription_id, current_period_end = excluded.current_period_end, status = 'active', updated_at = excluded.updated_at`
+  ).bind(
+    id, userId, body.tier, limits.maxRows, limits.maxActiveLabs, limits.downloadsPerMonth, limits.labsDaily,
+    body.stripeCustomerId || null, body.stripeSubscriptionId || null,
+    body.periodEnd || null, now, now
+  ).run();
+
+  return c.json({ userId, tier: body.tier, limits });
+});
+
+// ============================================================
+// BADGE ENDPOINTS
+// ============================================================
+
+// List badge definitions
+app.get('/v1/badges', (c) => {
+  return c.json({ badges: BADGE_DEFINITIONS });
+});
+
+// Get badges for a user
+app.get('/v1/badges/:userId', async (c) => {
+  const env = c.env;
+  const result = await env.DB.prepare(
+    'SELECT * FROM badges WHERE user_id = ? ORDER BY earned_at DESC'
+  ).bind(c.req.param('userId')).all();
+
+  return c.json({ badges: result.results });
+});
+
+// Award a badge (called by frontend after achievement)
+app.post('/v1/badges', async (c) => {
+  const env = c.env;
+  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
+
+  const body = await c.req.json<{
+    userId: string;
+    badgeType: string;
+    badgeTier: string;
+    score?: number;
+    challengesCompleted?: number;
+  }>();
+
+  if (!BADGE_DEFINITIONS[body.badgeType]) {
+    return c.json({ error: `Unknown badge type: ${body.badgeType}` }, 400);
+  }
+
+  const id = 'badge-' + crypto.randomUUID().split('-')[0];
+  const now = new Date().toISOString();
+
+  await env.DB.prepare(
+    `INSERT INTO badges (id, user_id, badge_type, badge_tier, score, challenges_completed, earned_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(user_id, badge_type) DO UPDATE SET badge_tier = excluded.badge_tier, score = excluded.score, challenges_completed = excluded.challenges_completed, earned_at = excluded.earned_at`
+  ).bind(id, body.userId, body.badgeType, body.badgeTier, body.score || null, body.challengesCompleted || null, now).run();
+
+  return c.json({
+    id,
+    badge: BADGE_DEFINITIONS[body.badgeType],
+    tier: body.badgeTier,
+    earnedAt: now,
+  }, 201);
+});
+
+// ============================================================
+// STORE ENDPOINTS
+// ============================================================
+
+// List available datasets with pricing
+app.get('/v1/store', (c) => {
+  const datasets = Object.entries(DATASET_PRICING).map(([template, prices]) => ({
+    template,
+    variants: Object.entries(prices).map(([size, priceCents]) => ({
+      size,
+      rows: parseInt(size) * 1000,
+      priceCents,
+      free: priceCents === 0,
+    })),
+  }));
+  return c.json({ datasets, tiers: TIER_LIMITS });
+});
+
+// Get details for a specific dataset template
+app.get('/v1/store/:template', async (c) => {
+  const env = c.env;
+  const template = c.req.param('template');
+  const pricing = DATASET_PRICING[template];
+  if (!pricing) return c.json({ error: 'Template not found' }, 404);
+
+  // Try to get a 5-row preview from the 5k template
+  const r2Key = `templates/${template}-5k.sql`;
+  const templateObj = await env.TEMPLATES.get(r2Key);
+
+  let preview: string[] = [];
+  if (templateObj) {
+    const sql = await templateObj.text();
+    // Extract first INSERT block to show sample data
+    const insertMatch = sql.match(/INSERT INTO (\w+) .+?VALUES\n([\s\S]*?);/);
+    if (insertMatch) {
+      const rows = insertMatch[2].split('\n').filter(l => l.trim().startsWith('(')).slice(0, 5);
+      preview = rows.map(r => r.trim());
+    }
+  }
+
+  return c.json({
+    template,
+    variants: Object.entries(pricing).map(([size, priceCents]) => ({
+      size,
+      rows: parseInt(size) * 1000,
+      priceCents,
+      free: priceCents === 0,
+    })),
+    preview,
+  });
+});
+
+// Initiate a purchase (stub — will be wired to Stripe)
+app.post('/v1/store/:template/buy', async (c) => {
+  const env = c.env;
+  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
+
+  const template = c.req.param('template');
+  const body = await c.req.json<{ userId: string; rows: number }>();
+  const rowLabel = body.rows >= 1000 ? `${body.rows / 1000}k` : String(body.rows);
+  const pricing = DATASET_PRICING[template];
+  if (!pricing || pricing[rowLabel] === undefined) {
+    return c.json({ error: 'Invalid template/size combination' }, 400);
+  }
+
+  const priceCents = pricing[rowLabel];
+  if (priceCents === 0) {
+    return c.json({ error: 'Free tier — no purchase needed. Create a lab directly.' }, 400);
+  }
+
+  const id = 'pur-' + crypto.randomUUID().split('-')[0];
+  const now = new Date().toISOString();
+
+  await env.DB.prepare(
+    `INSERT INTO dataset_purchases (id, user_id, template, rows, price_cents, status, lab_credits_remaining, created_at)
+     VALUES (?, ?, ?, ?, ?, 'pending', 3, ?)`
+  ).bind(id, body.userId, template, body.rows, priceCents, now).run();
+
+  // In production: create Stripe checkout session and return URL
+  // For now: return purchase ID for manual completion
+  return c.json({
+    purchaseId: id,
+    template,
+    rows: body.rows,
+    priceCents,
+    priceFormatted: `$${(priceCents / 100).toFixed(2)}`,
+    status: 'pending',
+    note: 'Stripe integration pending. Use PUT /v1/store/complete/:purchaseId to simulate completion.',
+  }, 201);
+});
+
+// Complete a purchase (simulate Stripe webhook for now)
+app.put('/v1/store/complete/:purchaseId', async (c) => {
+  const env = c.env;
+  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
+
+  const purchaseId = c.req.param('purchaseId');
+  const now = new Date().toISOString();
+
+  await env.DB.prepare(
+    "UPDATE dataset_purchases SET status = 'completed', completed_at = ? WHERE id = ? AND status = 'pending'"
+  ).bind(now, purchaseId).run();
+
+  const purchase = await env.DB.prepare('SELECT * FROM dataset_purchases WHERE id = ?').bind(purchaseId).first();
+  if (!purchase) return c.json({ error: 'Purchase not found' }, 404);
+
+  return c.json({ completed: true, purchase });
 });
 
 // CRON: cleanup expired labs
