@@ -631,6 +631,230 @@ app.get('/v1/labs/:id/queries', async (c) => {
   return c.json({ queries: result.results });
 });
 
+// ============================================================
+// EXPORT ENDPOINTS
+// ============================================================
+
+// Export lab as Jupyter notebook
+app.get('/v1/labs/:id/export', async (c) => {
+  const env = c.env;
+  const format = c.req.query('format');
+  if (format !== 'notebook') {
+    return c.json({ error: 'Unsupported format. Use ?format=notebook' }, 400);
+  }
+
+  const lab = await env.DB.prepare('SELECT * FROM labs WHERE id = ?').bind(c.req.param('id')).first();
+  if (!lab) return c.json({ error: 'Lab not found' }, 404);
+
+  // Get saved queries for this lab
+  const queriesResult = await env.DB.prepare(
+    'SELECT name, sql_text FROM saved_queries WHERE lab_id = ? ORDER BY created_at ASC'
+  ).bind(lab.id).all();
+  const savedQueries = queriesResult.results || [];
+
+  // Build Jupyter notebook JSON
+  const cells: any[] = [];
+
+  // Title cell
+  cells.push({
+    cell_type: 'markdown',
+    metadata: {},
+    source: [
+      `# ${lab.name || lab.template + ' Lab'}\n`,
+      `\n`,
+      `**Template:** ${lab.template}  \n`,
+      `**Rows:** ${lab.rows}  \n`,
+      `**Created:** ${lab.created_at}  \n`,
+      `**Expires:** ${lab.expires_at}  \n`,
+    ],
+  });
+
+  // Connection setup cell
+  cells.push({
+    cell_type: 'code',
+    execution_count: null,
+    metadata: {},
+    outputs: [],
+    source: [
+      `%load_ext sql\n`,
+      `%sql ${lab.connection_string}`,
+    ],
+  });
+
+  // Explore schema cell
+  cells.push({
+    cell_type: 'code',
+    execution_count: null,
+    metadata: {},
+    outputs: [],
+    source: [
+      `%%sql\n`,
+      `SELECT table_name, \n`,
+      `       (SELECT COUNT(*) FROM information_schema.columns c WHERE c.table_name = t.table_name AND c.table_schema = 'public') AS column_count\n`,
+      `FROM information_schema.tables t\n`,
+      `WHERE table_schema = 'public'\n`,
+      `ORDER BY table_name;`,
+    ],
+  });
+
+  // Saved queries as cells
+  for (const q of savedQueries) {
+    cells.push({
+      cell_type: 'markdown',
+      metadata: {},
+      source: [`## ${(q as any).name}\n`],
+    });
+    cells.push({
+      cell_type: 'code',
+      execution_count: null,
+      metadata: {},
+      outputs: [],
+      source: [`%%sql\n`, (q as any).sql_text],
+    });
+  }
+
+  // Sample query if no saved queries
+  if (savedQueries.length === 0) {
+    cells.push({
+      cell_type: 'markdown',
+      metadata: {},
+      source: [`## Sample Query\n`],
+    });
+    cells.push({
+      cell_type: 'code',
+      execution_count: null,
+      metadata: {},
+      outputs: [],
+      source: [
+        `%%sql\n`,
+        `SELECT * FROM information_schema.tables\n`,
+        `WHERE table_schema = 'public'\n`,
+        `LIMIT 20;`,
+      ],
+    });
+  }
+
+  const notebook = {
+    nbformat: 4,
+    nbformat_minor: 5,
+    metadata: {
+      kernelspec: {
+        display_name: 'Python 3',
+        language: 'python',
+        name: 'python3',
+      },
+      language_info: {
+        name: 'python',
+        version: '3.11.0',
+      },
+      realitydb: {
+        lab_id: lab.id,
+        template: lab.template,
+        rows: lab.rows,
+      },
+    },
+    cells,
+  };
+
+  const filename = `${lab.name || lab.template}-lab.ipynb`;
+  return new Response(JSON.stringify(notebook, null, 2), {
+    headers: {
+      'Content-Type': 'application/x-ipynb+json',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Access-Control-Allow-Origin': '*',
+    },
+  });
+});
+
+// ============================================================
+// CI ENDPOINT
+// ============================================================
+
+// Minimal CI endpoint: create a short-lived lab for CI pipelines
+app.post('/v1/labs/ci', async (c) => {
+  const env = c.env;
+  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
+
+  const body = await c.req.json<{ template?: string; rows?: number }>().catch(() => ({}));
+  const template = (body as any).template || 'banking';
+  const rows = (body as any).rows || 5000;
+  const id = `ci-${crypto.randomUUID().split('-')[0]}`;
+  const name = `ci-${Date.now().toString(36)}`;
+
+  // Validate template exists in R2
+  const rowLabel = rows >= 1000 ? `${rows / 1000}k` : String(rows);
+  const r2Key = `templates/${template}-${rowLabel}.sql`;
+  const templateObj = await env.TEMPLATES.get(r2Key);
+  if (!templateObj) {
+    return c.json({ error: `Template not found: ${r2Key}` }, 404);
+  }
+
+  try {
+    const branch = await createNeonBranch(env.NEON_PROJECT_ID, env.NEON_API_KEY, id);
+    const connectionString = branch.connectionUri;
+
+    // Seed via Neon SQL API
+    const sqlText = await templateObj.text();
+    const connUrl = new URL(connectionString.replace('postgresql://', 'https://'));
+    const neonHost = connUrl.hostname;
+
+    const statements: string[] = [];
+    let current = '';
+    for (const line of sqlText.split('\n')) {
+      current += line + '\n';
+      if (line.trimEnd().endsWith(';') && !line.trim().startsWith('--')) {
+        const trimmed = current.trim();
+        if (trimmed && trimmed !== ';') statements.push(trimmed);
+        current = '';
+      }
+    }
+    if (current.trim()) statements.push(current.trim());
+
+    const txRes = await fetch(`https://${neonHost}/sql`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Neon-Connection-String': connectionString,
+        'Neon-Raw-Text-Output': 'true',
+        'Neon-Array-Mode': 'true',
+        'Neon-Pool-Opt-In': 'true',
+      },
+      body: JSON.stringify({
+        queries: statements.map(s => ({ query: s.replace(/;\s*$/, ''), params: [] })),
+      }),
+    });
+
+    if (!txRes.ok) {
+      // Fallback to individual statements
+      const db = neon(connectionString);
+      for (const stmt of statements.slice(0, 45)) {
+        try { await db(stmt.replace(/;\s*$/, '')); } catch {}
+      }
+    }
+
+    // 2h TTL for CI
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+
+    await env.DB.prepare(
+      `INSERT INTO labs (id, user_id, name, template, rows, neon_branch_id, neon_endpoint_id, connection_string, status, created_at, expires_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)`
+    ).bind(id, 'ci', name, template, rows, branch.branchId, branch.endpointId, connectionString, now.toISOString(), expiresAt.toISOString()).run();
+
+    // Return minimal JSON for CI consumption
+    return c.json({
+      id,
+      connectionString,
+      host: connUrl.hostname,
+      database: 'neondb',
+      expiresAt: expiresAt.toISOString(),
+    }, 201);
+  } catch (err: any) {
+    return c.json({ error: `CI lab creation failed: ${err.message}` }, 500);
+  }
+});
+
 // CRON: cleanup expired labs
 async function cleanupExpiredLabs(env: Env) {
   const now = new Date().toISOString();
