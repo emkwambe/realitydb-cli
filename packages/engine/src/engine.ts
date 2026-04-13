@@ -258,7 +258,8 @@ export function generateData(
             row[colName] = generateMockValue(def, colName);
           }
         } else if (def?.options?.dependsOn && def?.options?.dependencyRule === 'after') {
-          // Dependent timestamp: generate a time after the dependency
+          // Skip — handled in third pass after all other columns have values
+          continue;
           const depValue = row[def.options.dependsOn];
           if (depValue) {
             const depTime = new Date(depValue).getTime();
@@ -274,6 +275,28 @@ export function generateData(
         // Track IDs for foreign key lookups
         if (colName === 'id') {
           ids.push(row[colName]);
+        }
+      }
+
+      // Third pass: generate dependsOn columns (temporal ordering)
+      for (const [colName, colDef] of Object.entries(table.columns)) {
+        const def = colDef as any;
+        if (row[colName] !== undefined) continue; // already generated or nullified
+        if (def?.options?.dependsOn && def?.options?.dependencyRule === 'after') {
+          if (activeLifecycleNulls.includes(colName)) {
+            row[colName] = null;
+            continue;
+          }
+          const depValue = row[def.options.dependsOn];
+          if (depValue) {
+            const depTime = new Date(depValue).getTime();
+            const offsetDays = (def?.options?.offsetMin || 1);
+            const maxDays = (def?.options?.offsetMax || 30);
+            const offset = (offsetDays + Math.floor(Math.random() * (maxDays - offsetDays))) * 24 * 60 * 60 * 1000;
+            row[colName] = new Date(depTime + offset).toISOString();
+          } else {
+            row[colName] = def?.nullable ? null : generateMockValue(def, colName);
+          }
         }
       }
 
