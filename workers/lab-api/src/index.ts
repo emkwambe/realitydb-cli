@@ -10,6 +10,8 @@ interface Env {
   NEON_PROJECT_ID: string;
   LAB_API_KEY: string;
   ENVIRONMENT: string;
+  STRIPE_SECRET_KEY: string;
+  STRIPE_WEBHOOK_SECRET: string;
 }
 
 interface CreateLabRequest {
@@ -1254,6 +1256,344 @@ app.put('/v1/store/complete/:purchaseId', async (c) => {
 
   return c.json({ completed: true, purchase });
 });
+
+// ============================================================
+// STRIPE PAYMENT ENDPOINTS
+// ============================================================
+
+// Stripe API helper — all Stripe calls go through fetch (no SDK needed)
+async function stripeAPI(secretKey: string, endpoint: string, params: Record<string, string>): Promise<any> {
+  const res = await fetch(`https://api.stripe.com/v1/${endpoint}`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${secretKey}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams(params).toString(),
+  });
+  return res.json();
+}
+
+async function stripeGET(secretKey: string, endpoint: string): Promise<any> {
+  const res = await fetch(`https://api.stripe.com/v1/${endpoint}`, {
+    headers: { 'Authorization': `Bearer ${secretKey}` },
+  });
+  return res.json();
+}
+
+// Subscription price mapping — these get created on first deploy via /v1/stripe/setup
+const SUBSCRIPTION_TIERS: Record<string, { name: string; monthlyPriceCents: number; features: string }> = {
+  core: { name: 'RealityDB Core', monthlyPriceCents: 4900, features: '50K rows, 3 active labs, SQL downloads' },
+  compliance: { name: 'RealityDB Compliance', monthlyPriceCents: 19900, features: '100K rows, 10 active labs, domain specialist' },
+};
+
+// One-time setup: create Stripe products and prices (idempotent)
+app.post('/v1/stripe/setup', async (c) => {
+  const env = c.env;
+  const apiKey = c.req.header('X-API-Key');
+  if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
+  if (!env.STRIPE_SECRET_KEY) return c.json({ error: 'STRIPE_SECRET_KEY not configured' }, 500);
+
+  const results: Record<string, any> = {};
+
+  // Create subscription products + prices
+  for (const [tier, config] of Object.entries(SUBSCRIPTION_TIERS)) {
+    const product = await stripeAPI(env.STRIPE_SECRET_KEY, 'products', {
+      name: config.name,
+      description: config.features,
+      'metadata[tier]': tier,
+    });
+
+    const price = await stripeAPI(env.STRIPE_SECRET_KEY, 'prices', {
+      product: product.id,
+      currency: 'usd',
+      unit_amount: String(config.monthlyPriceCents),
+      'recurring[interval]': 'month',
+      'metadata[tier]': tier,
+    });
+
+    results[tier] = { productId: product.id, priceId: price.id, amount: config.monthlyPriceCents };
+  }
+
+  // Create one-time purchase products for each template/size combo
+  for (const [template, prices] of Object.entries(DATASET_PRICING)) {
+    for (const [size, priceCents] of Object.entries(prices)) {
+      if (priceCents === 0) continue; // Skip free tier
+      const product = await stripeAPI(env.STRIPE_SECRET_KEY, 'products', {
+        name: `RealityDB ${template} Dataset — ${size} rows`,
+        description: `One-time purchase: ${template} template, ${size} rows. Includes SQL download + 3 lab credits.`,
+        'metadata[template]': template,
+        'metadata[size]': size,
+      });
+
+      const price = await stripeAPI(env.STRIPE_SECRET_KEY, 'prices', {
+        product: product.id,
+        currency: 'usd',
+        unit_amount: String(priceCents),
+        'metadata[template]': template,
+        'metadata[size]': size,
+      });
+
+      results[`${template}-${size}`] = { productId: product.id, priceId: price.id, amount: priceCents };
+    }
+  }
+
+  // Create certification exam products
+  const certPrices: Record<string, number> = { foundations: 2900, analyst: 4900, advanced: 7900, specialist: 9900 };
+  for (const [level, priceCents] of Object.entries(certPrices)) {
+    const product = await stripeAPI(env.STRIPE_SECRET_KEY, 'products', {
+      name: `RealityDB SQL Certification — ${level.charAt(0).toUpperCase() + level.slice(1)}`,
+      description: `Timed SQL certification exam with verifiable credential`,
+      'metadata[type]': 'certification',
+      'metadata[level]': level,
+    });
+
+    const price = await stripeAPI(env.STRIPE_SECRET_KEY, 'prices', {
+      product: product.id,
+      currency: 'usd',
+      unit_amount: String(priceCents),
+      'metadata[type]': 'certification',
+      'metadata[level]': level,
+    });
+
+    results[`cert-${level}`] = { productId: product.id, priceId: price.id, amount: priceCents };
+  }
+
+  return c.json({ created: results });
+});
+
+// Create a Stripe Checkout Session (subscription or one-time)
+app.post('/v1/stripe/checkout', async (c) => {
+  const env = c.env;
+  if (!env.STRIPE_SECRET_KEY) return c.json({ error: 'Stripe not configured' }, 500);
+
+  const body = await c.req.json<{
+    priceId: string;
+    userId: string;
+    email?: string;
+    returnUrl: string;
+    mode?: 'subscription' | 'payment';
+  }>();
+
+  if (!body.priceId || !body.userId || !body.returnUrl) {
+    return c.json({ error: 'priceId, userId, and returnUrl are required' }, 400);
+  }
+
+  const mode = body.mode || 'subscription';
+
+  // Check if user already has a Stripe customer ID
+  const ent = await env.DB.prepare('SELECT stripe_customer_id FROM entitlements WHERE user_id = ?')
+    .bind(body.userId).first();
+  let customerId = (ent as any)?.stripe_customer_id;
+
+  // Create customer if needed
+  if (!customerId) {
+    const customer = await stripeAPI(env.STRIPE_SECRET_KEY, 'customers', {
+      'metadata[userId]': body.userId,
+      ...(body.email ? { email: body.email } : {}),
+    });
+    customerId = customer.id;
+  }
+
+  // Create checkout session
+  const params: Record<string, string> = {
+    customer: customerId,
+    mode,
+    'line_items[0][price]': body.priceId,
+    'line_items[0][quantity]': '1',
+    success_url: `${body.returnUrl}?session_id={CHECKOUT_SESSION_ID}&status=success`,
+    cancel_url: `${body.returnUrl}?status=cancelled`,
+    'metadata[userId]': body.userId,
+  };
+
+  if (mode === 'subscription') {
+    params['subscription_data[metadata][userId]'] = body.userId;
+  } else {
+    params['payment_intent_data[metadata][userId]'] = body.userId;
+  }
+
+  const session = await stripeAPI(env.STRIPE_SECRET_KEY, 'checkout/sessions', params);
+
+  if (session.error) {
+    return c.json({ error: session.error.message }, 400);
+  }
+
+  return c.json({ url: session.url, sessionId: session.id });
+});
+
+// Create a Stripe Customer Portal session (manage subscription)
+app.post('/v1/stripe/portal', async (c) => {
+  const env = c.env;
+  if (!env.STRIPE_SECRET_KEY) return c.json({ error: 'Stripe not configured' }, 500);
+
+  const body = await c.req.json<{ customerId: string; returnUrl: string }>();
+
+  const session = await stripeAPI(env.STRIPE_SECRET_KEY, 'billing_portal/sessions', {
+    customer: body.customerId,
+    return_url: body.returnUrl,
+  });
+
+  if (session.error) {
+    return c.json({ error: session.error.message }, 400);
+  }
+
+  return c.json({ url: session.url });
+});
+
+// Stripe Webhook handler — processes payment events
+app.post('/v1/stripe/webhook', async (c) => {
+  const env = c.env;
+  if (!env.STRIPE_SECRET_KEY) return c.json({ error: 'Stripe not configured' }, 500);
+
+  const body = await c.req.text();
+  const sig = c.req.header('stripe-signature');
+
+  // Verify webhook signature
+  if (env.STRIPE_WEBHOOK_SECRET && sig) {
+    const verified = await verifyStripeSignature(body, sig, env.STRIPE_WEBHOOK_SECRET);
+    if (!verified) {
+      return c.json({ error: 'Invalid signature' }, 400);
+    }
+  }
+
+  const event = JSON.parse(body);
+  console.log(`Stripe webhook: ${event.type}`);
+
+  const now = new Date().toISOString();
+
+  switch (event.type) {
+    case 'checkout.session.completed': {
+      const session = event.data.object;
+      const userId = session.metadata?.userId;
+      if (!userId) break;
+
+      if (session.mode === 'subscription') {
+        // Fetch subscription to get price metadata
+        const sub = await stripeGET(env.STRIPE_SECRET_KEY, `subscriptions/${session.subscription}`);
+        const tier = sub.items?.data?.[0]?.price?.metadata?.tier || 'core';
+        const limits = TIER_LIMITS[tier] || TIER_LIMITS.core;
+
+        // Upsert entitlement
+        const entId = 'ent-' + crypto.randomUUID().split('-')[0];
+        await env.DB.prepare(
+          `INSERT INTO entitlements (id, user_id, tier, max_rows, max_active_labs, downloads_per_month, labs_daily_limit, stripe_customer_id, stripe_subscription_id, status, current_period_end, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)
+           ON CONFLICT(user_id) DO UPDATE SET tier=excluded.tier, max_rows=excluded.max_rows, max_active_labs=excluded.max_active_labs, downloads_per_month=excluded.downloads_per_month, labs_daily_limit=excluded.labs_daily_limit, stripe_customer_id=excluded.stripe_customer_id, stripe_subscription_id=excluded.stripe_subscription_id, status='active', current_period_end=excluded.current_period_end, updated_at=excluded.updated_at`
+        ).bind(
+          entId, userId, tier, limits.maxRows, limits.maxActiveLabs, limits.downloadsPerMonth, limits.labsDaily,
+          session.customer, session.subscription,
+          sub.current_period_end ? new Date(sub.current_period_end * 1000).toISOString() : null,
+          now, now
+        ).run();
+
+        console.log(`Subscription activated: ${userId} → ${tier}`);
+      } else if (session.mode === 'payment') {
+        // One-time purchase — check line items for template/size
+        const lineItems = await stripeGET(env.STRIPE_SECRET_KEY, `checkout/sessions/${session.id}/line_items`);
+        const item = lineItems.data?.[0];
+        const price = item?.price;
+        const template = price?.metadata?.template;
+        const size = price?.metadata?.size;
+        const certLevel = price?.metadata?.level;
+
+        if (template && size) {
+          // Dataset purchase
+          const rows = parseInt(size) * 1000;
+          const purId = 'pur-' + crypto.randomUUID().split('-')[0];
+          await env.DB.prepare(
+            `INSERT INTO dataset_purchases (id, user_id, template, rows, price_cents, stripe_payment_id, status, lab_credits_remaining, created_at, completed_at)
+             VALUES (?, ?, ?, ?, ?, ?, 'completed', 3, ?, ?)`
+          ).bind(purId, userId, template, rows, price?.unit_amount || 0, session.payment_intent, now, now).run();
+
+          console.log(`Dataset purchased: ${userId} → ${template}-${size}`);
+        } else if (certLevel) {
+          // Certification exam purchase — could store entitlement to take exam
+          console.log(`Cert exam purchased: ${userId} → ${certLevel}`);
+        }
+      }
+      break;
+    }
+
+    case 'customer.subscription.updated': {
+      const sub = event.data.object;
+      const userId = sub.metadata?.userId;
+      if (!userId) break;
+
+      const tier = sub.items?.data?.[0]?.price?.metadata?.tier || 'core';
+      const status = sub.status === 'active' ? 'active' : (sub.status === 'past_due' ? 'past_due' : 'cancelled');
+
+      await env.DB.prepare(
+        `UPDATE entitlements SET status = ?, current_period_end = ?, updated_at = ? WHERE user_id = ?`
+      ).bind(
+        status,
+        sub.current_period_end ? new Date(sub.current_period_end * 1000).toISOString() : null,
+        now, userId
+      ).run();
+
+      console.log(`Subscription updated: ${userId} → ${status}`);
+      break;
+    }
+
+    case 'customer.subscription.deleted': {
+      const sub = event.data.object;
+      const userId = sub.metadata?.userId;
+      if (!userId) break;
+
+      // Downgrade to free
+      const limits = TIER_LIMITS.free;
+      await env.DB.prepare(
+        `UPDATE entitlements SET tier = 'free', status = 'cancelled', max_rows = ?, max_active_labs = ?, downloads_per_month = ?, labs_daily_limit = ?, updated_at = ? WHERE user_id = ?`
+      ).bind(limits.maxRows, limits.maxActiveLabs, limits.downloadsPerMonth, limits.labsDaily, now, userId).run();
+
+      console.log(`Subscription cancelled: ${userId} → free`);
+      break;
+    }
+
+    case 'invoice.payment_failed': {
+      const invoice = event.data.object;
+      const subId = invoice.subscription;
+      if (subId) {
+        await env.DB.prepare(
+          `UPDATE entitlements SET status = 'past_due', updated_at = ? WHERE stripe_subscription_id = ?`
+        ).bind(now, subId).run();
+      }
+      break;
+    }
+  }
+
+  return c.json({ received: true });
+});
+
+// Verify Stripe webhook signature using Web Crypto API
+async function verifyStripeSignature(payload: string, header: string, secret: string): Promise<boolean> {
+  try {
+    const parts = header.split(',').reduce((acc: Record<string, string>, part) => {
+      const [k, v] = part.split('=');
+      acc[k.trim()] = v;
+      return acc;
+    }, {});
+
+    const timestamp = parts['t'];
+    const signature = parts['v1'];
+    if (!timestamp || !signature) return false;
+
+    // Reject if timestamp is too old (5 min tolerance)
+    const age = Math.abs(Date.now() / 1000 - parseInt(timestamp));
+    if (age > 300) return false;
+
+    const signedPayload = `${timestamp}.${payload}`;
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      'raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+    );
+    const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(signedPayload));
+    const computed = Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('');
+
+    return computed === signature;
+  } catch {
+    return false;
+  }
+}
 
 // CRON: cleanup expired labs
 async function cleanupExpiredLabs(env: Env) {
