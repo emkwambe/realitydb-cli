@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { suggestNext } from '../utils/suggest';
 
 // ============================================================
 // TYPES
@@ -891,5 +892,15 @@ export async function scanInferCommand(file: string, options: {
   console.log(`   2. Edit ${path.basename(packPath)} to adjust enum values and strategies`);
   console.log(`   3. Test: realitydb run --pack ${path.basename(packPath)} --rows 100 --format sql`);
   console.log(`   4. Validate: realitydb doctor --pack ${path.basename(packPath)}`);
-  console.log(`   5. Assess: realitydb assess <output.sql>\n`);
+  suggestNext({
+    command: 'scan:infer',
+    packFile: packPath,
+    reviewFile: reviewPath,
+    tier2Count: tier2,
+    tier3Count: tier3,
+    tableCount: inferredTables.length,
+    fkCount: schemaTables.reduce((s, t) => s + t.foreignKeys.length, 0),
+    lifecycleCount,
+    temporalCount,
+  });
 }

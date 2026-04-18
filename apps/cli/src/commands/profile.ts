@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { suggestNext } from '../utils/suggest';
 
 interface ColumnProfile {
   table: string;
@@ -393,5 +394,12 @@ export async function profileCommand(file: string, options: {
 
   console.log(`${'─'.repeat(60)}`);
   console.log(`   Profiled in ${scanTime}ms`);
+
+  const skewedCount = profiles.reduce((s, t) => s + t.columns.filter(c => c.distribution === 'constant' || c.distribution === 'skewed').length, 0);
+  suggestNext({
+    command: 'profile',
+    outputFile: filePath,
+    skewedColumns: skewedCount,
+  });
   console.log();
 }

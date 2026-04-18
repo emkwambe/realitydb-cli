@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { createHash } from 'crypto';
+import { suggestNext } from '../utils/suggest';
 
 // ============================================================
 // TYPES
@@ -837,5 +838,15 @@ export async function assessCommand(file: string, options: {
   console.log(`   Methodology: SQR v${report.version}`);
   console.log(`   ${report.disclaimer}`);
   console.log(`${'─'.repeat(60)}`);
-  console.log(`   Assessed in ${scanTime}ms\n`);
+  console.log(`   Assessed in ${scanTime}ms`);
+
+  suggestNext({
+    command: 'assess',
+    outputFile: filePath,
+    score: overallScore,
+    fidelityScore,
+    structureScore,
+    privacyScore,
+    piiCount: privacyMetrics.find(m => m.name === 'PII column detection')?.value?.toString().match(/\d+/)?.[0] ? parseInt(privacyMetrics.find(m => m.name === 'PII column detection')!.value.toString().match(/\d+/)![0]) : 0,
+  });
 }

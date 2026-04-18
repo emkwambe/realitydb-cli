@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { createHash } from 'crypto';
+import { suggestNext } from '../utils/suggest';
 
 // ============================================================
 // TYPES (reuses assess logic inline — no cross-file imports)
@@ -612,5 +613,12 @@ export async function complyReportCommand(options: {
   console.log(`\n${'─'.repeat(50)}`);
   console.log(`   \u{1F4C4} Report saved: ${outPath}`);
   console.log(`   Open in browser to view or print to PDF`);
-  console.log(`   Generated in ${elapsed}ms\n`);
+  console.log(`   Generated in ${elapsed}ms`);
+
+  suggestNext({
+    command: 'comply-report',
+    outputFile: outPath,
+    score: overall,
+    framework: frameworkKey,
+  });
 }
