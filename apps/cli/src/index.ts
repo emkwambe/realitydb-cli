@@ -31,6 +31,7 @@ import { piiScanCommand } from './commands/pii-scan';
 import { profileCommand } from './commands/profile';
 import { diffCommand } from './commands/diff';
 import { assessCommand } from './commands/assess';
+import { complyReportCommand } from './commands/comply-report';
 import { enhancedStatusCommand } from './commands/enhanced-status.js';
 import { menuCommand } from './commands/menu.js';
 import { auditExportCommand } from './commands/audit-export.js';
@@ -907,6 +908,18 @@ program
     await doctorCommand(opts);
   });
 // LAB COMMANDS (Simulation Lab — disposable PostgreSQL databases)
+
+// COMPLY COMMAND GROUP
+const comply = program.command('comply').description('Compliance tools — reports, inspection, and auditing');
+
+comply
+  .command('report')
+  .description('Generate a compliance report (HTML) against a regulatory framework')
+  .requiredOption('--file <file>', 'Dataset to assess (SQL or CSV)')
+  .requiredOption('--framework <name>', 'Regulatory framework: hipaa, gdpr, pci, soc2')
+  .option('--output <file>', 'Output path (default: <input>-<framework>-report.html)')
+  .option('--json', 'Output as JSON instead of HTML')
+  .action(complyReportCommand);
 
 // ASSESS COMMAND
 program
