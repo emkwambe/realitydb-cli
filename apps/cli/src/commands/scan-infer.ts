@@ -126,6 +126,16 @@ function parseDDL(content: string): SchemaTable[] {
         const isPK = rest.toUpperCase().includes('PRIMARY KEY');
         const defaultMatch = rest.match(/DEFAULT\s+(.+?)(?:\s|$)/i);
 
+        // Detect inline REFERENCES (e.g., "user_id UUID NOT NULL REFERENCES users(id)")
+        const inlineRefMatch = rest.match(/REFERENCES\s+(?:["'`]?)(\w+(?:\.\w+)?)(?:["'`]?)\s*\(["'`]?(\w+)["'`]?\)/i);
+        if (inlineRefMatch) {
+          const refTableRaw = inlineRefMatch[1];
+          const refColumn = inlineRefMatch[2];
+          // Handle schema-qualified names like auth.users -> skip external schemas
+          const refTable = refTableRaw.includes('.') ? refTableRaw.split('.').pop() : refTableRaw;
+          foreignKeys.push({ column: colName, refTable: refTable, refColumn: refColumn });
+        }
+
         columns.push({
           name: colName,
           type,
@@ -149,6 +159,30 @@ function parseDDL(content: string): SchemaTable[] {
     }
 
     tables.push({ name: tableName, columns, foreignKeys });
+  }
+
+  // Parse ALTER TABLE ... ADD COLUMN ... REFERENCES
+  const alterRegex = /ALTER\s+TABLE\s+(?:public\.)?["'`]?(\w+)["'`]?\s+ADD\s+COLUMN\s+(?:IF\s+NOT\s+EXISTS\s+)?["'`]?(\w+)["'`]?\s+(\w[\w()]*)[^;]*REFERENCES\s+(?:["'`]?)(\w+(?:\.\w+)?)(?:["'`]?)\s*\(["'`]?(\w+)["'`]?\)/gi;
+  let alterMatch;
+  while ((alterMatch = alterRegex.exec(content)) !== null) {
+    const tableName = alterMatch[1];
+    const colName = alterMatch[2];
+    const colType = alterMatch[3].toUpperCase();
+    const refTableRaw = alterMatch[4];
+    const refColumn = alterMatch[5];
+    const refTable = refTableRaw.includes('.') ? refTableRaw.split('.').pop() : refTableRaw;
+
+    const table = tables.find(t => t.name === tableName);
+    if (table) {
+      // Add column if not already present
+      if (!table.columns.find(c => c.name === colName)) {
+        table.columns.push({ name: colName, type: colType, nullable: true, isPrimaryKey: false });
+      }
+      // Add FK if not already present
+      if (!table.foreignKeys.find(fk => fk.column === colName)) {
+        table.foreignKeys.push({ column: colName, refTable, refColumn });
+      }
+    }
   }
 
   return tables;
