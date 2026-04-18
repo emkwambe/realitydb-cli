@@ -809,7 +809,7 @@ export async function scanInferCommand(file: string, options: {
   const content = fs.readFileSync(filePath, 'utf-8');
 
   // Parse DDL
-  const schemaTables = parseDDL(content);
+  const schemaTables = parseDDL(content).filter(t => !t.name.startsWith('_'));
 
   if (schemaTables.length === 0) {
     console.error(`\n   \u274C No CREATE TABLE statements found in ${path.basename(filePath)}`);

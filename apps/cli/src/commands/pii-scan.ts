@@ -693,13 +693,11 @@ export async function piiScanCommand(file: string, options: {
   // Summary
   console.log(`${'─'.repeat(50)}`);
   console.log(`   Scan complete in ${scanTime}ms`);
-  if (matches.length > 0) {
-    console.log(`   \u{1F6E1}\uFE0F  Consider: realitydb run --pack <template> to generate PII-free synthetic data`);
-  }
-  if (tier === 'free') {
-    console.log(`   \u{1F513} Upgrade to Professional for full scan (${PII_PATTERNS.length} patterns + HIPAA check)`);
-  }
-  console.log();
+  suggestNext({
+    command: 'pii-scan',
+    outputFile: filePath,
+    piiCount: matches.length,
+  });
 
   process.exit(matches.length > 0 ? 1 : 0);
 }
