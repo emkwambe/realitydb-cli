@@ -29,6 +29,8 @@ import { buildClaims, signClaims, generateEmbeddedWatermark } from './crypto/cer
 import { createHash } from 'crypto';
 import { piiScanCommand } from './commands/pii-scan';
 import { profileCommand } from './commands/profile';
+import { diffCommand } from './commands/diff';
+import { assessCommand } from './commands/assess';
 import { enhancedStatusCommand } from './commands/enhanced-status.js';
 import { menuCommand } from './commands/menu.js';
 import { auditExportCommand } from './commands/audit-export.js';
@@ -905,6 +907,22 @@ program
     await doctorCommand(opts);
   });
 // LAB COMMANDS (Simulation Lab — disposable PostgreSQL databases)
+
+// ASSESS COMMAND
+program
+  .command('assess <file>')
+  .description('Assess synthetic data quality — fidelity, structure, and privacy metrics')
+  .option('--standard <name>', 'Assessment standard: generic, hipaa, gdpr, pci', 'generic')
+  .option('--json', 'Output as JSON')
+  .option('--output <file>', 'Save JSON report to file')
+  .action(assessCommand);
+
+// DIFF COMMAND
+program
+  .command('diff <left> <right>')
+  .description('Compare two SQL datasets — schema, row counts, distributions, FK changes')
+  .option('--json', 'Output as JSON')
+  .action(diffCommand);
 
 // PROFILE COMMAND
 program
