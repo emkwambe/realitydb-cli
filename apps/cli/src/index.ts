@@ -32,6 +32,7 @@ import { profileCommand } from './commands/profile';
 import { diffCommand } from './commands/diff';
 import { assessCommand } from './commands/assess';
 import { complyReportCommand } from './commands/comply-report';
+import { scanInferCommand } from './commands/scan-infer';
 import { enhancedStatusCommand } from './commands/enhanced-status.js';
 import { menuCommand } from './commands/menu.js';
 import { auditExportCommand } from './commands/audit-export.js';
@@ -908,6 +909,14 @@ program
     await doctorCommand(opts);
   });
 // LAB COMMANDS (Simulation Lab — disposable PostgreSQL databases)
+
+// SCAN INFER SUBCOMMAND
+program
+  .command('scan:infer <schema>')
+  .description('Infer a RealityDB pack JSON from a SQL schema (DDL) file')
+  .option('--output <file>', 'Output pack JSON path')
+  .option('--review <file>', 'Output review manifest path')
+  .action(scanInferCommand);
 
 // COMPLY COMMAND GROUP
 const comply = program.command('comply').description('Compliance tools — reports, inspection, and auditing');
