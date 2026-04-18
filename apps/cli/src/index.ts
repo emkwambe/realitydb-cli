@@ -28,6 +28,7 @@ import { verifyCommand } from './commands/verify';
 import { buildClaims, signClaims, generateEmbeddedWatermark } from './crypto/cert';
 import { createHash } from 'crypto';
 import { piiScanCommand } from './commands/pii-scan';
+import { profileCommand } from './commands/profile';
 import { enhancedStatusCommand } from './commands/enhanced-status.js';
 import { menuCommand } from './commands/menu.js';
 import { auditExportCommand } from './commands/audit-export.js';
@@ -904,6 +905,15 @@ program
     await doctorCommand(opts);
   });
 // LAB COMMANDS (Simulation Lab — disposable PostgreSQL databases)
+
+// PROFILE COMMAND
+program
+  .command('profile <file>')
+  .description('Statistical profiling of a SQL or CSV dataset')
+  .option('--json', 'Output as JSON')
+  .option('--table <name>', 'Profile a specific table only')
+  .option('--no-columns', 'Show table summary only, skip column details')
+  .action(profileCommand);
 
 // PII SCAN COMMAND
 program
