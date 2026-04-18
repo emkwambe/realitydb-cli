@@ -27,6 +27,7 @@ import { certifyCommand } from './commands/certify';
 import { verifyCommand } from './commands/verify';
 import { buildClaims, signClaims, generateEmbeddedWatermark } from './crypto/cert';
 import { createHash } from 'crypto';
+import { piiScanCommand } from './commands/pii-scan';
 import { enhancedStatusCommand } from './commands/enhanced-status.js';
 import { menuCommand } from './commands/menu.js';
 import { auditExportCommand } from './commands/audit-export.js';
@@ -903,6 +904,15 @@ program
     await doctorCommand(opts);
   });
 // LAB COMMANDS (Simulation Lab — disposable PostgreSQL databases)
+
+// PII SCAN COMMAND
+program
+  .command('pii-scan <file>')
+  .description('Scan a SQL or CSV file for PII patterns (SSN, email, phone, credit card, etc.)')
+  .option('--json', 'Output results as JSON')
+  .option('--hipaa', 'Check against HIPAA Safe Harbor 18 identifiers (requires --tier full)')
+  .option('--tier <tier>', 'Pattern tier: free (10 patterns) or full (50+ patterns)', 'free')
+  .action(piiScanCommand);
 
 // CERTIFICATION COMMANDS
 program
