@@ -2,7 +2,7 @@ import { createHash, createPrivateKey, createPublicKey, sign, verify } from 'cry
 
 // Ed25519 public key for RealityDB (SPKI DER format, hex encoded)
 // This is embedded in the CLI — anyone can verify without a secret
-let REALITYDB_PUBLIC_KEY_HEX = '__PLACEHOLDER__'; // Will be replaced after key generation
+let REALITYDB_PUBLIC_KEY_HEX = '302a300506032b6570032100d84f7fff981d8049cc543cb4e9b2b7a274d2ce6fee4d732bd32750a04c98c134';
 
 const KEY_ID = 'realitydb-2026';
 

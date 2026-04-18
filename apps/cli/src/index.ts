@@ -23,12 +23,17 @@ import { ciStartCommand } from './commands/ci.js';
 import { ruleListCommand } from './commands/rule.js';
 import { weightTuneCommand, ruleAddCommand } from './commands/tune.js';
 import { validateCommand } from './commands/validate.js';
+import { certifyCommand } from './commands/certify';
+import { verifyCommand } from './commands/verify';
+import { buildClaims, signClaims, generateEmbeddedWatermark } from './crypto/cert';
+import { createHash } from 'crypto';
 import { enhancedStatusCommand } from './commands/enhanced-status.js';
 import { menuCommand } from './commands/menu.js';
 import { auditExportCommand } from './commands/audit-export.js';
 import { generateTemplateCommand } from './commands/generate-template.js';
 import { captureCommand } from './commands/capture.js';
 import { loadCommand } from './commands/load.js';
+import { doctorCommand } from './commands/doctor.js';
 // import { templatesCommand, templatesInitCommand, templatesValidateCommand } from './commands/templates'; // TODO: re-enable after @databox/templates is wired
 import { requireAuth, loadLicense } from './auth/license';
 import { gateCommand, gateRows, gateLifecycleRules, printUpgradePrompt, stripLifecycleRules, printLifecycleWarning, recordRowUsage, recordOperation } from './gate.js';
@@ -340,7 +345,60 @@ async function runHandler(options: any) {
           }
         }
 
-        fs.writeFileSync(outputFile, sqlParts.join('\n'));
+
+        // Auto-watermark: embed _realitydb_meta in every SQL output
+        const sqlContent = sqlParts.join('\n');
+        let finalSql = sqlContent;
+        try {
+          const packContent = fs.readFileSync(packPath, 'utf-8');
+          const claims = buildClaims({
+            version: VERSION,
+            templateName: templateName,
+            packContent,
+            tables: ordered.length,
+            totalRows: actualTotal,
+            seed: options.seed || 'random',
+            tier: license?.plan || 'free',
+            userId: license?.email || 'anonymous',
+            sqlContent,
+          });
+          const privKey = process.env.REALITYDB_SIGNING_KEY;
+          if (privKey) {
+            const cert = signClaims(claims, privKey);
+            const watermark = generateEmbeddedWatermark(cert);
+            finalSql = sqlContent + watermark;
+            const certPath = outputFile.replace(/\.sql$/, '.realitydb-cert.json');
+            fs.writeFileSync(certPath, JSON.stringify(cert, null, 2));
+            console.log(`   \u{1F510} Certified: ${certPath}`);
+          } else {
+            const basicMeta = [
+              '', '-- ============================================',
+              '-- REALITYDB DATASET WATERMARK (unsigned)',
+              '-- Certify: realitydb certify <file> --pack <pack>',
+              '-- ============================================',
+              'CREATE TABLE IF NOT EXISTS "_realitydb_meta" (',
+              '  "key" TEXT PRIMARY KEY,',
+              '  "value" TEXT NOT NULL',
+              ');', '',
+              'INSERT INTO "_realitydb_meta" ("key", "value") VALUES',
+              "  ('generator', 'realitydb-cli'),",
+              "  ('version', '" + VERSION + "'),",
+              "  ('template', '" + templateName.replace(/'/g, "''") + "'),",
+              "  ('template_hash', '" + claims.template_hash + "'),",
+              "  ('tables', '" + ordered.length + "'),",
+              "  ('total_rows', '" + actualTotal + "'),",
+              "  ('seed', '" + (options.seed || 'random') + "'),",
+              "  ('generated_at', '" + claims.generated_at + "'),",
+              "  ('content_hash', '" + claims.content_hash + "');",
+              '',
+            ].join('\n');
+            finalSql = sqlContent + basicMeta;
+          }
+          console.log(`   \u{1F3F7}\uFE0F  Watermark: _realitydb_meta table embedded`);
+        } catch (wmErr) {
+          console.log(`   \u26A0\uFE0F  Watermark skipped: ${wmErr.message}`);
+        }
+        fs.writeFileSync(outputFile, finalSql);
         printSummary(outputFile, actualTotal, elapsed);
 
       } else if (format === 'csv') {
@@ -833,7 +891,35 @@ if (process.argv.length <= 2) {
 program
   
 
+
+// DOCTOR command
+program
+  .command('doctor')
+  .description('Diagnose and auto-fix pack format issues')
+  .requiredOption('--pack <file>', 'Path to pack file')
+  .option('--fix', 'Auto-fix detected issues')
+  .option('-o, --output <file>', 'Write fixed pack to new file (default: overwrite)')
+  .action(async (opts) => {
+    await doctorCommand(opts);
+  });
 // LAB COMMANDS (Simulation Lab — disposable PostgreSQL databases)
+
+// CERTIFICATION COMMANDS
+program
+  .command('certify <file>')
+  .description('Generate a cryptographic certificate for a dataset (Ed25519)')
+  .option('--pack <file>', 'Template pack used to generate the dataset')
+  .option('--output <file>', 'Certificate output path (.realitydb-cert.json)')
+  .option('--embed', 'Also embed watermark as _realitydb_meta in SQL file')
+  .action(certifyCommand);
+
+program
+  .command('verify <file>')
+  .description('Verify a dataset certificate (Ed25519 signature + content integrity)')
+  .option('--cert <file>', 'Path to detached certificate')
+  .option('--public-key <hex>', 'Custom public key for verification')
+  .option('--json', 'Output result as JSON')
+  .action(verifyCommand);
 
 const lab = program.command('lab').description('Simulation Lab — disposable PostgreSQL databases');
 

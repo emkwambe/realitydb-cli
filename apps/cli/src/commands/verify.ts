@@ -46,7 +46,7 @@ export async function verifyCommand(file: string, options: {
   
   // 2. Content integrity
   // Strip watermark before hashing for comparison
-  const cleanContent = fileContent.replace(/\n-- ={10,}[\s\S]*?_realitydb_meta[\s\S]*?;\s*$/m, '').trim();
+  const cleanContent = fileContent.replace(/\n-- =+\n-- REALITYDB[\s\S]*$/, '');
   const integrityResult = verifyContentIntegrity(cert, cleanContent);
   results.push({ check: 'Content hash', passed: integrityResult.valid, detail: integrityResult.reason });
   
@@ -57,8 +57,8 @@ export async function verifyCommand(file: string, options: {
   // 4. Compliance assertions
   if (cert.claims.compliance_assertions) {
     const ca = cert.claims.compliance_assertions;
-    if (ca.pii_masked !== undefined) {
-      results.push({ check: 'PII masked', passed: ca.pii_masked === true, detail: 'PII masked: ' + ca.pii_masked });
+    if (ca.pii_masked === true) {
+      results.push({ check: 'PII masked', passed: true, detail: 'PII masking confirmed' });
     }
     if (ca.k_anonymity !== undefined) {
       results.push({ check: 'k-anonymity', passed: ca.k_anonymity >= 5, detail: 'k-anonymity: ' + ca.k_anonymity });
