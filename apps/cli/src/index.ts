@@ -898,28 +898,52 @@ program
   
 
 
-// DOCTOR command
-program
-  .command('doctor')
-  .description('Diagnose and auto-fix pack format issues')
-  .requiredOption('--pack <file>', 'Path to pack file')
-  .option('--fix', 'Auto-fix detected issues')
-  .option('-o, --output <file>', 'Write fixed pack to new file (default: overwrite)')
-  .action(async (opts) => {
-    await doctorCommand(opts);
-  });
-// LAB COMMANDS (Simulation Lab — disposable PostgreSQL databases)
+// ============================================================
+// EXAMINE — Discovery & Quality
+// ============================================================
+const examine = program.command('examine').description('Examine — discovery & quality assessment tools');
 
-// SCAN INFER SUBCOMMAND
-program
-  .command('scan:infer <schema>')
+examine
+  .command('assess <file>')
+  .description('Assess synthetic data quality — fidelity, structure, and privacy metrics')
+  .option('--standard <name>', 'Assessment standard: generic, hipaa, gdpr, pci', 'generic')
+  .option('--json', 'Output as JSON')
+  .option('--output <file>', 'Save JSON report to file')
+  .action(assessCommand);
+
+examine
+  .command('profile <file>')
+  .description('Statistical profiling of a SQL or CSV dataset')
+  .option('--json', 'Output as JSON')
+  .option('--table <name>', 'Profile a specific table only')
+  .option('--no-columns', 'Show table summary only, skip column details')
+  .action(profileCommand);
+
+examine
+  .command('diff <left> <right>')
+  .description('Compare two SQL datasets — schema, row counts, distributions, FK changes')
+  .option('--json', 'Output as JSON')
+  .action(diffCommand);
+
+examine
+  .command('scan <schema>')
   .description('Infer a RealityDB pack JSON from a SQL schema (DDL) file')
   .option('--output <file>', 'Output pack JSON path')
   .option('--review <file>', 'Output review manifest path')
   .action(scanInferCommand);
 
-// COMPLY COMMAND GROUP
-const comply = program.command('comply').description('Compliance tools — reports, inspection, and auditing');
+// ============================================================
+// COMPLY — Policy & Rules
+// ============================================================
+const comply = program.command('comply').description('Comply — compliance, policy, and rules enforcement');
+
+comply
+  .command('scan <file>')
+  .description('Scan a SQL or CSV file for PII patterns (SSN, email, phone, credit card, etc.)')
+  .option('--json', 'Output results as JSON')
+  .option('--hipaa', 'Check against HIPAA Safe Harbor 18 identifiers (requires --tier full)')
+  .option('--tier <tier>', 'Pattern tier: free (10 patterns) or full (50+ patterns)', 'free')
+  .action(piiScanCommand);
 
 comply
   .command('report')
@@ -930,50 +954,28 @@ comply
   .option('--json', 'Output as JSON instead of HTML')
   .action(complyReportCommand);
 
-// ASSESS COMMAND
-program
-  .command('assess <file>')
-  .description('Assess synthetic data quality — fidelity, structure, and privacy metrics')
-  .option('--standard <name>', 'Assessment standard: generic, hipaa, gdpr, pci', 'generic')
-  .option('--json', 'Output as JSON')
-  .option('--output <file>', 'Save JSON report to file')
-  .action(assessCommand);
+comply
+  .command('doctor')
+  .description('Diagnose and fix template pack issues (format, FKs, strategies, enums)')
+  .requiredOption('--pack <file>', 'Path to template pack JSON')
+  .option('--fix', 'Auto-fix issues (converts studio-v4 to export, infers missing strategies)')
+  .option('-o, --output <file>', 'Write fixed pack to this path (default: overwrite original)')
+  .action(async (opts) => { await doctorCommand(opts); });
 
-// DIFF COMMAND
-program
-  .command('diff <left> <right>')
-  .description('Compare two SQL datasets — schema, row counts, distributions, FK changes')
-  .option('--json', 'Output as JSON')
-  .action(diffCommand);
+// ============================================================
+// ATTEST — Proof & Origin
+// ============================================================
+const attest = program.command('attest').description('Attest — certification, proof, and provenance');
 
-// PROFILE COMMAND
-program
-  .command('profile <file>')
-  .description('Statistical profiling of a SQL or CSV dataset')
-  .option('--json', 'Output as JSON')
-  .option('--table <name>', 'Profile a specific table only')
-  .option('--no-columns', 'Show table summary only, skip column details')
-  .action(profileCommand);
-
-// PII SCAN COMMAND
-program
-  .command('pii-scan <file>')
-  .description('Scan a SQL or CSV file for PII patterns (SSN, email, phone, credit card, etc.)')
-  .option('--json', 'Output results as JSON')
-  .option('--hipaa', 'Check against HIPAA Safe Harbor 18 identifiers (requires --tier full)')
-  .option('--tier <tier>', 'Pattern tier: free (10 patterns) or full (50+ patterns)', 'free')
-  .action(piiScanCommand);
-
-// CERTIFICATION COMMANDS
-program
-  .command('certify <file>')
+attest
+  .command('sign <file>')
   .description('Generate a cryptographic certificate for a dataset (Ed25519)')
   .option('--pack <file>', 'Template pack used to generate the dataset')
   .option('--output <file>', 'Certificate output path (.realitydb-cert.json)')
   .option('--embed', 'Also embed watermark as _realitydb_meta in SQL file')
   .action(certifyCommand);
 
-program
+attest
   .command('verify <file>')
   .description('Verify a dataset certificate (Ed25519 signature + content integrity)')
   .option('--cert <file>', 'Path to detached certificate')
