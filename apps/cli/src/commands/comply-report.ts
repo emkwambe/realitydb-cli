@@ -325,39 +325,6 @@ const FRAMEWORKS: Record<string, Framework> = {
     ],
   },
 
-  'eu-ai-act': {
-    id: 'eu-ai-act', name: 'EU AI Act', fullName: 'Regulation (EU) 2024/1689 — Artificial Intelligence Act',
-    description: 'EU AI Act data governance assessment — Articles 10 (Data Quality), 11 (Technical Documentation), 12 (Record-Keeping), 50 (Transparency)',
-    reference: 'EU AI Act Articles 10, 11, 12, 50',
-    includeHipaa18: false,
-    sections: [
-      { title: 'Article 10 — Data Governance', checks: [
-        'Data origin and provenance documented',
-        'Data preparation methodology recorded',
-        'Statistical properties assessed (completeness, representativeness)',
-        'Bias evaluation performed (distribution analysis)',
-        'PII and sensitive data detection',
-        'Data gaps and shortcomings identified',
-      ]},
-      { title: 'Article 11 — Technical Documentation', checks: [
-        'Generation methodology documented',
-        'Schema structure recorded (tables, columns, FKs)',
-        'Quality assessment methodology specified (SQR v1.0)',
-        'Seed-based reproducibility verified',
-      ]},
-      { title: 'Article 12 — Record-Keeping', checks: [
-        'Unique report ID generated',
-        'Dataset hash computed (SHA-256)',
-        'Assessment timestamp recorded',
-        'Certification status checked',
-      ]},
-      { title: 'Article 50 — Transparency', checks: [
-        'Machine-readable marking present (_realitydb_meta)',
-        'Content hash embedded for detectability',
-        'Verification command documented',
-      ]},
-    ],
-  },
   soc2: {
     id: 'soc2', name: 'SOC 2', fullName: 'System and Organization Controls 2',
     description: 'SOC 2 Trust Service Criteria — data integrity and confidentiality checks',
@@ -410,38 +377,6 @@ function parseRealityDBMeta(content: string): RealityDBMeta | null {
 
 // ============================================================
 // REALITYDB META PARSER (for Article 50 transparency)
-// ============================================================
-
-interface RealityDBMeta {
-  generator?: string;
-  version?: string;
-  template?: string;
-  template_hash?: string;
-  seed?: string;
-  generated_at?: string;
-  tables?: string;
-  total_rows?: string;
-  content_hash?: string;
-  signature?: string;
-  key_id?: string;
-  cert_version?: string;
-  license_tier?: string;
-  user_id?: string;
-}
-
-function parseRealityDBMeta(content: string): RealityDBMeta | null {
-  const metaMatch = content.match(/INSERT\s+INTO\s+["']?_realitydb_meta["']?[\s\S]*?VALUES\s*([\s\S]*?);/i);
-  if (!metaMatch) return null;
-
-  const meta: RealityDBMeta = {};
-  const pairRegex = /\('([^']+)',\s*'([^']*)'\)/g;
-  let m;
-  while ((m = pairRegex.exec(metaMatch[1])) !== null) {
-    const key = m[1] as keyof RealityDBMeta;
-    meta[key] = m[2];
-  }
-  return Object.keys(meta).length > 0 ? meta : null;
-}
 
 // ============================================================
 // HTML REPORT GENERATOR
@@ -822,7 +757,6 @@ export async function complyReportCommand(options: {
   const meta = parseRealityDBMeta(content);
 
   // Parse _realitydb_meta for Article 50 transparency data
-  const meta = parseRealityDBMeta(content);
 
   const frameworkKey = options.framework.toLowerCase();
   const fw = FRAMEWORKS[frameworkKey];
