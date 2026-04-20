@@ -185,6 +185,125 @@ function computeExactMatchRate(tables: ParsedTable[]): MetricResult {
   return { name: 'Exact match rate', pillar: 'privacy', value: rate.toFixed(2) + '%', threshold: '0%', score: rate === 0 ? 100 : Math.max(0, 100 - rate * 20), status: rate === 0 ? 'pass' : 'warn' };
 }
 
+
+
+function computeDistributionDiversity(tables: ParsedTable[]): MetricResult {
+  let totalCategorical = 0;
+  let diverseCount = 0;
+  const details: string[] = [];
+
+  for (const table of tables) {
+    for (const col of table.columns) {
+      const values = table.rows.map(r => r[col.name]).filter(v => v && v !== 'NULL');
+      if (values.length < 5) continue;
+
+      const unique = new Set(values);
+      // Only assess categorical columns (cardinality < 50% of rows)
+      if (unique.size > values.length * 0.5) continue;
+
+      totalCategorical++;
+      const freq = new Map<string, number>();
+      for (const v of values) freq.set(v, (freq.get(v) || 0) + 1);
+
+      // Calculate Shannon entropy
+      const entropy = [...freq.values()].reduce((sum, count) => {
+        const p = count / values.length;
+        return sum + (p > 0 ? -p * Math.log2(p) : 0);
+      }, 0);
+
+      const maxEntropy = Math.log2(unique.size);
+      const normalizedEntropy = maxEntropy > 0 ? entropy / maxEntropy : 0;
+
+      if (normalizedEntropy > 0.5) {
+        diverseCount++;
+      } else {
+        details.push(`${table.name}.${col.name}: entropy=${normalizedEntropy.toFixed(2)} (skewed)`);
+      }
+    }
+  }
+
+  const score = totalCategorical > 0 ? Math.round((diverseCount / totalCategorical) * 100) : 100;
+  return {
+    name: 'Distribution diversity',
+    pillar: 'fidelity',
+    value: `${diverseCount}/${totalCategorical} diverse`,
+    threshold: '>=70%',
+    score,
+    status: score >= 70 ? 'pass' : 'warn',
+    detail: details.length > 0 ? details.slice(0, 3).join('; ') : 'All categorical columns show healthy diversity',
+  };
+}
+
+function computeEnumValidity(tables: ParsedTable[]): MetricResult {
+  let categoricalCols = 0;
+  let validCols = 0;
+
+  for (const table of tables) {
+    for (const col of table.columns) {
+      const values = table.rows.map(r => r[col.name]).filter(v => v && v !== 'NULL');
+      if (values.length < 5) continue;
+
+      const unique = new Set(values);
+      // Categorical = low cardinality relative to row count
+      if (unique.size > values.length * 0.5 || unique.size > 20) continue;
+
+      categoricalCols++;
+      // Check for empty strings or suspicious values
+      const hasEmpty = values.some(v => v.trim() === '');
+      const hasNone = values.some(v => v.toLowerCase() === 'none' || v.toLowerCase() === 'n/a');
+
+      if (!hasEmpty && !hasNone) validCols++;
+    }
+  }
+
+  const score = categoricalCols > 0 ? Math.round((validCols / categoricalCols) * 100) : 100;
+  return {
+    name: 'Enum validity',
+    pillar: 'structure',
+    value: `${validCols}/${categoricalCols} clean`,
+    threshold: 'No empty or placeholder values',
+    score,
+    status: score >= 95 ? 'pass' : 'warn',
+  };
+}
+
+function computeCardinalityRatios(tables: ParsedTable[]): MetricResult {
+  const tableMap = new Map<string, ParsedTable>();
+  for (const t of tables) tableMap.set(t.name, t);
+
+  let ratioChecks = 0;
+  let healthyRatios = 0;
+  const details: string[] = [];
+
+  for (const table of tables) {
+    for (const fk of table.fks) {
+      const parentTable = tableMap.get(fk.refTable);
+      if (!parentTable || parentTable.rows.length === 0) continue;
+
+      ratioChecks++;
+      const ratio = table.rows.length / parentTable.rows.length;
+
+      // Healthy ratio: between 0.1 and 100 (not too sparse, not too dense)
+      if (ratio >= 0.1 && ratio <= 100) {
+        healthyRatios++;
+      } else {
+        details.push(`${table.name}/${fk.refTable}: ${ratio.toFixed(1)}x`);
+      }
+    }
+  }
+
+  const score = ratioChecks > 0 ? Math.round((healthyRatios / ratioChecks) * 100) : 100;
+  return {
+    name: 'Cardinality ratios',
+    pillar: 'structure',
+    value: `${healthyRatios}/${ratioChecks} healthy`,
+    threshold: 'Child:parent between 0.1x and 100x',
+    score,
+    status: score >= 90 ? 'pass' : 'warn',
+    detail: details.length > 0 ? details.join('; ') : undefined,
+  };
+}
+
 // PII detection
 const PII_PATTERNS: { name: string; regex: RegExp[]; hipaaId?: string }[] = [
   { name: 'SSN', regex: [/\bssn\b/i, /\bsocial.?security/i], hipaaId: 'SSN' },
@@ -770,8 +889,8 @@ export async function complyReportCommand(options: {
   const totalColumns = tables.reduce((s, t) => s + t.columns.length, 0);
 
   // Run metrics
-  const fidelityMetrics: MetricResult[] = [computeCompleteness(tables)];
-  const structureMetrics: MetricResult[] = [computeFkIntegrity(tables), computeUniqueness(tables), computeTemporalLogic(tables)];
+  const fidelityMetrics: MetricResult[] = [computeCompleteness(tables), computeDistributionDiversity(tables)];
+  const structureMetrics: MetricResult[] = [computeFkIntegrity(tables), computeUniqueness(tables), computeTemporalLogic(tables), computeEnumValidity(tables), computeCardinalityRatios(tables)];
   const privacyMetrics: MetricResult[] = [computeExactMatchRate(tables)];
 
   // PII detection as a metric
