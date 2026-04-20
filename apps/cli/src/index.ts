@@ -949,7 +949,7 @@ comply
   .command('report')
   .description('Generate a compliance report (HTML) against a regulatory framework')
   .requiredOption('--file <file>', 'Dataset to assess (SQL or CSV)')
-  .requiredOption('--framework <name>', 'Regulatory framework: hipaa, gdpr, pci, soc2')
+  .requiredOption('--framework <name>', 'Regulatory framework: hipaa, gdpr, pci, soc2, eu-ai-act')
   .option('--output <file>', 'Output path (default: <input>-<framework>-report.html)')
   .option('--json', 'Output as JSON instead of HTML')
   .action(complyReportCommand);
