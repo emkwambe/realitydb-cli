@@ -290,6 +290,74 @@ const FRAMEWORKS: Record<string, Framework> = {
       { title: 'Structural Integrity', checks: ['FK integrity', 'PK uniqueness'] },
     ],
   },
+
+  'eu-ai-act': {
+    id: 'eu-ai-act', name: 'EU AI Act', fullName: 'Regulation (EU) 2024/1689 — Artificial Intelligence Act',
+    description: 'EU AI Act data governance assessment — Articles 10 (Data Quality), 11 (Technical Documentation), 12 (Record-Keeping), 50 (Transparency)',
+    reference: 'EU AI Act Articles 10, 11, 12, 50',
+    includeHipaa18: false,
+    sections: [
+      { title: 'Article 10 — Data Governance', checks: [
+        'Data origin and provenance documented',
+        'Data preparation methodology recorded',
+        'Statistical properties assessed (completeness, representativeness)',
+        'Bias evaluation performed (distribution analysis)',
+        'PII and sensitive data detection',
+        'Data gaps and shortcomings identified',
+      ]},
+      { title: 'Article 11 — Technical Documentation', checks: [
+        'Generation methodology documented',
+        'Schema structure recorded (tables, columns, FKs)',
+        'Quality assessment methodology specified (SQR v1.0)',
+        'Seed-based reproducibility verified',
+      ]},
+      { title: 'Article 12 — Record-Keeping', checks: [
+        'Unique report ID generated',
+        'Dataset hash computed (SHA-256)',
+        'Assessment timestamp recorded',
+        'Certification status checked',
+      ]},
+      { title: 'Article 50 — Transparency', checks: [
+        'Machine-readable marking present (_realitydb_meta)',
+        'Content hash embedded for detectability',
+        'Verification command documented',
+      ]},
+    ],
+  },
+
+  'eu-ai-act': {
+    id: 'eu-ai-act', name: 'EU AI Act', fullName: 'Regulation (EU) 2024/1689 — Artificial Intelligence Act',
+    description: 'EU AI Act data governance assessment — Articles 10 (Data Quality), 11 (Technical Documentation), 12 (Record-Keeping), 50 (Transparency)',
+    reference: 'EU AI Act Articles 10, 11, 12, 50',
+    includeHipaa18: false,
+    sections: [
+      { title: 'Article 10 — Data Governance', checks: [
+        'Data origin and provenance documented',
+        'Data preparation methodology recorded',
+        'Statistical properties assessed (completeness, representativeness)',
+        'Bias evaluation performed (distribution analysis)',
+        'PII and sensitive data detection',
+        'Data gaps and shortcomings identified',
+      ]},
+      { title: 'Article 11 — Technical Documentation', checks: [
+        'Generation methodology documented',
+        'Schema structure recorded (tables, columns, FKs)',
+        'Quality assessment methodology specified (SQR v1.0)',
+        'Seed-based reproducibility verified',
+      ]},
+      { title: 'Article 12 — Record-Keeping', checks: [
+        'Unique report ID generated',
+        'Dataset hash computed (SHA-256)',
+        'Assessment timestamp recorded',
+        'Certification status checked',
+      ]},
+      { title: 'Article 50 — Transparency', checks: [
+        'Machine-readable marking present (_realitydb_meta)',
+        'Content hash embedded for detectability',
+        'Verification command documented',
+      ]},
+    ],
+  },
   soc2: {
     id: 'soc2', name: 'SOC 2', fullName: 'System and Organization Controls 2',
     description: 'SOC 2 Trust Service Criteria — data integrity and confidentiality checks',
@@ -303,11 +371,83 @@ const FRAMEWORKS: Record<string, Framework> = {
   },
 };
 
+
+// ============================================================
+// REALITYDB META PARSER (for Article 50 transparency)
+// ============================================================
+
+interface RealityDBMeta {
+  generator?: string;
+  version?: string;
+  template?: string;
+  template_hash?: string;
+  seed?: string;
+  generated_at?: string;
+  tables?: string;
+  total_rows?: string;
+  content_hash?: string;
+  signature?: string;
+  key_id?: string;
+  cert_version?: string;
+  license_tier?: string;
+  user_id?: string;
+}
+
+function parseRealityDBMeta(content: string): RealityDBMeta | null {
+  const metaMatch = content.match(/INSERT\s+INTO\s+["']?_realitydb_meta["']?[\s\S]*?VALUES\s*([\s\S]*?);/i);
+  if (!metaMatch) return null;
+
+  const meta: RealityDBMeta = {};
+  const pairRegex = /\('([^']+)',\s*'([^']*)'\)/g;
+  let m;
+  while ((m = pairRegex.exec(metaMatch[1])) !== null) {
+    const key = m[1] as keyof RealityDBMeta;
+    meta[key] = m[2];
+  }
+  return Object.keys(meta).length > 0 ? meta : null;
+}
+
+
+// ============================================================
+// REALITYDB META PARSER (for Article 50 transparency)
+// ============================================================
+
+interface RealityDBMeta {
+  generator?: string;
+  version?: string;
+  template?: string;
+  template_hash?: string;
+  seed?: string;
+  generated_at?: string;
+  tables?: string;
+  total_rows?: string;
+  content_hash?: string;
+  signature?: string;
+  key_id?: string;
+  cert_version?: string;
+  license_tier?: string;
+  user_id?: string;
+}
+
+function parseRealityDBMeta(content: string): RealityDBMeta | null {
+  const metaMatch = content.match(/INSERT\s+INTO\s+["']?_realitydb_meta["']?[\s\S]*?VALUES\s*([\s\S]*?);/i);
+  if (!metaMatch) return null;
+
+  const meta: RealityDBMeta = {};
+  const pairRegex = /\('([^']+)',\s*'([^']*)'\)/g;
+  let m;
+  while ((m = pairRegex.exec(metaMatch[1])) !== null) {
+    const key = m[1] as keyof RealityDBMeta;
+    meta[key] = m[2];
+  }
+  return Object.keys(meta).length > 0 ? meta : null;
+}
+
 // ============================================================
 // HTML REPORT GENERATOR
 // ============================================================
 
-function generateHtmlReport(report: ComplianceReport): string {
+function generateHtmlReport(report: ComplianceReport, meta?: RealityDBMeta | null): string {
   const fw = FRAMEWORKS[report.framework] || FRAMEWORKS.hipaa;
 
   const statusIcon = (s: string) => s === 'pass' ? '<span class="pass">PASS</span>' : s === 'info' ? '<span class="info">INFO</span>' : '<span class="warn">WARN</span>';
@@ -439,6 +579,184 @@ ${hipaaSection}
   ${frameworkSections}
 </div>
 
+
+
+${report.framework === 'eu-ai-act' && meta ? `
+<div class="section">
+  <h2>Article 10 — Data Origin & Provenance</h2>
+  <table class="metrics-table">
+    <thead><tr><th>Property</th><th>Value</th><th>Article Reference</th></tr></thead>
+    <tbody>
+      <tr><td class="metric-name">Generator</td><td>${meta.generator || 'Unknown'} v${meta.version || '?'}</td><td>Art. 10(2)(a)</td></tr>
+      <tr><td class="metric-name">Template</td><td>${meta.template || 'custom'}</td><td>Art. 10(2)(a)</td></tr>
+      <tr><td class="metric-name">Template Hash</td><td>${meta.template_hash || 'N/A'}</td><td>Art. 10(2)(a)</td></tr>
+      <tr><td class="metric-name">Generation Seed</td><td>${meta.seed || 'N/A'} (deterministic reproduction)</td><td>Art. 10(2)(b)</td></tr>
+      <tr><td class="metric-name">Generated At</td><td>${meta.generated_at || 'Unknown'}</td><td>Art. 10(2)(a)</td></tr>
+      <tr><td class="metric-name">Tables</td><td>${meta.tables || report.tables}</td><td>Art. 10(2)(d)</td></tr>
+      <tr><td class="metric-name">Total Rows</td><td>${meta.total_rows || report.rows}</td><td>Art. 10(2)(d)</td></tr>
+      <tr><td class="metric-name">Content Hash</td><td>${meta.content_hash || 'Not embedded'}</td><td>Art. 50(2)</td></tr>
+      <tr><td class="metric-name">Data Type</td><td>100% synthetic — no real personal data used</td><td>Art. 10(5)</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="section">
+  <h2>Article 50 — Transparency & Machine-Readable Marking</h2>
+  <table class="metrics-table">
+    <thead><tr><th>Requirement</th><th>Status</th><th>Detail</th></tr></thead>
+    <tbody>
+      <tr>
+        <td class="metric-name">Machine-readable marking</td>
+        <td><span class="pass">PRESENT</span></td>
+        <td>_realitydb_meta table embedded with ${Object.keys(meta).length} fields</td>
+      </tr>
+      <tr>
+        <td class="metric-name">Content hash (detectability)</td>
+        <td>${meta.content_hash ? '<span class="pass">EMBEDDED</span>' : '<span class="warn">NOT FOUND</span>'}</td>
+        <td>${meta.content_hash || 'Generate with: realitydb attest sign <file>'}</td>
+      </tr>
+      <tr>
+        <td class="metric-name">Cryptographic signature</td>
+        <td>${meta.signature ? '<span class="pass">ED25519 SIGNED</span>' : '<span class="info">UNSIGNED</span>'}</td>
+        <td>${meta.signature ? 'Key ID: ' + (meta.key_id || 'unknown') : 'Available with: realitydb attest sign <file> --embed'}</td>
+      </tr>
+      <tr>
+        <td class="metric-name">Verification method</td>
+        <td><span class="pass">AVAILABLE</span></td>
+        <td>realitydb attest verify &lt;file&gt;</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="section">
+  <h2>Article 11 — Technical Documentation</h2>
+  <table class="metrics-table">
+    <thead><tr><th>Documentation Element</th><th>Status</th><th>Reference</th></tr></thead>
+    <tbody>
+      <tr><td class="metric-name">Generation methodology</td><td>Schema-aware synthetic generation (RealityDB CLI)</td><td>Art. 11, Annex IV §2(b)</td></tr>
+      <tr><td class="metric-name">Assessment methodology</td><td>SQR v1.0 — Synthetic Quality Report (3 pillars, 12 metrics)</td><td>Art. 11, Annex IV §2(e)</td></tr>
+      <tr><td class="metric-name">Reproducibility</td><td>${meta.seed ? 'Seed: ' + meta.seed + ' (deterministic)' : 'Seed not recorded'}</td><td>Art. 11, Annex IV §2(d)</td></tr>
+      <tr><td class="metric-name">No real data dependency</td><td>Generates from schema definition only — no real data ingested</td><td>Art. 10(5)</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="section">
+  <h2>Article 12 — Record-Keeping & Audit Trail</h2>
+  <table class="metrics-table">
+    <thead><tr><th>Record</th><th>Value</th></tr></thead>
+    <tbody>
+      <tr><td class="metric-name">Report ID</td><td>${report.id}</td></tr>
+      <tr><td class="metric-name">Assessment timestamp</td><td>${report.timestamp}</td></tr>
+      <tr><td class="metric-name">Dataset hash</td><td>sha256:${report.datasetHash}</td></tr>
+      <tr><td class="metric-name">Generator version</td><td>${meta.generator || 'realitydb-cli'} v${meta.version || 'unknown'}</td></tr>
+      <tr><td class="metric-name">License tier</td><td>${meta.license_tier || 'unknown'}</td></tr>
+      <tr><td class="metric-name">Certification</td><td>${meta.signature ? 'Ed25519 signed (key: ' + meta.key_id + ')' : 'Unsigned watermark'}</td></tr>
+    </tbody>
+  </table>
+</div>
+` : ''}
+${report.framework === 'eu-ai-act' && !meta ? `
+<div class="section">
+  <h2>Article 50 — Transparency</h2>
+  <p style="color:#BA7517;font-weight:500">⚠ No _realitydb_meta watermark detected in this dataset.</p>
+  <p style="font-size:13px;color:#666;margin-top:8px">
+    To embed machine-readable provenance marking (Article 50 compliance), generate data with RealityDB CLI:<br>
+    <code style="background:#f0f0f0;padding:2px 6px;border-radius:3px;font-size:12px">realitydb run --pack template.json --rows 5000 --format sql -o data.sql</code><br>
+    Then certify: <code style="background:#f0f0f0;padding:2px 6px;border-radius:3px;font-size:12px">realitydb attest sign data.sql --embed</code>
+  </p>
+</div>
+` : ''}
+
+
+${report.framework === 'eu-ai-act' && meta ? `
+<div class="section">
+  <h2>Article 10 — Data Origin & Provenance</h2>
+  <table class="metrics-table">
+    <thead><tr><th>Property</th><th>Value</th><th>Article Reference</th></tr></thead>
+    <tbody>
+      <tr><td class="metric-name">Generator</td><td>${meta.generator || 'Unknown'} v${meta.version || '?'}</td><td>Art. 10(2)(a)</td></tr>
+      <tr><td class="metric-name">Template</td><td>${meta.template || 'custom'}</td><td>Art. 10(2)(a)</td></tr>
+      <tr><td class="metric-name">Template Hash</td><td>${meta.template_hash || 'N/A'}</td><td>Art. 10(2)(a)</td></tr>
+      <tr><td class="metric-name">Generation Seed</td><td>${meta.seed || 'N/A'} (deterministic reproduction)</td><td>Art. 10(2)(b)</td></tr>
+      <tr><td class="metric-name">Generated At</td><td>${meta.generated_at || 'Unknown'}</td><td>Art. 10(2)(a)</td></tr>
+      <tr><td class="metric-name">Tables</td><td>${meta.tables || report.tables}</td><td>Art. 10(2)(d)</td></tr>
+      <tr><td class="metric-name">Total Rows</td><td>${meta.total_rows || report.rows}</td><td>Art. 10(2)(d)</td></tr>
+      <tr><td class="metric-name">Content Hash</td><td>${meta.content_hash || 'Not embedded'}</td><td>Art. 50(2)</td></tr>
+      <tr><td class="metric-name">Data Type</td><td>100% synthetic — no real personal data used</td><td>Art. 10(5)</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="section">
+  <h2>Article 50 — Transparency & Machine-Readable Marking</h2>
+  <table class="metrics-table">
+    <thead><tr><th>Requirement</th><th>Status</th><th>Detail</th></tr></thead>
+    <tbody>
+      <tr>
+        <td class="metric-name">Machine-readable marking</td>
+        <td><span class="pass">PRESENT</span></td>
+        <td>_realitydb_meta table embedded with ${Object.keys(meta).length} fields</td>
+      </tr>
+      <tr>
+        <td class="metric-name">Content hash (detectability)</td>
+        <td>${meta.content_hash ? '<span class="pass">EMBEDDED</span>' : '<span class="warn">NOT FOUND</span>'}</td>
+        <td>${meta.content_hash || 'Generate with: realitydb attest sign <file>'}</td>
+      </tr>
+      <tr>
+        <td class="metric-name">Cryptographic signature</td>
+        <td>${meta.signature ? '<span class="pass">ED25519 SIGNED</span>' : '<span class="info">UNSIGNED</span>'}</td>
+        <td>${meta.signature ? 'Key ID: ' + (meta.key_id || 'unknown') : 'Available with: realitydb attest sign <file> --embed'}</td>
+      </tr>
+      <tr>
+        <td class="metric-name">Verification method</td>
+        <td><span class="pass">AVAILABLE</span></td>
+        <td>realitydb attest verify &lt;file&gt;</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="section">
+  <h2>Article 11 — Technical Documentation</h2>
+  <table class="metrics-table">
+    <thead><tr><th>Documentation Element</th><th>Status</th><th>Reference</th></tr></thead>
+    <tbody>
+      <tr><td class="metric-name">Generation methodology</td><td>Schema-aware synthetic generation (RealityDB CLI)</td><td>Art. 11, Annex IV §2(b)</td></tr>
+      <tr><td class="metric-name">Assessment methodology</td><td>SQR v1.0 — Synthetic Quality Report (3 pillars, 12 metrics)</td><td>Art. 11, Annex IV §2(e)</td></tr>
+      <tr><td class="metric-name">Reproducibility</td><td>${meta.seed ? 'Seed: ' + meta.seed + ' (deterministic)' : 'Seed not recorded'}</td><td>Art. 11, Annex IV §2(d)</td></tr>
+      <tr><td class="metric-name">No real data dependency</td><td>Generates from schema definition only — no real data ingested</td><td>Art. 10(5)</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="section">
+  <h2>Article 12 — Record-Keeping & Audit Trail</h2>
+  <table class="metrics-table">
+    <thead><tr><th>Record</th><th>Value</th></tr></thead>
+    <tbody>
+      <tr><td class="metric-name">Report ID</td><td>${report.id}</td></tr>
+      <tr><td class="metric-name">Assessment timestamp</td><td>${report.timestamp}</td></tr>
+      <tr><td class="metric-name">Dataset hash</td><td>sha256:${report.datasetHash}</td></tr>
+      <tr><td class="metric-name">Generator version</td><td>${meta.generator || 'realitydb-cli'} v${meta.version || 'unknown'}</td></tr>
+      <tr><td class="metric-name">License tier</td><td>${meta.license_tier || 'unknown'}</td></tr>
+      <tr><td class="metric-name">Certification</td><td>${meta.signature ? 'Ed25519 signed (key: ' + meta.key_id + ')' : 'Unsigned watermark'}</td></tr>
+    </tbody>
+  </table>
+</div>
+` : ''}
+${report.framework === 'eu-ai-act' && !meta ? `
+<div class="section">
+  <h2>Article 50 — Transparency</h2>
+  <p style="color:#BA7517;font-weight:500">⚠ No _realitydb_meta watermark detected in this dataset.</p>
+  <p style="font-size:13px;color:#666;margin-top:8px">
+    To embed machine-readable provenance marking (Article 50 compliance), generate data with RealityDB CLI:<br>
+    <code style="background:#f0f0f0;padding:2px 6px;border-radius:3px;font-size:12px">realitydb run --pack template.json --rows 5000 --format sql -o data.sql</code><br>
+    Then certify: <code style="background:#f0f0f0;padding:2px 6px;border-radius:3px;font-size:12px">realitydb attest sign data.sql --embed</code>
+  </p>
+</div>
+` : ''}
 <div class="disclaimer">
   <strong>Disclaimer:</strong> ${report.disclaimer}
 </div>
@@ -500,6 +818,12 @@ export async function complyReportCommand(options: {
     process.exit(1);
   }
 
+  // Parse _realitydb_meta for Article 50 transparency data
+  const meta = parseRealityDBMeta(content);
+
+  // Parse _realitydb_meta for Article 50 transparency data
+  const meta = parseRealityDBMeta(content);
+
   const frameworkKey = options.framework.toLowerCase();
   const fw = FRAMEWORKS[frameworkKey];
   if (!fw) {
@@ -533,7 +857,8 @@ export async function complyReportCommand(options: {
   const pScore = Math.round(privacyMetrics.reduce((s, m) => s + m.score, 0) / privacyMetrics.length);
   const overall = Math.round((fScore + sScore + pScore) / 3);
 
-  const reportId = `RDB-COMPLY-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.random().toString(36).substring(2, 6)}`;
+  const reportPrefix = frameworkKey === 'eu-ai-act' ? 'RDB-EUAIA' : 'RDB-COMPLY';
+  const reportId = `${reportPrefix}-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.random().toString(36).substring(2, 6)}`;
 
   const report: ComplianceReport = {
     id: reportId,
@@ -555,8 +880,10 @@ export async function complyReportCommand(options: {
     ],
     piiFindings,
     hipaa18,
-    disclaimer: 'This report presents measured statistical properties against reference thresholds derived from the specified regulatory framework. It does not constitute legal advice, regulatory certification, or compliance determination. Compliance assessment is the responsibility of the data controller.',
-    generatedBy: 'realitydb-cli v2.33.0',
+    disclaimer: frameworkKey === 'eu-ai-act'
+      ? 'This report presents measured statistical properties of a dataset in the context of EU AI Act (Regulation 2024/1689) Articles 10, 11, 12, and 50. It does NOT constitute a conformity assessment under Article 43, legal advice, or regulatory certification. This report does not determine compliance with the EU AI Act. Conformity assessment and compliance determination are the responsibility of the AI system provider and/or deployer in accordance with their obligations under the Act.'
+      : 'This report presents measured statistical properties against reference thresholds derived from the specified regulatory framework. It does not constitute legal advice, regulatory certification, or compliance determination. Compliance assessment is the responsibility of the data controller.',
+    generatedBy: 'realitydb-cli v2.36.0',
   };
 
   const elapsed = Date.now() - startTime;
@@ -574,7 +901,7 @@ export async function complyReportCommand(options: {
   }
 
   // HTML output
-  const html = generateHtmlReport(report);
+  const html = generateHtmlReport(report, meta);
   const outPath = options.output || filePath.replace(/\.\w+$/, `-${frameworkKey}-report.html`);
   fs.writeFileSync(outPath, html, 'utf-8');
 
