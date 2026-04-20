@@ -194,6 +194,12 @@ async function deleteNeonBranch(projectId: string, apiKey: string, branchId: str
   return res.ok;
 }
 
+// Mask password in connection string for list responses
+function maskConnection(conn: string): string {
+  if (!conn) return conn;
+  return conn.replace(/:([^@]+)@/, ':****@');
+}
+
 // TTL parsing
 function parseTTL(ttl: string): number {
   const match = ttl.match(/^(\d+)(h|d|m)$/);
@@ -377,7 +383,12 @@ app.get('/v1/labs', async (c) => {
     : "SELECT * FROM labs WHERE status = 'active' ORDER BY created_at DESC LIMIT 50";
 
   const result = await env.DB.prepare(query).all();
-  return c.json({ labs: result.results });
+  // Mask connection strings in list responses — full connection available via GET /v1/labs/:id
+  const labs = (result.results || []).map((lab: any) => ({
+    ...lab,
+    connection_string: maskConnection(lab.connection_string as string),
+  }));
+  return c.json({ labs });
 });
 
 // Get lab
@@ -389,6 +400,36 @@ app.get('/v1/labs/:id', async (c) => {
   const result = await env.DB.prepare('SELECT * FROM labs WHERE id = ?').bind(c.req.param('id')).first();
   if (!result) return c.json({ error: 'Lab not found' }, 404);
   return c.json(result);
+});
+
+// Execute SQL against a lab's database (proxy)
+app.post('/v1/labs/:id/query', async (c) => {
+  const env = c.env;
+  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
+
+  const lab = await env.DB.prepare('SELECT * FROM labs WHERE id = ?').bind(c.req.param('id')).first();
+  if (!lab) return c.json({ error: 'Lab not found' }, 404);
+  if (lab.status !== 'active') return c.json({ error: `Lab is ${lab.status}` }, 400);
+
+  const { sql: query } = await c.req.json<{ sql: string }>();
+  if (!query?.trim()) return c.json({ error: 'No SQL provided' }, 400);
+
+  const start = Date.now();
+  try {
+    const sql = neon(lab.connection_string as string);
+    const result = await sql(query);
+    const duration = Date.now() - start;
+
+    return c.json({
+      columns: result.length > 0 ? Object.keys(result[0]) : [],
+      rows: result,
+      rowCount: result.length,
+      duration,
+    });
+  } catch (err: any) {
+    return c.json({ error: err.message, duration: Date.now() - start }, 400);
+  }
 });
 
 // Extend TTL
@@ -743,7 +784,7 @@ app.get('/v1/labs/:id/queries', async (c) => {
 // EXPORT ENDPOINTS
 // ============================================================
 
-// Export lab as Jupyter notebook
+// Export lab as Jupyter notebook — with live schema introspection and pandas
 app.get('/v1/labs/:id/export', async (c) => {
   const env = c.env;
   const format = c.req.query('format');
@@ -754,117 +795,167 @@ app.get('/v1/labs/:id/export', async (c) => {
   const lab = await env.DB.prepare('SELECT * FROM labs WHERE id = ?').bind(c.req.param('id')).first();
   if (!lab) return c.json({ error: 'Lab not found' }, 404);
 
-  // Get saved queries for this lab
+  // Fetch live schema from the database
+  let schemaMarkdown = 'Schema information unavailable (database may be suspended).';
+  try {
+    const sql = neon(lab.connection_string as string);
+    const tables = await sql(`
+      SELECT table_name FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+      ORDER BY table_name
+    `);
+
+    const schemaLines: string[] = [];
+    for (const t of tables as any[]) {
+      const cols = await sql(
+        `SELECT column_name, data_type, is_nullable
+         FROM information_schema.columns
+         WHERE table_schema = 'public' AND table_name = $1
+         ORDER BY ordinal_position`,
+        [t.table_name]
+      );
+
+      schemaLines.push(`### ${t.table_name}`);
+      schemaLines.push('| Column | Type | Nullable |');
+      schemaLines.push('|--------|------|----------|');
+      for (const col of cols as any[]) {
+        schemaLines.push(`| ${col.column_name} | ${col.data_type} | ${col.is_nullable} |`);
+      }
+      schemaLines.push('');
+    }
+    schemaMarkdown = schemaLines.join('\n');
+  } catch {
+    // If DB is unreachable, use placeholder
+  }
+
+  // Fetch saved queries
   const queriesResult = await env.DB.prepare(
     'SELECT name, sql_text FROM saved_queries WHERE lab_id = ? ORDER BY created_at ASC'
   ).bind(lab.id).all();
   const savedQueries = queriesResult.results || [];
 
-  // Build Jupyter notebook JSON
+  // Cell builders
+  const mdCell = (lines: string[]) => ({
+    cell_type: 'markdown',
+    metadata: {},
+    source: lines.map((l, i) => (i < lines.length - 1 ? l + '\n' : l)),
+  });
+  const codeCell = (lines: string[]) => ({
+    cell_type: 'code',
+    execution_count: null,
+    metadata: {},
+    outputs: [],
+    source: lines.map((l, i) => (i < lines.length - 1 ? l + '\n' : l)),
+  });
+
   const cells: any[] = [];
 
   // Title cell
-  cells.push({
-    cell_type: 'markdown',
-    metadata: {},
-    source: [
-      `# ${lab.name || lab.template + ' Lab'}\n`,
-      `\n`,
-      `**Template:** ${lab.template}  \n`,
-      `**Rows:** ${lab.rows}  \n`,
-      `**Created:** ${lab.created_at}  \n`,
-      `**Expires:** ${lab.expires_at}  \n`,
-    ],
-  });
+  cells.push(mdCell([
+    `# RealityDB Lab: ${lab.name || lab.template}`,
+    '',
+    `- **Template:** ${lab.template}`,
+    `- **Rows:** ${(lab.rows as number).toLocaleString()}`,
+    `- **Created:** ${lab.created_at}`,
+    `- **Expires:** ${lab.expires_at}`,
+    `- **Lab ID:** \`${lab.id}\``,
+  ]));
 
-  // Connection setup cell
-  cells.push({
-    cell_type: 'code',
-    execution_count: null,
-    metadata: {},
-    outputs: [],
-    source: [
-      `%load_ext sql\n`,
-      `%sql ${lab.connection_string}`,
-    ],
-  });
+  // Schema cell
+  cells.push(mdCell([
+    '## Database Schema',
+    '',
+    schemaMarkdown,
+  ]));
 
-  // Explore schema cell
-  cells.push({
-    cell_type: 'code',
-    execution_count: null,
-    metadata: {},
-    outputs: [],
-    source: [
-      `%%sql\n`,
-      `SELECT table_name, \n`,
-      `       (SELECT COUNT(*) FROM information_schema.columns c WHERE c.table_name = t.table_name AND c.table_schema = 'public') AS column_count\n`,
-      `FROM information_schema.tables t\n`,
-      `WHERE table_schema = 'public'\n`,
-      `ORDER BY table_name;`,
-    ],
-  });
+  // Setup cell
+  cells.push(codeCell([
+    '# Install dependencies (run once)',
+    '!pip install psycopg2-binary pandas sqlalchemy -q',
+  ]));
 
-  // Saved queries as cells
-  for (const q of savedQueries) {
-    cells.push({
-      cell_type: 'markdown',
-      metadata: {},
-      source: [`## ${(q as any).name}\n`],
-    });
-    cells.push({
-      cell_type: 'code',
-      execution_count: null,
-      metadata: {},
-      outputs: [],
-      source: [`%%sql\n`, (q as any).sql_text],
-    });
+  // Connection cell (mask password — user fills in from `realitydb lab connect`)
+  const maskedConn = maskConnection(lab.connection_string as string);
+  cells.push(codeCell([
+    'import pandas as pd',
+    'from sqlalchemy import create_engine',
+    '',
+    '# Replace **** with your actual password from `realitydb lab connect`',
+    `DATABASE_URL = "${maskedConn}"`,
+    '',
+    'engine = create_engine(DATABASE_URL)',
+    '',
+    '# Quick test',
+    "tables = pd.read_sql(\"SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'\", engine)",
+    'print(f"Connected! {len(tables)} tables available")',
+    'tables',
+  ]));
+
+  // Saved query cells or default exploration
+  if (savedQueries.length > 0) {
+    cells.push(mdCell(['## Saved Queries', '']));
+    for (const q of savedQueries as any[]) {
+      cells.push(mdCell([`### ${q.name}`]));
+      cells.push(codeCell([
+        `# ${q.name}`,
+        `df = pd.read_sql("""`,
+        q.sql_text,
+        `""", engine)`,
+        'df.head(20)',
+      ]));
+    }
+  } else {
+    cells.push(mdCell(['## Explore the Data', '']));
+    cells.push(codeCell([
+      '# List all tables with row counts',
+      "query = \"\"\"",
+      "SELECT schemaname, tablename,",
+      "       (xpath('/row/cnt/text()', xml_count))[1]::text::int AS row_count",
+      "FROM (",
+      "  SELECT schemaname, tablename,",
+      "         query_to_xml('SELECT count(*) AS cnt FROM ' || schemaname || '.' || tablename, false, true, '') AS xml_count",
+      "  FROM pg_tables WHERE schemaname = 'public'",
+      ") t ORDER BY row_count DESC",
+      "\"\"\"",
+      'pd.read_sql(query, engine)',
+    ]));
   }
 
-  // Sample query if no saved queries
-  if (savedQueries.length === 0) {
-    cells.push({
-      cell_type: 'markdown',
-      metadata: {},
-      source: [`## Sample Query\n`],
-    });
-    cells.push({
-      cell_type: 'code',
-      execution_count: null,
-      metadata: {},
-      outputs: [],
-      source: [
-        `%%sql\n`,
-        `SELECT * FROM information_schema.tables\n`,
-        `WHERE table_schema = 'public'\n`,
-        `LIMIT 20;`,
-      ],
-    });
-  }
+  // Reproducibility + citation cell
+  cells.push(mdCell([
+    '## Reproducibility',
+    '',
+    'This dataset was generated by RealityDB with deterministic seeding.',
+    'Regenerate identical data with:',
+    '',
+    '```bash',
+    `realitydb lab create ${lab.template} --rows ${lab.rows} --seed 42`,
+    '```',
+    '',
+    '## Citation',
+    '',
+    '```bibtex',
+    '@software{realitydb,',
+    '  title = {RealityDB: Synthetic Data Generation Platform},',
+    '  author = {Mpingo Systems},',
+    '  url = {https://realitydb.dev},',
+    `  year = {${new Date().getFullYear()}}`,
+    '}',
+    '```',
+  ]));
 
   const notebook = {
     nbformat: 4,
     nbformat_minor: 5,
     metadata: {
-      kernelspec: {
-        display_name: 'Python 3',
-        language: 'python',
-        name: 'python3',
-      },
-      language_info: {
-        name: 'python',
-        version: '3.11.0',
-      },
-      realitydb: {
-        lab_id: lab.id,
-        template: lab.template,
-        rows: lab.rows,
-      },
+      kernelspec: { display_name: 'Python 3', language: 'python', name: 'python3' },
+      language_info: { name: 'python', version: '3.11.0' },
+      realitydb: { lab_id: lab.id, template: lab.template, rows: lab.rows },
     },
     cells,
   };
 
-  const filename = `${lab.name || lab.template}-lab.ipynb`;
+  const filename = `realitydb-${lab.template}-${lab.rows}.ipynb`;
   return new Response(JSON.stringify(notebook, null, 2), {
     headers: {
       'Content-Type': 'application/x-ipynb+json',
