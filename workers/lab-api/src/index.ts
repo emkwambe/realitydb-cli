@@ -1182,7 +1182,7 @@ app.get('/v1/store/:template', async (c) => {
   if (templateObj) {
     const sql = await templateObj.text();
     // Extract first INSERT block to show sample data
-    const insertMatch = sql.match(/INSERT INTO (\w+) .+?VALUES\n([\s\S]*?);/);
+    const insertMatch = sql.match(/INSERT INTO ["']?(\w+)["']?\s*\([^)]+\)\s*VALUES\n([\s\S]*?);/);
     if (insertMatch) {
       const rows = insertMatch[2].split('\n').filter(l => l.trim().startsWith('(')).slice(0, 5);
       preview = rows.map(r => r.trim());
