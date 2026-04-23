@@ -40,6 +40,7 @@ const DATASET_PRICING: Record<string, Record<string, number>> = {
   'iot-sensors':  { '5k': 0, '10k': 4900, '50k': 4900, '100k': 7900 },
   telecom:        { '5k': 0, '10k': 4900, '50k': 9900, '100k': 14900 },
   fintech:        { '5k': 0, '10k': 4900, '50k': 9900, '100k': 14900 },
+  universal:      { '5k': 0, '10k': 0, '50k': 4900, '100k': 7900 },
 };
 
 // ── Badge Definitions ───────────────────────────────────────
