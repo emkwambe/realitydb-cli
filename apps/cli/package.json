@@ -1,6 +1,6 @@
 {
   "name": "@realitydb/cli",
-  "version": "2.37.4",
+  "version": "2.37.5",
   "description": "Developer Reality Platform - realistic database environments from your schema",
   "license": "BSL-1.1",
   "keywords": [
@@ -42,7 +42,8 @@
     "clean": "rm -rf dist *.tsbuildinfo",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
-    "prepublishOnly": "npm run build && node dist/index.js --version"
+    "prepublishOnly": "npm run build && node dist/index.js --version",
+    "postbuild": "node -e \"const fs=require('fs');const p='dist/packs';if(!fs.existsSync(p))fs.mkdirSync(p,{recursive:true});fs.readdirSync('src/packs').forEach(f=>fs.copyFileSync('src/packs/'+f,p+'/'+f))\""
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

@@ -185,6 +185,52 @@ function getCreateOrder(schema: DatabaseSchema): string[] {
 
 export async function runCommand(options: RunOptions): Promise<void> {
   const start = performance.now();
+
+  // ── Resolve built-in templates ──
+  const BUILT_IN_PACKS: Record<string, string> = {
+    universal: 'Universal Starter — 6 cross-industry tables (users, transactions, audit_logs, api_requests, errors, addresses)',
+    banking: 'Retail Banking — 16 tables (accounts, transactions, loans, compliance)',
+    oncology: 'Oncology Research — 20 tables (patients, treatments, clinical trials)',
+    healthcare: 'Healthcare Analytics — 14 tables (patients, billing, insurance, labs)',
+    'supply-chain': 'Supply Chain — 24 tables (suppliers, shipments, warehouses)',
+    telecom: 'Telecom & Network — 21 tables (subscribers, towers, billing, churn)',
+    fintech: 'FinTech Platform — 5 tables (customers, transactions, fraud)',
+    'iot-sensors': 'IoT Sensors — 5 tables (sensors, readings, failures, maintenance)',
+  };
+
+  // If pack is a built-in name (no slashes, no .json extension), try bundled pack
+  if (!options.pack.includes('/') && !options.pack.includes('\\') && !options.pack.endsWith('.json')) {
+    if (options.pack === '--list' || options.pack === 'list') {
+      console.log('\nAvailable built-in templates:\n');
+      for (const [name, desc] of Object.entries(BUILT_IN_PACKS)) {
+        console.log(`  \x1b[36m${name}\x1b[0m — ${desc}`);
+      }
+      console.log('\nUsage: realitydb run --pack <template-name> --rows 5000 --format sql');
+      console.log('   or: realitydb run --pack ./path/to/custom-pack.json');
+      process.exit(0);
+    }
+
+    // Try to resolve from bundled packs directory
+    const packDir = resolve(__dirname, '..', 'packs');
+    const bundledPath = resolve(packDir, options.pack + '.json');
+    if (existsSync(bundledPath)) {
+      options.pack = bundledPath;
+      console.log(`   Using built-in template: ${Object.keys(BUILT_IN_PACKS).includes(options.pack.replace(/.*[\\\/]/, '').replace('.json', '')) ? options.pack.replace(/.*[\\\/]/, '').replace('.json', '') : 'custom'}\n`);
+    } else if (BUILT_IN_PACKS[options.pack]) {
+      // Name is known but pack file not bundled — try user directory
+      const userPackDir = resolve(process.env.HOME || process.env.USERPROFILE || '.', '.realitydb', 'templates');
+      const userPath = resolve(userPackDir, options.pack + '.json');
+      if (existsSync(userPath)) {
+        options.pack = userPath;
+      } else {
+        console.error(`\n   Template "${options.pack}" is available but not installed locally.`);
+        console.error(`   Download from: https://realitydb-lab-api.eddy-078.workers.dev/v1/store/${options.pack}`);
+        console.error(`   Or install: realitydb store download ${options.pack}\n`);
+        process.exit(1);
+      }
+    }
+  }
+
   const packPath = resolve(options.pack);
   const masked = maskConnectionString(options.connection);
   const records = options.records ? parseInt(options.records, 10) : undefined;

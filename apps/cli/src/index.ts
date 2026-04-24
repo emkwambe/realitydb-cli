@@ -165,6 +165,43 @@ async function runHandler(options: any) {
     if (options.seed) console.log(`   Seed: ${options.seed}`);
 
     try {
+      // ── Resolve built-in template names ──
+      const BUILT_IN_PACKS: Record<string, string> = {
+        universal: 'Universal Starter',
+        banking: 'Retail Banking',
+        healthcare: 'Healthcare Analytics',
+        oncology: 'Oncology Research',
+        'supply-chain': 'Supply Chain',
+        telecom: 'Telecom & Network',
+        fintech: 'FinTech Platform',
+        'iot-sensors': 'IoT Sensors',
+      };
+      if (!options.pack.includes('/') && !options.pack.includes('\\') && !options.pack.endsWith('.json')) {
+        if (options.pack === 'list') {
+          console.log('\nAvailable built-in templates:\n');
+          for (const [name, desc] of Object.entries(BUILT_IN_PACKS)) {
+            console.log(`  \x1b[36m${name}\x1b[0m \u2014 ${desc}`);
+          }
+          console.log('\nUsage: realitydb run --pack <name> --rows 5000 --format sql');
+          process.exit(0);
+        }
+        const packDir = path.resolve(path.dirname(process.argv[1] || __filename), 'packs');
+        const bundledPath = path.resolve(packDir, options.pack + '.json');
+        if (fs.existsSync(bundledPath)) {
+          options.pack = bundledPath;
+        } else {
+          const userDir = path.resolve(process.env.HOME || process.env.USERPROFILE || '.', '.realitydb', 'templates');
+          const userPath = path.resolve(userDir, options.pack + '.json');
+          if (fs.existsSync(userPath)) {
+            options.pack = userPath;
+          } else if (BUILT_IN_PACKS[options.pack]) {
+            console.error(`\n   Template "${options.pack}" not found locally.`);
+            console.error(`   Download: https://realitydb-lab-api.eddy-078.workers.dev/v1/store/${options.pack}`);
+            process.exit(1);
+          }
+        }
+      }
+
       const packPath = path.resolve(options.pack);
       if (!fs.existsSync(packPath)) {
         console.error(`\nâŒ Pack file not found: ${packPath}`);
