@@ -58,8 +58,14 @@ export function generateByStrategy(strategy: string, options: any, colName?: str
     case 'phone':
       return `+1${Math.floor(1000000000 + Math.random() * 9000000000)}`;
     case 'text':
-    case 'string':
-      return `sample_text_${Math.floor(Math.random() * 10000)}`;
+    case 'string': {
+      if (colName && /name/i.test(colName)) {
+        const fn = ['James', 'Maria', 'Chen', 'Fatima', 'Alex', 'Priya', 'Omar', 'Sarah'];
+        const ln = ['Smith', 'Garcia', 'Wang', 'Johnson', 'Patel', 'Kim', 'Brown', 'Ali'];
+        return fn[Math.floor(Math.random() * fn.length)] + ' ' + ln[Math.floor(Math.random() * ln.length)];
+      }
+      return 'item_' + Math.floor(Math.random() * 10000);
+    }
     case 'name':
     case 'full_name': {
       const firstNames = ['James', 'Maria', 'Chen', 'Fatima', 'Alex', 'Priya', 'Omar', 'Sarah'];
@@ -75,6 +81,49 @@ export function generateByStrategy(strategy: string, options: any, colName?: str
     case 'random_string': {
       const words = ['alpha', 'bravo', 'charlie', 'delta', 'echo', 'foxtrot', 'golf', 'hotel', 'india', 'juliet', 'kilo', 'lima', 'mike', 'nova', 'oscar', 'papa', 'quebec', 'romeo', 'sierra', 'tango'];
       return words[Math.floor(Math.random() * words.length)] + '-' + words[Math.floor(Math.random() * words.length)] + '-' + Math.floor(Math.random() * 10000);
+    }
+    case 'past_date': {
+      const minYears = options?.minYearsAgo ?? 0;
+      const maxYears = options?.maxYearsAgo ?? 3;
+      const pastNow = Date.now();
+      const minMs = minYears * 365.25 * 24 * 60 * 60 * 1000;
+      const maxMs = maxYears * 365.25 * 24 * 60 * 60 * 1000;
+      const pastTime = pastNow - minMs - Math.floor(Math.random() * (maxMs - minMs || 1));
+      return new Date(pastTime).toISOString();
+    }
+    case 'template': {
+      let tmpl = options?.template || '{{value}}_{{rowIndex}}';
+      const tNames = ['james', 'maria', 'chen', 'fatima', 'alex', 'priya', 'omar', 'sarah', 'raj', 'elena'];
+      const tDomains = ['example.dev', 'testmail.com', 'mockdata.io', 'synthetic.net'];
+      tmpl = tmpl.replace('{{firstName}}', tNames[Math.floor(Math.random() * tNames.length)]);
+      tmpl = tmpl.replace('{{domain}}', tDomains[Math.floor(Math.random() * tDomains.length)]);
+      tmpl = tmpl.replace('{{rowIndex}}', String(Math.floor(Math.random() * 99999)));
+      tmpl = tmpl.replace('{{number}}', String(Math.floor(Math.random() * 9999)));
+      tmpl = tmpl.replace('{{value}}', 'val_' + Math.floor(Math.random() * 10000));
+      return tmpl;
+    }
+    case 'street_address': {
+      const saStreets = ['Main St', 'Oak Ave', 'Park Blvd', 'Cedar Ln', 'Elm St', 'Maple Dr', 'Pine Rd', 'Lake Way'];
+      return Math.floor(100 + Math.random() * 9900) + ' ' + saStreets[Math.floor(Math.random() * saStreets.length)];
+    }
+    case 'city': {
+      const gCities = ['New York', 'Los Angeles', 'Chicago', 'Houston', 'Phoenix', 'London', 'Toronto', 'Berlin', 'Sydney', 'Mumbai', 'Nairobi', 'Lagos'];
+      return gCities[Math.floor(Math.random() * gCities.length)];
+    }
+    case 'state': {
+      const gStates = ['NY', 'CA', 'IL', 'TX', 'AZ', 'FL', 'WA', 'CO', 'GA', 'NC', 'ON', 'BC'];
+      return gStates[Math.floor(Math.random() * gStates.length)];
+    }
+    case 'zip_code':
+      return String(10000 + Math.floor(Math.random() * 89999));
+    case 'ip_address':
+      return [10, Math.floor(Math.random() * 255), Math.floor(Math.random() * 255), Math.floor(1 + Math.random() * 254)].join('.');
+    case 'number': {
+      const nMin = options?.min ?? 1;
+      const nMax = options?.max ?? 1000;
+      const nPrec = options?.precision;
+      const nVal = Math.random() * (nMax - nMin) + nMin;
+      return nPrec !== undefined ? parseFloat(nVal.toFixed(nPrec)) : Math.floor(nVal);
     }
     default:
       return `mock_${strategy}_${Math.floor(Math.random() * 1000)}`;
