@@ -42,8 +42,9 @@
     "clean": "rm -rf dist *.tsbuildinfo",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
-    "prepublishOnly": "npm run build && node dist/index.js --version",
-    "postbuild": "node -e \"const fs=require('fs');const p='dist/packs';if(!fs.existsSync(p))fs.mkdirSync(p,{recursive:true});fs.readdirSync('src/packs').forEach(f=>fs.copyFileSync('src/packs/'+f,p+'/'+f))\""
+    "prepublishOnly": "npm run build && npm run postbuild && node smoke-test.cjs && node dist/index.js --version",
+    "postbuild": "node -e \"const fs=require('fs');const p='dist/packs';if(!fs.existsSync(p))fs.mkdirSync(p,{recursive:true});fs.readdirSync('src/packs').forEach(f=>fs.copyFileSync('src/packs/'+f,p+'/'+f))\"",
+    "test": "node smoke-test.cjs"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
