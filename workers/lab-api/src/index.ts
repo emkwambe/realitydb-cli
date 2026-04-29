@@ -25,10 +25,11 @@ interface CreateLabRequest {
 
 // ── Tier Definitions ────────────────────────────────────────
 
-const TIER_LIMITS: Record<string, { maxRows: number; maxActiveLabs: number; downloadsPerMonth: number; labsDaily: number }> = {
+const TIER_LIMITS: Record<string, { maxRows: number; maxActiveLabs: number; downloadsPerMonth: number; labsDaily: number; defaultTTL?: string }> = {
   free:       { maxRows: 5000,    maxActiveLabs: 2,  downloadsPerMonth: 0,  labsDaily: 5 },
   core:       { maxRows: 50000,   maxActiveLabs: 3,  downloadsPerMonth: 2,  labsDaily: 10 },
   compliance: { maxRows: 100000,  maxActiveLabs: 10, downloadsPerMonth: 5,  labsDaily: 20 },
+  research:   { maxRows: 100000,  maxActiveLabs: 5,  downloadsPerMonth: 10, labsDaily: 5, defaultTTL: '720h' },
   enterprise: { maxRows: 1000000, maxActiveLabs: -1, downloadsPerMonth: -1, labsDaily: -1 },
 };
 
@@ -1376,6 +1377,7 @@ async function stripeGET(secretKey: string, endpoint: string): Promise<any> {
 const SUBSCRIPTION_TIERS: Record<string, { name: string; monthlyPriceCents: number; features: string }> = {
   core: { name: 'RealityDB Core', monthlyPriceCents: 4900, features: '50K rows, 3 active labs, SQL downloads' },
   compliance: { name: 'RealityDB Compliance', monthlyPriceCents: 19900, features: '100K rows, 10 active labs, domain specialist' },
+  research: { name: 'RealityDB Research', monthlyPriceCents: 2492, features: '100K rows, 5 labs, 30-day TTL, Jupyter export, citations' },
 };
 
 // One-time setup: create Stripe products and prices (idempotent)
