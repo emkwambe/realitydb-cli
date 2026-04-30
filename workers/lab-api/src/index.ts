@@ -34,10 +34,11 @@ const TIER_LIMITS: Record<string, { maxRows: number; maxActiveLabs: number; down
 };
 
 const DATASET_PRICING: Record<string, Record<string, number>> = {
-  banking:        { '5k': 0, '10k': 4900, '50k': 4900, '100k': 7900 },
-  oncology:       { '5k': 0, '10k': 4900, '50k': 9900, '100k': 14900 },
-  healthcare:     { '5k': 0, '10k': 4900, '50k': 9900, '100k': 14900 },
-  'supply-chain': { '5k': 0, '10k': 4900, '50k': 4900, '100k': 7900 },
+  banking:        { '5k': 0, '10k': 4900, '50k': 4900, '100k': 7900, '500k': 29900, '1000k': 49900 },
+  oncology:       { '5k': 0, '10k': 4900, '50k': 9900, '100k': 14900, '500k': 29900, '1000k': 49900 },
+  healthcare:     { '5k': 0, '10k': 4900, '50k': 9900, '100k': 14900, '500k': 29900, '1000k': 49900 },
+  'supply-chain': { '5k': 0, '10k': 4900, '50k': 4900, '100k': 7900, '500k': 29900, '1000k': 49900 },
+  aml:            { '5k': 0, '10k': 4900, '50k': 9900, '100k': 14900, '500k': 29900, '1000k': 49900 },
 };
 
 // ── Badge Definitions ───────────────────────────────────────
@@ -1347,6 +1348,115 @@ app.put('/v1/store/complete/:purchaseId', async (c) => {
   if (!purchase) return c.json({ error: 'Purchase not found' }, 404);
 
   return c.json({ completed: true, purchase });
+});
+
+// Download dataset SQL file from R2
+app.get('/v1/store/:template/download', async (c) => {
+  const env = c.env;
+  const template = c.req.param('template');
+  const size = c.req.query('size') || '5k';
+  const format = c.req.query('format') || 'sql';
+
+  if (format !== 'sql') {
+    return c.json({ error: 'Only format=sql is supported' }, 400);
+  }
+
+  const pricing = DATASET_PRICING[template];
+  if (!pricing) return c.json({ error: `Unknown template: ${template}` }, 404);
+
+  const priceCents = pricing[size];
+  if (priceCents === undefined) {
+    return c.json({ error: `Size ${size} not available for ${template}. Available: ${Object.keys(pricing).join(', ')}` }, 400);
+  }
+
+  // Free tier (5k): no auth required
+  // Paid sizes: require auth + check download entitlement or purchase
+  if (priceCents > 0) {
+    const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+    if (!authenticate(apiKey, env)) {
+      return c.json({ error: 'Authentication required for paid dataset downloads' }, 401);
+    }
+
+    // Check if user has an active subscription with downloads remaining
+    // or a completed purchase for this template/size
+    const userId = 'api-user'; // TODO: extract from JWT or API key mapping
+    const ent = await getEntitlement(env.DB, userId);
+
+    if (ent.downloads_per_month === 0 && (ent.tier === 'free')) {
+      // Check one-time purchases
+      const rows = parseInt(size) * 1000;
+      const purchase = await env.DB.prepare(
+        "SELECT * FROM dataset_purchases WHERE user_id = ? AND template = ? AND rows >= ? AND status = 'completed'"
+      ).bind(userId, template, rows).first();
+
+      if (!purchase) {
+        return c.json({
+          error: 'Download requires a subscription (Core+) or one-time purchase',
+          tier: ent.tier,
+          buyUrl: `/v1/store/${template}/buy`,
+        }, 403);
+      }
+    }
+
+    // Decrement download counter for subscription users
+    if ((ent.downloads_per_month as number) > 0) {
+      const used = (ent.downloads_used_this_month as number) || 0;
+      if (used >= (ent.downloads_per_month as number) && (ent.downloads_per_month as number) !== -1) {
+        return c.json({ error: 'Monthly download limit reached', used, limit: ent.downloads_per_month }, 429);
+      }
+      await env.DB.prepare('UPDATE entitlements SET downloads_used_this_month = downloads_used_this_month + 1 WHERE user_id = ?')
+        .bind(userId).run();
+    }
+  }
+
+  // Fetch from R2
+  const r2Key = `templates/${template}-${size}.sql`;
+  const object = await env.TEMPLATES.get(r2Key);
+
+  if (!object) {
+    return c.json({ error: `Dataset file not found: ${r2Key}. This size may not have been generated yet.` }, 404);
+  }
+
+  const filename = `realitydb-${template}-${size}.sql`;
+  return new Response(object.body, {
+    headers: {
+      'Content-Type': 'application/sql',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Length': String(object.size),
+      'Access-Control-Allow-Origin': '*',
+      'Cache-Control': 'public, max-age=86400',
+    },
+  });
+});
+
+// Check which sizes are available for a template in R2
+app.get('/v1/store/:template/sizes', async (c) => {
+  const env = c.env;
+  const template = c.req.param('template');
+
+  const pricing = DATASET_PRICING[template];
+  if (!pricing) return c.json({ error: `Unknown template: ${template}` }, 404);
+
+  const allSizes = Object.keys(pricing);
+  const available: string[] = [];
+
+  for (const size of allSizes) {
+    const r2Key = `templates/${template}-${size}.sql`;
+    const head = await env.TEMPLATES.head(r2Key);
+    if (head) {
+      available.push(size);
+    }
+  }
+
+  return c.json({
+    template,
+    sizes: available,
+    allSizes,
+    formats: ['sql'],
+    pricing: Object.fromEntries(
+      allSizes.map(s => [s, { priceCents: pricing[s], available: available.includes(s) }])
+    ),
+  });
 });
 
 // ============================================================
