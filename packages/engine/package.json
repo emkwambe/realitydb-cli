@@ -1,6 +1,6 @@
 {
   "name": "@realitydb/engine",
-  "version": "1.0.0",
+  "version": "2.38.0",
   "description": "RealityDB data generation engine — zero Node.js dependencies",
   "license": "MIT",
   "main": "dist/index.js",
