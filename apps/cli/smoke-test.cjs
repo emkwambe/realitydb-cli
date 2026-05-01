@@ -179,15 +179,17 @@ console.log('\nTIER 4: Data Integrity (no mock values)');
 console.log('─'.repeat(40));
 
 const FORBIDDEN_PATTERNS = [
-  { pattern: 'mock_past_date', label: 'mock_past_date placeholder' },
-  { pattern: 'mock_future_date', label: 'mock_future_date placeholder' },
-  { pattern: 'mock_template', label: 'mock_template placeholder' },
-  { pattern: 'mock_street', label: 'mock_street placeholder' },
-  { pattern: 'mock_city', label: 'mock_city placeholder' },
-  { pattern: 'mock_state', label: 'mock_state placeholder' },
-  { pattern: 'mock_ip', label: 'mock_ip placeholder' },
-  { pattern: 'mock_number', label: 'mock_number placeholder' },
-  { pattern: 'sample_text_', label: 'sample_text_ placeholder' },
+  { pattern: 'mock_past_date',   label: 'mock_past_date placeholder',   type: 'literal' },
+  { pattern: 'mock_future_date', label: 'mock_future_date placeholder', type: 'literal' },
+  { pattern: 'mock_template',    label: 'mock_template placeholder',    type: 'literal' },
+  { pattern: 'mock_street',      label: 'mock_street placeholder',      type: 'literal' },
+  { pattern: 'mock_city',        label: 'mock_city placeholder',        type: 'literal' },
+  { pattern: 'mock_state',       label: 'mock_state placeholder',       type: 'literal' },
+  { pattern: 'mock_ip',          label: 'mock_ip placeholder',          type: 'literal' },
+  { pattern: 'mock_number',      label: 'mock_number placeholder',      type: 'literal' },
+  { pattern: 'sample_text_',     label: 'sample_text_ placeholder',     type: 'literal' },
+  { pattern: /\bval_\d{1,5}_\d{1,5}\b/, label: 'val_X_Y template fallback leak', type: 'regex' },
+  { pattern: "'undefined'",      label: 'literal undefined in output',  type: 'literal' },
 ];
 
 for (const pack of bundledPacks) {
@@ -196,7 +198,7 @@ for (const pack of bundledPacks) {
 
   for (const fp of FORBIDDEN_PATTERNS) {
     fileTest(`${pack.name}: no ${fp.label}`, sqlOut, (c) =>
-      c.includes(fp.pattern) ? `Found "${fp.pattern}" — engine strategy missing` : true
+      (fp.type === 'regex' || fp.pattern instanceof RegExp ? fp.pattern.test(c) : c.includes(fp.pattern)) ? `Found ${fp.label}` : true
     );
   }
 

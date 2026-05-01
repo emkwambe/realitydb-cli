@@ -92,16 +92,55 @@ export function generateByStrategy(strategy: string, options: any, colName?: str
       return new Date(pastTime).toISOString();
     }
     case 'template': {
-      let tmpl = options?.template || '{{value}}_{{rowIndex}}';
-      const tNames = ['james', 'maria', 'chen', 'fatima', 'alex', 'priya', 'omar', 'sarah', 'raj', 'elena'];
-      const tDomains = ['example.dev', 'testmail.com', 'mockdata.io', 'synthetic.net'];
-      tmpl = tmpl.replace('{{firstName}}', tNames[Math.floor(Math.random() * tNames.length)]);
-      tmpl = tmpl.replace('{{domain}}', tDomains[Math.floor(Math.random() * tDomains.length)]);
-      tmpl = tmpl.replace('{{rowIndex}}', String(Math.floor(Math.random() * 99999)));
-      tmpl = tmpl.replace('{{number}}', String(Math.floor(Math.random() * 9999)));
-      tmpl = tmpl.replace('{{value}}', 'val_' + Math.floor(Math.random() * 10000));
-      return tmpl;
-    }
+  // Read documented option key first (`pattern`), then legacy (`template`).
+  const tmplSource = options?.pattern ?? options?.template;
+  if (typeof tmplSource !== 'string' || tmplSource.length === 0) {
+    // Fail loudly. The smoke test will catch this and the generation will abort.
+    throw new Error(
+      `template strategy requires options.pattern (string). ` +
+      `Got: ${JSON.stringify(options)}`
+    );
+  }
+ 
+  let tmpl = tmplSource;
+ 
+  const tNames = ['james', 'maria', 'chen', 'fatima', 'alex', 'priya', 'omar', 'sarah', 'raj', 'elena'];
+  const tDomains = ['example.dev', 'testmail.com', 'mockdata.io', 'synthetic.net'];
+ 
+  // {{firstName}} — replace ALL occurrences (the old code used .replace which
+  // only replaces the first match; multi-token patterns silently broke).
+  while (tmpl.includes('{{firstName}}')) {
+    tmpl = tmpl.replace('{{firstName}}', tNames[Math.floor(Math.random() * tNames.length)]);
+  }
+ 
+  // {{domain}} — replace all
+  while (tmpl.includes('{{domain}}')) {
+    tmpl = tmpl.replace('{{domain}}', tDomains[Math.floor(Math.random() * tDomains.length)]);
+  }
+ 
+  // {{rowIndex}} — replace all. Use threaded row index when available.
+  while (tmpl.includes('{{rowIndex}}')) {
+    const rowIdx = options?._rowIndex !== undefined
+      ? options._rowIndex
+      : Math.floor(Math.random() * 99999);
+    tmpl = tmpl.replace('{{rowIndex}}', String(rowIdx));
+  }
+ 
+  // {{number}} — replace all, respecting options.min and options.max.
+  // Schema convention: BR-{{number}} with min=1000, max=9999 produces BR-4521.
+  // Each occurrence in a pattern (like fp_{{number}}_{{number}}) gets a fresh roll.
+  while (tmpl.includes('{{number}}')) {
+    const numMin = typeof options?.min === 'number' ? options.min : 1;
+    const numMax = typeof options?.max === 'number' ? options.max : 9999;
+    const span = Math.max(1, numMax - numMin);
+    const numVal = numMin + Math.floor(Math.random() * (span + 1));
+    tmpl = tmpl.replace('{{number}}', String(numVal));
+  }
+ 
+  // No silent {{value}} fallback. If a pack still used {{value}}, the literal
+  // string remains in the output and the smoke test's val_X_Y check will catch it.
+  return tmpl;
+}
     case 'street_address': {
       const saStreets = ['Main St', 'Oak Ave', 'Park Blvd', 'Cedar Ln', 'Elm St', 'Maple Dr', 'Pine Rd', 'Lake Way'];
       return Math.floor(100 + Math.random() * 9900) + ' ' + saStreets[Math.floor(Math.random() * saStreets.length)];
