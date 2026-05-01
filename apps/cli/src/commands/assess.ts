@@ -508,7 +508,10 @@ function computeKAnonymity(tables: ParsedTable[], hasSyntheticProvenance: boolea
       groups.set(key, (groups.get(key) || 0) + 1);
     }
 
-    const localMinK = Math.min(...groups.values());
+    let localMinK = Infinity;
+    for (const v of groups.values()) {
+      if (v < localMinK) localMinK = v;
+    }
     if (localMinK < minK) {
       minK = localMinK;
       checkedTable = table.name;

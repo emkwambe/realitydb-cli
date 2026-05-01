@@ -40,6 +40,7 @@ import { generateTemplateCommand } from './commands/generate-template.js';
 import { captureCommand } from './commands/capture.js';
 import { loadCommand } from './commands/load.js';
 import { doctorCommand } from './commands/doctor.js';
+import { runTemporalCompliance } from './commands/temporal.js';
 // import { templatesCommand, templatesInitCommand, templatesValidateCommand } from './commands/templates'; // TODO: re-enable after @databox/templates is wired
 import { requireAuth, loadLicense } from './auth/license';
 import { gateCommand, gateRows, gateLifecycleRules, printUpgradePrompt, stripLifecycleRules, printLifecycleWarning, recordRowUsage, recordOperation } from './gate.js';
@@ -998,6 +999,25 @@ comply
   .option('--fix', 'Auto-fix issues (converts studio-v4 to export, infers missing strategies)')
   .option('-o, --output <file>', 'Write fixed pack to this path (default: overwrite original)')
   .action(async (opts) => { await doctorCommand(opts); });
+
+comply
+  .command('temporal <file>')
+  .description('Detect and fix temporal ordering violations in generated SQL')
+  .option('--dry-run', 'Report violations without fixing')
+  .option('--fix', 'Apply temporal fixes')
+  .option('--pack <path>', 'Read pack JSON for dependsOn metadata')
+  .option('--verbose', 'Show every fix applied')
+  .option('-o, --output <path>', 'Output path (default: overwrite input)')
+  .action((file: string, opts: any) => {
+    runTemporalCompliance({
+      file,
+      dryRun: opts.dryRun,
+      fix: opts.fix,
+      pack: opts.pack,
+      verbose: opts.verbose,
+      output: opts.output,
+    });
+  });
 
 // ============================================================
 // ATTEST — Proof & Origin
