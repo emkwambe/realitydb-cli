@@ -749,7 +749,7 @@ program
   .option('--research-based', 'Include citations and confidence levels (default: true)')
   .option('--no-research-based', 'Skip research-based annotations')
   .option('-o, --output <file>', 'Output file path')
-  .option('--model <name>', 'Claude model to use', 'claude-sonnet-4-20250514')
+  .option('--model <name>', 'Claude model to use', 'claude-sonnet-4-6-20250514')
   .action(generateTemplateCommand);
 
 // RULE COMMANDS

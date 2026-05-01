@@ -14,7 +14,7 @@ export async function generateTemplateCommand(options: {
   const tableCount = options.tables ? parseInt(options.tables) : 14;
   const researchBased = options.researchBased !== false;
   const outputFile = options.output || `realitydb-${domain.replace(/\s+/g, '-').toLowerCase()}-template.json`;
-  const model = options.model || 'claude-sonnet-4-20250514';
+  const model = options.model || 'claude-sonnet-4-6-20250514';
 
   console.log(`\n\u{1F9EC} RealityDB Template Generator`);
   console.log(`${'\u2500'.repeat(40)}`);
