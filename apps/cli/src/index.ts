@@ -175,7 +175,6 @@ async function runHandler(options: any) {
         'supply-chain': 'Supply Chain',
         telecom: 'Telecom & Network',
         fintech: 'FinTech Platform',
-        'iot-sensors': 'IoT Sensors',
       };
       if (!options.pack.includes('/') && !options.pack.includes('\\') && !options.pack.endsWith('.json')) {
         if (options.pack === 'list') {

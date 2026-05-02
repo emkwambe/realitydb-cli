@@ -195,7 +195,6 @@ export async function runCommand(options: RunOptions): Promise<void> {
     'supply-chain': 'Supply Chain — 24 tables (suppliers, shipments, warehouses)',
     telecom: 'Telecom & Network — 21 tables (subscribers, towers, billing, churn)',
     fintech: 'FinTech Platform — 5 tables (customers, transactions, fraud)',
-    'iot-sensors': 'IoT Sensors — 5 tables (sensors, readings, failures, maintenance)',
   };
 
   // If pack is a built-in name (no slashes, no .json extension), try bundled pack
