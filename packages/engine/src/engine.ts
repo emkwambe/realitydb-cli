@@ -69,7 +69,14 @@ function sampleCardinality(config: any): number {
 export function buildCardinalityMap(pack: any): Record<string, any> {
   const map: Record<string, any> = {};
   const rels = pack?.relationships || [];
-  const tables = pack?.tables || [];
+  const tablesRaw = pack?.tables || {};
+
+  // Normalize to array form. Two pack formats are supported:
+  //   - dict format: tables.customers = {...}  (oncology-style, most marketplace packs)
+  //   - array format: tables[0] = { name: 'customers', ... }  (banking-style, scan exports)
+  const tables: any[] = Array.isArray(tablesRaw)
+    ? tablesRaw
+    : Object.entries(tablesRaw).map(([name, def]) => ({ name, ...(def as any) }));
 
   // Build ID → name lookup for scan-format packs (tbl-01 → table_name)
   const idToName: Record<string, string> = {};
@@ -175,30 +182,9 @@ export function distributeRowsVariable(
     }
   }
   
-  // Step 4: Ensure no single table exceeds 40% of total (prevent explosion)
-  const maxPerTable = Math.ceil(totalRows * 0.4);
-  let needsRescale = false;
-  for (const name of Object.keys(rowsPerTable)) {
-    if (rowsPerTable[name] > maxPerTable) {
-      rowsPerTable[name] = maxPerTable;
-      needsRescale = true;
-    }
-  }
-  
-  // Redistribute excess to underpopulated tables
-  if (needsRescale) {
-    const currentTotal = Object.values(rowsPerTable).reduce((a, b) => a + b, 0);
-    const deficit = totalRows - currentTotal;
-    if (deficit > 0) {
-      const smallTables = Object.entries(rowsPerTable)
-        .filter(([_, v]) => v < maxPerTable)
-        .sort((a, b) => a[1] - b[1]);
-      const perTable = Math.ceil(deficit / smallTables.length);
-      for (const [name] of smallTables) {
-        rowsPerTable[name] = Math.min(maxPerTable, rowsPerTable[name] + perTable);
-      }
-    }
-  }
+  // Step 4 (removed in v2.39.0): The 40% per-table cap was clamping declared cardinality
+  // to ~1:2:2 ratios regardless of pack declarations, defeating variable cardinality.
+  // Step 2's per-relationship 20x mean cap remains as protection against runaway declarations.
   
   return rowsPerTable;
 }
