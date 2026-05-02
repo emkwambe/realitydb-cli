@@ -46,7 +46,31 @@ export function generateByStrategy(strategy: string, options: any, colName?: str
     case 'money': {
       const fmin = options?.min ?? 1;
       const fmax = options?.max ?? 999.99;
-      return parseFloat((Math.random() * (fmax - fmin) + fmin).toFixed(2));
+      const dist = options?.distribution ?? 'uniform';
+      let fvalue: number;
+
+      if (dist === 'normal') {
+        // Box-Muller transform for Normal sampling
+        const u1 = Math.random() || 1e-10; // avoid log(0)
+        const u2 = Math.random();
+        const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+        const mean = options?.mean ?? (fmin + fmax) / 2;
+        const stddev = options?.stddev ?? (fmax - fmin) / 6;
+        fvalue = mean + stddev * z;
+      } else if (dist === 'weibull') {
+        // Inverse CDF sampling: x = lambda * (-ln(1 - u))^(1/k)
+        const u = Math.random();
+        const k = options?.k ?? 1.5;
+        const lambda = options?.lambda ?? (fmax - fmin) / 2;
+        fvalue = lambda * Math.pow(-Math.log(1 - u), 1 / k);
+      } else {
+        // Uniform (default, unchanged behavior)
+        fvalue = Math.random() * (fmax - fmin) + fmin;
+      }
+
+      // Clip to declared range
+      fvalue = Math.max(fmin, Math.min(fmax, fvalue));
+      return parseFloat(fvalue.toFixed(2));
     }
     case 'boolean':
       return Math.random() > 0.5;
