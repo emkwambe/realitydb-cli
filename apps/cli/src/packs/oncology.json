@@ -1,495 +1,515 @@
 {
-  "name": "studio-export",
-  "version": "1.0.0",
-  "description": "Converted from Studio v4 by realitydb doctor",
+  "name": "oncology",
+  "version": "2.1.0",
+  "description": "Multi-site oncology clinical trial dataset covering patients, diagnoses, treatments, genomics, imaging, labs, adverse events, and trial enrollment. v2.1: audit_logs FK added (was root), recist_response weights corrected to real-world NSCLC/breast response rates, target assess score ≥97.",
   "tables": {
     "patients": {
       "match": "patients",
       "columns": {
-        "id": {
-          "strategy": "uuid"
-        },
+        "id": { "strategy": "uuid" },
         "age_at_diagnosis": {
           "strategy": "integer",
-          "options": {
-            "min": 18,
-            "max": 90
-          }
+          "options": { "min": 18, "max": 90 }
         },
         "smoking_status": {
           "strategy": "enum",
           "options": {
-            "values": [
-              "never",
-              "former",
-              "current"
-            ],
-            "weights": [
-              40,
-              40,
-              20
-            ]
+            "values": ["never", "former", "current"],
+            "weights": [40, 40, 20]
           }
         },
-        "created_at": {
-          "strategy": "timestamp"
-        }
-      }
-    },
-    "diagnoses": {
-      "match": "diagnoses",
-      "columns": {
-        "id": {
-          "strategy": "uuid"
-        },
-        "patient_id": {
-          "strategy": "uuid",
-          "foreignKey": {
-            "table": "patients",
-            "column": "id"
-          }
-        },
-        "cancer_type": {
+        "ecog_status": {
           "strategy": "enum",
           "options": {
-            "values": [
-              "NSCLC",
-              "Breast_IDC",
-              "Colorectal"
-            ],
-            "weights": [
-              40,
-              30,
-              30
-            ]
+            "values": ["0", "1", "2", "3"],
+            "weights": [25, 45, 20, 10]
           }
         },
-        "date_of_diagnosis": {
-          "strategy": "timestamp"
-        }
-      }
-    },
-    "genomics": {
-      "match": "genomics",
-      "columns": {
-        "id": {
-          "strategy": "uuid"
-        },
-        "diagnosis_id": {
-          "strategy": "uuid",
-          "foreignKey": {
-            "table": "diagnoses",
-            "column": "id"
-          }
-        },
-        "mutation": {
-          "strategy": "enum",
-          "options": {
-            "values": [
-              "EGFR",
-              "KRAS",
-              "BRAF",
-              "WT"
-            ],
-            "weights": [
-              20,
-              20,
-              20,
-              40
-            ]
-          }
-        },
-        "created_at": {
-          "strategy": "timestamp"
-        }
-      }
-    },
-    "treatments": {
-      "match": "treatments",
-      "columns": {
-        "id": {
-          "strategy": "uuid"
-        },
-        "patient_id": {
-          "strategy": "uuid",
-          "foreignKey": {
-            "table": "patients",
-            "column": "id"
-          }
-        },
-        "line_of_therapy": {
-          "strategy": "integer",
-          "options": {
-            "min": 1,
-            "max": 5
-          }
-        },
-        "start_date": {
-          "strategy": "timestamp"
-        }
-      }
-    },
-    "treatment_cycles": {
-      "match": "treatment_cycles",
-      "columns": {
-        "id": {
-          "strategy": "uuid"
-        },
-        "treatment_id": {
-          "strategy": "uuid",
-          "foreignKey": {
-            "table": "treatments",
-            "column": "id"
-          }
-        },
-        "cycle_number": {
-          "strategy": "integer"
-        },
-        "created_at": {
-          "strategy": "timestamp"
-        }
-      }
-    },
-    "imaging_results": {
-      "match": "imaging_results",
-      "columns": {
-        "id": {
-          "strategy": "uuid"
-        },
-        "patient_id": {
-          "strategy": "uuid",
-          "foreignKey": {
-            "table": "patients",
-            "column": "id"
-          }
-        },
-        "recist_response": {
-          "strategy": "enum",
-          "options": {
-            "values": [
-              "CR",
-              "PR",
-              "SD",
-              "PD"
-            ],
-            "weights": [
-              25,
-              25,
-              25,
-              25
-            ]
-          }
-        },
-        "created_at": {
-          "strategy": "timestamp"
-        }
-      }
-    },
-    "lab_results": {
-      "match": "lab_results",
-      "columns": {
-        "id": {
-          "strategy": "uuid"
-        },
-        "patient_id": {
-          "strategy": "uuid",
-          "foreignKey": {
-            "table": "patients",
-            "column": "id"
-          }
-        },
-        "value": {
-          "strategy": "decimal"
-        },
-        "created_at": {
-          "strategy": "timestamp"
-        }
-      }
-    },
-    "adverse_events": {
-      "match": "adverse_events",
-      "columns": {
-        "id": {
-          "strategy": "uuid"
-        },
-        "treatment_id": {
-          "strategy": "uuid",
-          "foreignKey": {
-            "table": "treatments",
-            "column": "id"
-          }
-        },
-        "severity": {
-          "strategy": "enum",
-          "options": {
-            "values": [
-              "G1",
-              "G2",
-              "G3",
-              "G4",
-              "G5"
-            ],
-            "weights": [
-              20,
-              20,
-              20,
-              20,
-              20
-            ]
-          }
-        },
-        "created_at": {
-          "strategy": "timestamp"
-        }
-      }
-    },
-    "progression_events": {
-      "match": "progression_events",
-      "columns": {
-        "id": {
-          "strategy": "uuid"
-        },
-        "diagnosis_id": {
-          "strategy": "uuid",
-          "foreignKey": {
-            "table": "diagnoses",
-            "column": "id"
-          }
-        },
-        "created_at": {
-          "strategy": "timestamp"
-        }
-      }
-    },
-    "outcomes": {
-      "match": "outcomes",
-      "columns": {
-        "id": {
-          "strategy": "uuid"
-        },
-        "patient_id": {
-          "strategy": "uuid",
-          "foreignKey": {
-            "table": "patients",
-            "column": "id"
-          }
-        },
-        "created_at": {
-          "strategy": "timestamp"
-        }
-      }
-    },
-    "biomarkers": {
-      "match": "biomarkers",
-      "columns": {
-        "id": {
-          "strategy": "uuid"
-        },
-        "diagnosis_id": {
-          "strategy": "uuid",
-          "foreignKey": {
-            "table": "diagnoses",
-            "column": "id"
-          }
-        },
-        "marker": {
-          "strategy": "enum",
-          "options": {
-            "values": [
-              "HER2",
-              "PD-L1",
-              "ALK"
-            ],
-            "weights": [
-              33,
-              33,
-              33
-            ]
-          }
-        },
-        "created_at": {
-          "strategy": "timestamp"
-        }
-      }
-    },
-    "vital_signs": {
-      "match": "vital_signs",
-      "columns": {
-        "id": {
-          "strategy": "uuid"
-        },
-        "patient_id": {
-          "strategy": "uuid",
-          "foreignKey": {
-            "table": "patients",
-            "column": "id"
-          }
-        },
-        "created_at": {
-          "strategy": "timestamp"
-        }
-      }
-    },
-    "concomitant_medications": {
-      "match": "concomitant_medications",
-      "columns": {
-        "id": {
-          "strategy": "uuid"
-        },
-        "patient_id": {
-          "strategy": "uuid",
-          "foreignKey": {
-            "table": "patients",
-            "column": "id"
-          }
-        },
-        "med_name": {
-          "strategy": "company_name"
-        },
-        "created_at": {
-          "strategy": "timestamp"
-        }
+        "created_at": { "strategy": "timestamp" }
       }
     },
     "sites": {
       "match": "sites",
       "columns": {
-        "id": {
-          "strategy": "uuid"
-        },
-        "site_name": {
-          "strategy": "company_name"
-        },
-        "created_at": {
-          "strategy": "timestamp"
-        }
+        "id": { "strategy": "uuid" },
+        "site_name": { "strategy": "company_name" },
+        "created_at": { "strategy": "timestamp" }
       }
     },
     "clinical_trials": {
       "match": "clinical_trials",
       "columns": {
-        "id": {
-          "strategy": "uuid"
+        "id": { "strategy": "uuid" },
+        "trial_name": { "strategy": "company_name" },
+        "phase": {
+          "strategy": "enum",
+          "options": {
+            "values": ["Phase 1", "Phase 2", "Phase 3"],
+            "weights": [20, 35, 45]
+          }
         },
-        "trial_name": {
-          "strategy": "company_name"
+        "created_at": { "strategy": "timestamp" }
+      }
+    },
+    "diagnoses": {
+      "match": "diagnoses",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "patient_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "patients", "column": "id" }
         },
-        "created_at": {
-          "strategy": "timestamp"
-        }
+        "cancer_type": {
+          "strategy": "enum",
+          "options": {
+            "values": ["NSCLC", "Breast_IDC", "Colorectal"],
+            "weights": [40, 30, 30]
+          }
+        },
+        "stage": {
+          "strategy": "enum",
+          "options": {
+            "values": ["I", "II", "III", "IV"],
+            "weights": [15, 20, 25, 40]
+          }
+        },
+        "date_of_diagnosis": { "strategy": "timestamp" }
+      }
+    },
+    "genomics": {
+      "match": "genomics",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "diagnosis_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "diagnoses", "column": "id" }
+        },
+        "mutation": {
+          "strategy": "enum",
+          "options": {
+            "values": ["EGFR", "KRAS", "BRAF", "WT"],
+            "weights": [20, 20, 20, 40]
+          }
+        },
+        "tmb_score": {
+          "strategy": "float",
+          "options": {
+            "distribution": "normal",
+            "mean": 6.5,
+            "stddev": 4.2,
+            "min": 0,
+            "max": 50
+          }
+        },
+        "created_at": { "strategy": "timestamp" }
+      }
+    },
+    "biomarkers": {
+      "match": "biomarkers",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "diagnosis_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "diagnoses", "column": "id" }
+        },
+        "marker": {
+          "strategy": "enum",
+          "options": {
+            "values": ["HER2", "PD-L1", "ALK"],
+            "weights": [33, 33, 33]
+          }
+        },
+        "expression_level": {
+          "strategy": "enum",
+          "options": {
+            "values": ["negative", "low", "high"],
+            "weights": [40, 35, 25]
+          }
+        },
+        "created_at": { "strategy": "timestamp" }
+      }
+    },
+    "treatments": {
+      "match": "treatments",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "patient_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "patients", "column": "id" }
+        },
+        "line_of_therapy": {
+          "strategy": "integer",
+          "options": { "min": 1, "max": 5 }
+        },
+        "regimen": {
+          "strategy": "enum",
+          "options": {
+            "values": ["chemotherapy", "immunotherapy", "targeted", "combination"],
+            "weights": [30, 25, 25, 20]
+          }
+        },
+        "start_date": { "strategy": "timestamp" }
+      }
+    },
+    "treatment_cycles": {
+      "match": "treatment_cycles",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "treatment_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "treatments", "column": "id" }
+        },
+        "cycle_number": {
+          "strategy": "integer",
+          "options": { "min": 1, "max": 12 }
+        },
+        "dose_mg": {
+          "strategy": "float",
+          "options": {
+            "distribution": "normal",
+            "mean": 250,
+            "stddev": 60,
+            "min": 50,
+            "max": 600
+          }
+        },
+        "created_at": { "strategy": "timestamp" }
+      }
+    },
+    "adverse_events": {
+      "match": "adverse_events",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "treatment_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "treatments", "column": "id" }
+        },
+        "severity": {
+          "strategy": "enum",
+          "options": {
+            "values": ["G1", "G2", "G3", "G4", "G5"],
+            "weights": [35, 30, 20, 12, 3]
+          }
+        },
+        "ae_type": {
+          "strategy": "enum",
+          "options": {
+            "values": ["hematologic", "gastrointestinal", "fatigue", "neuropathy", "other"],
+            "weights": [25, 25, 20, 15, 15]
+          }
+        },
+        "created_at": { "strategy": "timestamp" }
+      }
+    },
+    "imaging_results": {
+      "match": "imaging_results",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "patient_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "patients", "column": "id" }
+        },
+        "recist_response": {
+          "strategy": "enum",
+          "options": {
+            "values": ["CR", "PR", "SD", "PD"],
+            "weights": [8, 28, 32, 32]
+          }
+        },
+        "modality": {
+          "strategy": "enum",
+          "options": {
+            "values": ["CT", "PET", "MRI"],
+            "weights": [60, 25, 15]
+          }
+        },
+        "created_at": { "strategy": "timestamp" }
+      }
+    },
+    "lab_results": {
+      "match": "lab_results",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "patient_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "patients", "column": "id" }
+        },
+        "test_name": {
+          "strategy": "enum",
+          "options": {
+            "values": ["CBC", "CMP", "LFT", "tumor_marker", "creatinine"],
+            "weights": [30, 25, 20, 15, 10]
+          }
+        },
+        "value": { "strategy": "decimal" },
+        "created_at": { "strategy": "timestamp" }
+      }
+    },
+    "progression_events": {
+      "match": "progression_events",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "diagnosis_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "diagnoses", "column": "id" }
+        },
+        "time_to_progression_days": {
+          "strategy": "integer",
+          "options": { "min": 30, "max": 900 }
+        },
+        "created_at": { "strategy": "timestamp" }
+      }
+    },
+    "outcomes": {
+      "match": "outcomes",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "patient_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "patients", "column": "id" }
+        },
+        "vital_status": {
+          "strategy": "enum",
+          "options": {
+            "values": ["alive", "deceased", "lost_to_followup"],
+            "weights": [55, 35, 10]
+          }
+        },
+        "os_months": {
+          "strategy": "float",
+          "options": {
+            "distribution": "normal",
+            "mean": 18,
+            "stddev": 12,
+            "min": 1,
+            "max": 84
+          }
+        },
+        "created_at": { "strategy": "timestamp" }
       }
     },
     "enrollments": {
       "match": "enrollments",
       "columns": {
-        "id": {
-          "strategy": "uuid"
-        },
+        "id": { "strategy": "uuid" },
         "patient_id": {
           "strategy": "uuid",
-          "foreignKey": {
-            "table": "patients",
-            "column": "id"
-          }
+          "foreignKey": { "table": "patients", "column": "id" }
         },
         "trial_id": {
           "strategy": "uuid",
-          "foreignKey": {
-            "table": "clinical_trials",
-            "column": "id"
-          }
+          "foreignKey": { "table": "clinical_trials", "column": "id" }
         },
         "site_id": {
           "strategy": "uuid",
-          "foreignKey": {
-            "table": "sites",
-            "column": "id"
-          }
+          "foreignKey": { "table": "sites", "column": "id" }
         },
-        "created_at": {
-          "strategy": "timestamp"
-        }
+        "created_at": { "strategy": "timestamp" }
       }
     },
     "consent_records": {
       "match": "consent_records",
       "columns": {
-        "id": {
-          "strategy": "uuid"
-        },
+        "id": { "strategy": "uuid" },
         "enrollment_id": {
           "strategy": "uuid",
-          "foreignKey": {
-            "table": "enrollments",
-            "column": "id"
+          "foreignKey": { "table": "enrollments", "column": "id" }
+        },
+        "consent_type": {
+          "strategy": "enum",
+          "options": {
+            "values": ["initial", "amendment", "withdrawal"],
+            "weights": [70, 25, 5]
           }
         },
-        "created_at": {
-          "strategy": "timestamp"
-        }
+        "created_at": { "strategy": "timestamp" }
+      }
+    },
+    "vital_signs": {
+      "match": "vital_signs",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "patient_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "patients", "column": "id" }
+        },
+        "systolic_bp": {
+          "strategy": "integer",
+          "options": { "min": 90, "max": 180 }
+        },
+        "heart_rate": {
+          "strategy": "integer",
+          "options": { "min": 50, "max": 110 }
+        },
+        "created_at": { "strategy": "timestamp" }
+      }
+    },
+    "concomitant_medications": {
+      "match": "concomitant_medications",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "patient_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "patients", "column": "id" }
+        },
+        "med_name": { "strategy": "company_name" },
+        "indication": {
+          "strategy": "enum",
+          "options": {
+            "values": ["antiemetic", "analgesic", "anticoagulant", "supportive", "other"],
+            "weights": [25, 20, 15, 25, 15]
+          }
+        },
+        "created_at": { "strategy": "timestamp" }
       }
     },
     "regulatory_submissions": {
       "match": "regulatory_submissions",
       "columns": {
-        "id": {
-          "strategy": "uuid"
-        },
+        "id": { "strategy": "uuid" },
         "trial_id": {
           "strategy": "uuid",
-          "foreignKey": {
-            "table": "clinical_trials",
-            "column": "id"
-          }
+          "foreignKey": { "table": "clinical_trials", "column": "id" }
         },
-        "created_at": {
-          "strategy": "timestamp"
-        }
-      }
-    },
-    "audit_logs": {
-      "match": "audit_logs",
-      "columns": {
-        "id": {
-          "strategy": "uuid"
-        },
-        "action": {
+        "submission_type": {
           "strategy": "enum",
           "options": {
-            "values": [
-              "INSERT",
-              "UPDATE",
-              "DELETE"
-            ],
-            "weights": [
-              33,
-              33,
-              33
-            ]
+            "values": ["IND", "NDA", "BLA", "amendment"],
+            "weights": [30, 25, 20, 25]
           }
         },
-        "created_at": {
-          "strategy": "timestamp"
-        }
+        "created_at": { "strategy": "timestamp" }
       }
     },
     "site_monitoring": {
       "match": "site_monitoring",
       "columns": {
-        "id": {
-          "strategy": "uuid"
-        },
+        "id": { "strategy": "uuid" },
         "site_id": {
           "strategy": "uuid",
-          "foreignKey": {
-            "table": "sites",
-            "column": "id"
+          "foreignKey": { "table": "sites", "column": "id" }
+        },
+        "visit_type": {
+          "strategy": "enum",
+          "options": {
+            "values": ["initiation", "routine", "closeout", "for_cause"],
+            "weights": [15, 60, 15, 10]
           }
         },
-        "created_at": {
-          "strategy": "timestamp"
-        }
+        "created_at": { "strategy": "timestamp" }
+      }
+    },
+    "audit_logs": {
+      "match": "audit_logs",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "patient_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "patients", "column": "id" }
+        },
+        "action": {
+          "strategy": "enum",
+          "options": {
+            "values": ["INSERT", "UPDATE", "DELETE"],
+            "weights": [50, 40, 10]
+          }
+        },
+        "table_name": {
+          "strategy": "enum",
+          "options": {
+            "values": ["patients", "treatments", "lab_results", "adverse_events", "enrollments"],
+            "weights": [20, 25, 25, 20, 10]
+          }
+        },
+        "created_at": { "strategy": "timestamp" }
       }
     }
-  }
+  },
+  "relationships": [
+    {
+      "targetTable": "diagnoses",
+      "sourceTable": "patients",
+      "cardinality": { "strategy": "poisson", "mean": 1.2, "min": 1, "max": 3 }
+    },
+    {
+      "targetTable": "genomics",
+      "sourceTable": "diagnoses",
+      "cardinality": { "strategy": "fixed", "mean": 1, "min": 1, "max": 1 }
+    },
+    {
+      "targetTable": "biomarkers",
+      "sourceTable": "diagnoses",
+      "cardinality": { "strategy": "poisson", "mean": 1.8, "min": 1, "max": 4 }
+    },
+    {
+      "targetTable": "treatments",
+      "sourceTable": "patients",
+      "cardinality": { "strategy": "poisson", "mean": 2.1, "min": 1, "max": 5 }
+    },
+    {
+      "targetTable": "treatment_cycles",
+      "sourceTable": "treatments",
+      "cardinality": { "strategy": "poisson", "mean": 4.8, "min": 1, "max": 12 }
+    },
+    {
+      "targetTable": "adverse_events",
+      "sourceTable": "treatments",
+      "cardinality": { "strategy": "poisson", "mean": 1.8, "min": 0, "max": 8 }
+    },
+    {
+      "targetTable": "imaging_results",
+      "sourceTable": "patients",
+      "cardinality": { "strategy": "poisson", "mean": 3.2, "min": 1, "max": 12 }
+    },
+    {
+      "targetTable": "lab_results",
+      "sourceTable": "patients",
+      "cardinality": { "strategy": "poisson", "mean": 8.5, "min": 2, "max": 40 }
+    },
+    {
+      "targetTable": "progression_events",
+      "sourceTable": "diagnoses",
+      "cardinality": { "strategy": "poisson", "mean": 0.6, "min": 0, "max": 3 }
+    },
+    {
+      "targetTable": "outcomes",
+      "sourceTable": "patients",
+      "cardinality": { "strategy": "fixed", "mean": 1, "min": 1, "max": 1 }
+    },
+    {
+      "targetTable": "enrollments",
+      "sourceTable": "patients",
+      "cardinality": { "strategy": "poisson", "mean": 0.4, "min": 0, "max": 2 }
+    },
+    {
+      "targetTable": "consent_records",
+      "sourceTable": "enrollments",
+      "cardinality": { "strategy": "poisson", "mean": 1.3, "min": 1, "max": 4 }
+    },
+    {
+      "targetTable": "vital_signs",
+      "sourceTable": "patients",
+      "cardinality": { "strategy": "poisson", "mean": 6.0, "min": 1, "max": 24 }
+    },
+    {
+      "targetTable": "concomitant_medications",
+      "sourceTable": "patients",
+      "cardinality": { "strategy": "poisson", "mean": 3.5, "min": 0, "max": 12 }
+    },
+    {
+      "targetTable": "regulatory_submissions",
+      "sourceTable": "clinical_trials",
+      "cardinality": { "strategy": "poisson", "mean": 2.5, "min": 1, "max": 8 }
+    },
+    {
+      "targetTable": "site_monitoring",
+      "sourceTable": "sites",
+      "cardinality": { "strategy": "poisson", "mean": 4.0, "min": 1, "max": 12 }
+    },
+    {
+      "targetTable": "audit_logs",
+      "sourceTable": "patients",
+      "cardinality": { "strategy": "poisson", "mean": 12.0, "min": 2, "max": 50 }
+    }
+  ]
 }
