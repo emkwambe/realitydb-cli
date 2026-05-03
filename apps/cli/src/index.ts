@@ -167,14 +167,15 @@ async function runHandler(options: any) {
 
     try {
       // ── Resolve built-in template names ──
+      // H6: canonical descriptions — keep in sync with run.ts BUILT_IN_PACKS
       const BUILT_IN_PACKS: Record<string, string> = {
-        universal: 'Universal Starter',
-        banking: 'Retail Banking',
-        healthcare: 'Healthcare Analytics',
-        oncology: 'Oncology Research',
-        'supply-chain': 'Supply Chain',
-        telecom: 'Telecom & Network',
-        fintech: 'FinTech Platform',
+        universal: 'Universal Starter — 6 cross-industry tables (users, transactions, audit_logs, api_requests, errors, addresses)',
+        banking: 'Retail Banking — 16 tables (accounts, transactions, loans, compliance)',
+        healthcare: 'Healthcare Analytics — 14 tables (patients, billing, insurance, labs)',
+        oncology: 'Oncology Research — 20 tables (patients, treatments, clinical trials)',
+        'supply-chain': 'Supply Chain — 24 tables (suppliers, shipments, warehouses)',
+        telecom: 'Telecom & Network — 21 tables (subscribers, towers, billing, churn)',
+        fintech: 'FinTech Platform — 9 tables (customers, accounts, transactions, fraud)',
       };
       if (!options.pack.includes('/') && !options.pack.includes('\\') && !options.pack.endsWith('.json')) {
         if (options.pack === 'list') {

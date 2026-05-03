@@ -246,14 +246,6 @@ export function generateData(
         } else if (def?.options?.dependsOn && def?.options?.dependencyRule === 'after') {
           // Skip — handled in third pass after all other columns have values
           continue;
-          const depValue = row[def.options.dependsOn];
-          if (depValue) {
-            const depTime = new Date(depValue).getTime();
-            const offset = Math.floor(Math.random() * 7 * 24 * 60 * 60 * 1000);
-            row[colName] = new Date(depTime + offset).toISOString();
-          } else {
-            row[colName] = null;
-          }
         } else {
           row[colName] = generateMockValue(def, colName);
         }
