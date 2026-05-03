@@ -64,15 +64,20 @@ function parseSql(content: string): ParsedTable[] {
 
     for (const line of match[2].split('\n')) {
       const trimmed = line.trim().replace(/,$/, '');
-      if (!trimmed || trimmed.startsWith('--') || trimmed.startsWith('PRIMARY') ||
-          trimmed.startsWith('UNIQUE') || trimmed.startsWith('CHECK') ||
-          trimmed.startsWith('CONSTRAINT')) continue;
+      if (!trimmed || trimmed.startsWith('--')) continue;
 
+      // Try FK match FIRST — handles both bare 'FOREIGN KEY ...' and 'CONSTRAINT name FOREIGN KEY ...'
       const fkMatch = trimmed.match(/FOREIGN\s+KEY\s*\(["']?(\w+)["']?\)\s*REFERENCES\s+["']?(\w+)["']?\s*\(["']?(\w+)["']?\)/i);
       if (fkMatch) {
         fks.push({ column: fkMatch[1], refTable: fkMatch[2], refColumn: fkMatch[3] });
         continue;
       }
+
+      // Skip table-level constraints that are NOT foreign keys
+      if (trimmed.startsWith('PRIMARY') ||
+          trimmed.startsWith('UNIQUE') ||
+          trimmed.startsWith('CHECK') ||
+          trimmed.startsWith('CONSTRAINT')) continue;
 
       const colMatch = trimmed.match(/^["']?(\w+)["']?\s+(\w[\w\s()]*)/);
       if (colMatch) {
