@@ -452,27 +452,52 @@ function computeEnumValidity(tables: ParsedTable[]): MetricResult {
   };
 }
 
-function computeCardinalityRatios(tables: ParsedTable[]): MetricResult {
+function computeCardinalityRatios(
+  tables: ParsedTable[],
+  declaredCardinality?: Map<string, number>
+): MetricResult {
   const tableMap = new Map<string, ParsedTable>();
   for (const t of tables) tableMap.set(t.name, t);
 
   let ratioChecks = 0;
   let healthyRatios = 0;
   const details: string[] = [];
+  const usingPack = declaredCardinality !== undefined && declaredCardinality.size > 0;
 
   for (const table of tables) {
-    for (const fk of table.fks) {
+    if (table.fks.length === 0) continue;
+
+    const declared = declaredCardinality?.get(table.name);
+
+    for (let fkIdx = 0; fkIdx < table.fks.length; fkIdx++) {
+      const fk = table.fks[fkIdx];
       const parentTable = tableMap.get(fk.refTable);
       if (!parentTable || parentTable.rows.length === 0) continue;
 
       ratioChecks++;
-      const ratio = table.rows.length / parentTable.rows.length;
+      const actual = table.rows.length / parentTable.rows.length;
 
-      // Healthy ratio: between 0.1 and 100 (not too sparse, not too dense)
-      if (ratio >= 0.1 && ratio <= 100) {
+      // Pack-aware path: declared cardinality applies to first FK only.
+      // (Engine semantics: cardinality.mean is per primary parent — see M5.)
+      if (fkIdx === 0 && declared !== undefined) {
+        const deviation = Math.abs(actual - declared) / declared;
+        if (deviation <= 0.20) {
+          healthyRatios++;
+        } else if (deviation <= 0.50) {
+          healthyRatios += 0.5;
+          details.push(`${table.name}/${fk.refTable}: actual ${actual.toFixed(3)}x vs declared ${declared.toFixed(3)}x (${(deviation * 100).toFixed(0)}% off)`);
+        } else {
+          details.push(`${table.name}/${fk.refTable}: actual ${actual.toFixed(3)}x vs declared ${declared.toFixed(3)}x (${(deviation * 100).toFixed(0)}% off)`);
+        }
+        continue;
+      }
+
+      // Heuristic fallback: relaxed lower bound to 0.001 (was 0.1) to allow rare events.
+      // Used for non-first FK on declared tables, and for all FKs on packs without declarations.
+      if (actual >= 0.001 && actual <= 100) {
         healthyRatios++;
       } else {
-        details.push(`${table.name}/${fk.refTable}: ${ratio.toFixed(1)}x`);
+        details.push(`${table.name}/${fk.refTable}: ${actual.toFixed(3)}x`);
       }
     }
   }
@@ -481,8 +506,8 @@ function computeCardinalityRatios(tables: ParsedTable[]): MetricResult {
   return {
     name: 'Cardinality ratios',
     pillar: 'structure',
-    value: `${healthyRatios}/${ratioChecks} healthy`,
-    threshold: 'Child:parent between 0.1x and 100x',
+    value: `${healthyRatios.toFixed(1)}/${ratioChecks} healthy${usingPack ? ' (vs pack)' : ''}`,
+    threshold: usingPack ? 'Within 20% of declared cardinality' : 'Child:parent between 0.001x and 100x',
     score,
     status: score >= 90 ? 'pass' : 'warn',
     detail: details.length > 0 ? details.join('; ') : undefined,
@@ -715,6 +740,7 @@ export async function assessCommand(file: string, options: {
   standard?: string;
   json?: boolean;
   output?: string;
+  pack?: string;
 }): Promise<void> {
   const filePath = path.resolve(file);
 
@@ -744,6 +770,29 @@ export async function assessCommand(file: string, options: {
     process.exit(1);
   }
 
+  // H3: load declared cardinality from --pack option (optional)
+  let declaredCardinality: Map<string, number> | undefined;
+  if (options.pack) {
+    const packPath = path.resolve(options.pack);
+    if (!fs.existsSync(packPath)) {
+      console.error(`\n   \u274C Pack file not found: ${packPath}`);
+      process.exit(1);
+    }
+    try {
+      const packContent = fs.readFileSync(packPath, 'utf-8');
+      const pack = JSON.parse(packContent);
+      declaredCardinality = new Map();
+      for (const rel of pack.relationships || []) {
+        if (rel.targetTable && rel.cardinality?.mean !== undefined) {
+          declaredCardinality.set(rel.targetTable, rel.cardinality.mean);
+        }
+      }
+    } catch (e) {
+      console.error(`\n   \u274C Failed to parse pack file: ${e}`);
+      process.exit(1);
+    }
+  }
+
   const standardKey = (options.standard || 'generic').toLowerCase();
   const standard = STANDARDS[standardKey] || STANDARDS.generic;
 
@@ -762,7 +811,7 @@ export async function assessCommand(file: string, options: {
     computeUniqueness(tables),
     computeTemporalLogic(tables),
     computeEnumValidity(tables),
-    computeCardinalityRatios(tables),
+    computeCardinalityRatios(tables, declaredCardinality),
   ];
 
   const privacyMetrics: MetricResult[] = [

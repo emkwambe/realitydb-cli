@@ -946,6 +946,7 @@ examine
   .option('--standard <name>', 'Assessment standard: generic, hipaa, gdpr, pci', 'generic')
   .option('--json', 'Output as JSON')
   .option('--output <file>', 'Save JSON report to file')
+  .option('--pack <packfile>', 'Pack JSON file with declared cardinality (enables pack-aware scoring)')
   .action(assessCommand);
 
 examine
