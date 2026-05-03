@@ -162,7 +162,7 @@ for (const pack of bundledPacks) {
 
   // Generate 500 rows (small, fast)
   test(`Generate ${pack.name} (SQL)`,
-    `${CLI_CMD} run --pack ${pack.name} --rows 500 --format sql --seed 42 -o "${sqlOut}"`,
+    `${CLI_CMD} run --pack ${pack.name} --rows 5000 --format sql --seed 42 -o "${sqlOut}"`,
     'Generation complete');
 
   // Verify file exists and has content
