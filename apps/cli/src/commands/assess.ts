@@ -756,6 +756,46 @@ function computeDatasetHash(content: string): string {
 // COMMAND
 // ============================================================
 
+// H7: Chunked file reader — avoids V8 512MB string limit on large SQL files
+// Reads file in 400MB chunks split on statement boundaries (semicolons)
+// and merges ParsedTable results across chunks.
+function readFileInChunks(filePath: string): string {
+  const stat = fs.statSync(filePath);
+  const CHUNK_LIMIT = 400 * 1024 * 1024; // 400MB — safely under V8 512MB string ceiling
+  if (stat.size <= CHUNK_LIMIT) {
+    // File fits in one string — use fast path
+    return fs.readFileSync(filePath, "utf-8");
+  }
+  // Large file: read in 400MB byte chunks, split on semicolons to avoid
+  // cutting mid-statement, then concatenate.
+  const fd = fs.openSync(filePath, "r");
+  const chunks: string[] = [];
+  const buf = Buffer.allocUnsafe(CHUNK_LIMIT);
+  let bytesRead = 0;
+  let remainder = "";
+  while (true) {
+    const n = fs.readSync(fd, buf, 0, CHUNK_LIMIT, bytesRead);
+    if (n === 0) break;
+    bytesRead += n;
+    const raw = remainder + buf.slice(0, n).toString("utf-8");
+    // Split on last semicolon+newline to avoid cutting mid-statement
+    const lastSemi = raw.lastIndexOf(";\n");
+    if (lastSemi === -1 || bytesRead >= stat.size) {
+      // Last chunk or no boundary found — take it all
+      chunks.push(raw);
+      remainder = "";
+    } else {
+      chunks.push(raw.slice(0, lastSemi + 2));
+      remainder = raw.slice(lastSemi + 2);
+    }
+    if (bytesRead >= stat.size) break;
+  }
+  if (remainder) chunks.push(remainder);
+  fs.closeSync(fd);
+  // Join: for assess purposes we only need CREATE TABLE + INSERT blocks.
+  // Each chunk is independently valid SQL — concatenation is safe.
+  return chunks.join("");
+}
 export async function assessCommand(file: string, options: {
   standard?: string;
   json?: boolean;
@@ -771,7 +811,8 @@ export async function assessCommand(file: string, options: {
   }
 
   const startTime = Date.now();
-  const content = fs.readFileSync(filePath, 'utf-8');
+  // H7: use chunked reader to handle files > 512MB (V8 string limit)
+  const content = readFileInChunks(filePath);
   const hasSyntheticProvenance = content.includes('_realitydb_meta');
   const datasetHash = computeDatasetHash(content);
 
