@@ -30,7 +30,8 @@ interface ScaleConfidence { level: ConfidenceLevel; rootRows: number; label: str
 function computeScaleConfidence(tables: ParsedTable[]): ScaleConfidence {
   const allRefTables = new Set<string>();
   for (const t of tables) for (const fk of t.fks) allRefTables.add(fk.refTable);
-  const rootTables = tables.filter(t => !allRefTables.has(t.name) || t.fks.length === 0);
+  // H7 fix: root = not referenced by any other table (don't use fks.length — a table with no FKs may still be a root)
+  const rootTables = tables.filter(t => !allRefTables.has(t.name));
   const rootRows = rootTables.length > 0
     ? Math.min(...rootTables.map(t => t.rows.length))
     : (tables.reduce((min, t) => Math.min(min, t.rows.length), Infinity) || 0);
@@ -757,44 +758,74 @@ function computeDatasetHash(content: string): string {
 // ============================================================
 
 // H7: Chunked file reader — avoids V8 512MB string limit on large SQL files
-// Reads file in 400MB chunks split on statement boundaries (semicolons)
-// and merges ParsedTable results across chunks.
-function readFileInChunks(filePath: string): string {
+// H7 v2: Parse SQL in chunks — never joins chunks into one giant string.
+// Each 400MB chunk is parsed independently; ParsedTable results are merged.
+// This avoids the V8 512MB string limit on both reading AND joining.
+function readAndParseInChunks(filePath: string): { tables: ParsedTable[]; provenance: boolean; hash: string } {
+  const { createHash } = require('crypto');
   const stat = fs.statSync(filePath);
-  const CHUNK_LIMIT = 400 * 1024 * 1024; // 400MB — safely under V8 512MB string ceiling
+  const CHUNK_LIMIT = 400 * 1024 * 1024;
+  const hasher = createHash('sha256');
+  let provenance = false;
+
   if (stat.size <= CHUNK_LIMIT) {
-    // File fits in one string — use fast path
-    return fs.readFileSync(filePath, "utf-8");
+    const content = fs.readFileSync(filePath, 'utf-8');
+    hasher.update(content);
+    return {
+      tables: parseSql(content),
+      provenance: content.includes('_realitydb_meta'),
+      hash: hasher.digest('hex').substring(0, 16),
+    };
   }
-  // Large file: read in 400MB byte chunks, split on semicolons to avoid
-  // cutting mid-statement, then concatenate.
-  const fd = fs.openSync(filePath, "r");
-  const chunks: string[] = [];
+
+  const fd = fs.openSync(filePath, 'r');
   const buf = Buffer.allocUnsafe(CHUNK_LIMIT);
+  const tableMap = new Map<string, ParsedTable>();
   let bytesRead = 0;
-  let remainder = "";
+  let remainder = '';
+
   while (true) {
     const n = fs.readSync(fd, buf, 0, CHUNK_LIMIT, bytesRead);
     if (n === 0) break;
     bytesRead += n;
-    const raw = remainder + buf.slice(0, n).toString("utf-8");
-    // Split on last semicolon+newline to avoid cutting mid-statement
-    const lastSemi = raw.lastIndexOf(";\n");
-    if (lastSemi === -1 || bytesRead >= stat.size) {
-      // Last chunk or no boundary found — take it all
-      chunks.push(raw);
-      remainder = "";
+    const raw = remainder + buf.slice(0, n).toString('utf-8');
+    hasher.update(buf.slice(0, n));
+    if (raw.includes('_realitydb_meta')) provenance = true;
+    let chunkToParse: string;
+    if (bytesRead >= stat.size) {
+      chunkToParse = raw;
+      remainder = '';
     } else {
-      chunks.push(raw.slice(0, lastSemi + 2));
-      remainder = raw.slice(lastSemi + 2);
+      // Try CRLF boundary first (Windows SQL output), fall back to LF
+      let lastSemi = raw.lastIndexOf(';\r\n');
+      if (lastSemi === -1) lastSemi = raw.lastIndexOf(';\n');
+      if (lastSemi === -1) { remainder = raw; continue; }
+      const semiLen = raw[lastSemi + 1] === '\r' ? 3 : 2; // ;\r\n vs ;\n
+      chunkToParse = raw.slice(0, lastSemi + semiLen);
+      remainder = raw.slice(lastSemi + semiLen);
+    }
+    const chunkTables = parseSql(chunkToParse);
+    for (const ct of chunkTables) {
+      if (ct.name === '_realitydb_meta') continue;
+      const existing = tableMap.get(ct.name);
+      if (!existing) { tableMap.set(ct.name, ct); }
+      else { existing.rows.push(...ct.rows); }
     }
     if (bytesRead >= stat.size) break;
   }
-  if (remainder) chunks.push(remainder);
+  if (remainder) {
+    for (const ct of parseSql(remainder)) {
+      if (ct.name === '_realitydb_meta') continue;
+      const e = tableMap.get(ct.name);
+      if (!e) tableMap.set(ct.name, ct); else e.rows.push(...ct.rows);
+    }
+  }
   fs.closeSync(fd);
-  // Join: for assess purposes we only need CREATE TABLE + INSERT blocks.
-  // Each chunk is independently valid SQL — concatenation is safe.
-  return chunks.join("");
+  return {
+    tables: Array.from(tableMap.values()),
+    provenance,
+    hash: hasher.digest('hex').substring(0, 16),
+  };
 }
 export async function assessCommand(file: string, options: {
   standard?: string;
@@ -811,20 +842,22 @@ export async function assessCommand(file: string, options: {
   }
 
   const startTime = Date.now();
-  // H7: use chunked reader to handle files > 512MB (V8 string limit)
-  const content = readFileInChunks(filePath);
-  const hasSyntheticProvenance = content.includes('_realitydb_meta');
-  const datasetHash = computeDatasetHash(content);
-
-  // Detect format
+  // H7 v2: chunk-parse for SQL — no giant string ever built
   const ext = path.extname(filePath).toLowerCase();
   let format = 'unknown';
   let tables: ParsedTable[] = [];
-
-  if (ext === '.sql' || content.includes('CREATE TABLE')) {
+  let hasSyntheticProvenance = false;
+  let datasetHash = '';
+  if (ext === '.sql' || ext === '') {
+    const parsed = readAndParseInChunks(filePath);
+    tables = parsed.tables;
+    hasSyntheticProvenance = parsed.provenance;
+    datasetHash = parsed.hash;
     format = 'sql';
-    tables = parseSql(content);
   } else if (ext === '.csv' || ext === '.tsv') {
+    const content = fs.readFileSync(filePath, 'utf-8');
+    hasSyntheticProvenance = content.includes('_realitydb_meta');
+    datasetHash = computeDatasetHash(content);
     format = 'csv';
     tables = parseCsv(content, filePath);
   } else {
