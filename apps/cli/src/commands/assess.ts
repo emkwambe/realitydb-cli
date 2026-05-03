@@ -23,6 +23,25 @@ interface PillarScore {
   metrics: MetricResult[];
 }
 
+// H8: Scale confidence
+type ConfidenceLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'VERY_HIGH';
+interface ScaleConfidence { level: ConfidenceLevel; rootRows: number; label: string; cardinalityVariancePct: number; }
+
+function computeScaleConfidence(tables: ParsedTable[]): ScaleConfidence {
+  const allRefTables = new Set<string>();
+  for (const t of tables) for (const fk of t.fks) allRefTables.add(fk.refTable);
+  const rootTables = tables.filter(t => !allRefTables.has(t.name) || t.fks.length === 0);
+  const rootRows = rootTables.length > 0
+    ? Math.min(...rootTables.map(t => t.rows.length))
+    : (tables.reduce((min, t) => Math.min(min, t.rows.length), Infinity) || 0);
+  const cv = rootRows > 0 ? Math.round((1 / Math.sqrt(rootRows)) * 100) : 100;
+  let level: ConfidenceLevel; let label: string;
+  if      (rootRows < 500)   { level = 'LOW';       label = 'HIGH variance — cardinality scores unreliable at this scale'; }
+  else if (rootRows < 5000)  { level = 'MEDIUM';    label = 'MODERATE variance — directionally useful'; }
+  else if (rootRows < 50000) { level = 'HIGH';      label = 'LOW variance — scores reliable'; }
+  else                       { level = 'VERY_HIGH'; label = 'PUBLICATION-GRADE — Poisson CV < 1%'; }
+  return { level, rootRows, label, cardinalityVariancePct: cv };
+}
 interface AssessmentReport {
   id: string;
   version: '1.0';
@@ -37,6 +56,7 @@ interface AssessmentReport {
   overallScore: number;
   pillars: PillarScore[];
   disclaimer: string;
+  scaleConfidence: ScaleConfidence;
 }
 
 // ============================================================
@@ -741,6 +761,7 @@ export async function assessCommand(file: string, options: {
   json?: boolean;
   output?: string;
   pack?: string;
+  minConfidence?: string;
 }): Promise<void> {
   const filePath = path.resolve(file);
 
@@ -829,6 +850,9 @@ export async function assessCommand(file: string, options: {
   const overallScore = Math.round((fidelityScore + structureScore + privacyScore) / 3);
   const scanTime = Date.now() - startTime;
 
+  // H8: compute scale confidence
+  const scaleConfidence = computeScaleConfidence(tables);
+
   const report: AssessmentReport = {
     id: generateReportId(),
     version: '1.0',
@@ -847,7 +871,21 @@ export async function assessCommand(file: string, options: {
       { name: 'Privacy', score: privacyScore, metrics: privacyMetrics },
     ],
     disclaimer: 'This report presents measured statistical properties. It does not constitute legal advice, regulatory certification, or fitness-for-purpose endorsement. Compliance determination is the responsibility of the data controller.',
+    scaleConfidence,
   };
+
+  // H8: --min-confidence CI/CD gate
+  if (options.minConfidence) {
+    const levelOrder: Record<string, number> = { LOW: 0, MEDIUM: 1, HIGH: 2, VERY_HIGH: 3 };
+    const key = options.minConfidence.toUpperCase().replace(/-/g, '_');
+    const required = levelOrder[key] ?? -1;
+    const actual   = levelOrder[scaleConfidence.level] ?? 0;
+    if (required > actual) {
+      console.error(`\n   ❌ Confidence gate failed: required ${key} but dataset has ${scaleConfidence.level} confidence`);
+      console.error(`   Root rows: ${scaleConfidence.rootRows.toLocaleString()} — generate more rows to meet threshold`);
+      process.exit(2);
+    }
+  }
 
   // JSON output
   if (options.json) {
@@ -869,11 +907,21 @@ export async function assessCommand(file: string, options: {
   console.log(`   Format: ${format.toUpperCase()} | Standard: ${standard.name}`);
   console.log(`   Tables: ${tables.length} | Columns: ${totalColumns} | Rows: ${totalRows.toLocaleString()}`);
   console.log(`   Dataset hash: sha256:${datasetHash}`);
+  // H8: scale confidence banner
+  const confIcon = (scaleConfidence.level === 'LOW' || scaleConfidence.level === 'MEDIUM') ? '⚠️' : '✅';
+  console.log(`   ${confIcon} Scale confidence: ${scaleConfidence.level} (${scaleConfidence.rootRows.toLocaleString()} root rows | CV ≈ ±${scaleConfidence.cardinalityVariancePct}%)`);
+  if (scaleConfidence.level === 'LOW' || scaleConfidence.level === 'MEDIUM') {
+    console.log(`      ⚠️  ${scaleConfidence.label}`);
+    const targetRows = scaleConfidence.level === 'LOW' ? 5000 : 50000;
+    console.log(`      For reliable cardinality scoring: generate ≥${targetRows.toLocaleString()} total rows`);
+  }
   console.log(`${'═'.repeat(60)}\n`);
 
   // Overall score
+  const confidenceSuffix = (scaleConfidence.level === 'LOW' || scaleConfidence.level === 'MEDIUM')
+    ? ` ⚠️ (${scaleConfidence.level.toLowerCase()} confidence)` : '';
   const overallIcon = overallScore >= 90 ? '\u{1F7E2}' : overallScore >= 70 ? '\u{1F7E1}' : '\u{1F534}';
-  console.log(`   ${overallIcon} OVERALL SCORE: ${overallScore}/100\n`);
+  console.log(`   ${overallIcon} OVERALL SCORE: ${overallScore}/100${confidenceSuffix}\n`);
 
   // Print each pillar
   for (const pillar of report.pillars) {

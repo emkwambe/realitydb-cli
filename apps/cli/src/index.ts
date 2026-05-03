@@ -947,6 +947,7 @@ examine
   .option('--json', 'Output as JSON')
   .option('--output <file>', 'Save JSON report to file')
   .option('--pack <packfile>', 'Pack JSON file with declared cardinality (enables pack-aware scoring)')
+  .option('--min-confidence <level>', 'CI/CD gate: exit 2 if confidence below threshold (low|medium|high|very-high)')
   .action(assessCommand);
 
 examine
