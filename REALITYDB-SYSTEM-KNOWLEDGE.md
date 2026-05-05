@@ -42,9 +42,9 @@ RealityDB is a synthetic data generation and SQL learning ecosystem built by Mpi
 | Studio | ✅ Live | studio.realitydb.dev | Visual pack designer + AI generation |
 | Sandbox | ✅ Live | sandbox.realitydb.dev | Browser SQL learning environment |
 | SimLab | ✅ Live | realitydb-lab-api.eddy-078.workers.dev | Disposable database branches |
+| SafeSQL | ✅ Live | safesql.realitydb.dev | Pre-execution SQL semantic validation |
 | Data Store | 📋 Planned | — | Pack marketplace |
 | RealityDB Assess | 📋 Planned | — | B2B compliance assessment service |
-| SafeSQL Pro | 📋 Planned | safesql.dev | SQL skill assessment |
 | HireSQL | 📋 Planned | — | SQL hiring tool |
 
 ---
@@ -645,9 +645,65 @@ fix: H7v2 chunk-parse assessor + CRLF boundary fix
 | — | EUR pricing not in Stripe | Low | 30m |
 | — | realityDB Packs repo not pushed to GitHub (private) | Medium | 30m |
 
+### SafeSQL (safesql)
+
+| ID | Issue | Priority | Estimate |
+|---|---|---|---|
+| — | Stripe webhook endpoint not yet registered in Stripe dashboard; STRIPE_WEBHOOK_SECRET on Pages is a placeholder. Webhook URL: `https://safesql.realitydb.dev/api/stripe/webhook` | High | 15m |
+| — | Anthropic key bundled client-side (`anthropic-dangerous-direct-browser-access`); should be proxied through `/api/explain` Function | Medium | 2h |
+| — | Bundle size 2.99MB (PGlite WASM dominates) — split sandbox into a lazy-loaded route | Low | 2h |
+| — | Optional: switch from Universal SSL to dedicated Google CA cert once propagated | Low | — |
+
 ---
 
 ## 10. Session History and Decision Log
+
+### May 4, 2026 — SafeSQL Sprint 2 closeout
+
+**Repos:**
+- `safesql` main → `84d6b0a` (pushed to github.com/emkwambe/safesql)
+
+**Sprint 2 shipped:**
+- B1: Clerk auth wired (publishable key in `VITE_CLERK_PUBLISHABLE_KEY`)
+- B2: Supabase client lazily created with Clerk JWT via `accessToken` callback;
+  `SupabaseAuthBridge` pipes `clerk.session.getToken()` into the Supabase client
+- B3: Persistence layer + free-tier counters
+  - 4 tables (`users`, `schemas`, `validations`, `sandboxes`) with RLS scoped by
+    `auth.jwt() ->> 'sub'`
+  - `roll_usage_period(uuid)` rolls counters at the start of each calendar month
+  - AFTER INSERT triggers on `validations` + `sandboxes` bump the per-user
+    monthly counter atomically (so client can't bypass the gate by skipping
+    the increment)
+  - Schema deploy gotcha: pasting `schema.sql` into the Supabase SQL editor
+    landed only the table portion the first time; the trigger/function blocks
+    silently failed. Fix committed as `supabase/triggers.sql` (idempotent
+    re-runnable patch) + `supabase/verify-triggers.sql` (DDL + diagnostic in
+    one transaction). Verified end-to-end via PostgREST: validations.INSERT
+    bumps `users.validations_this_month` 0 → 1.
+- B4: Free-tier upgrade gate (50 validations/month, 5 sandbox runs/month)
+  - `useAppUser` hook with `isOverValidationLimit` / `isOverSandboxLimit`
+  - `UsageMeter` in editor header, color-coded at 80% and 100%
+  - Validate button disabled when over limit; `UpgradeBanner` overlays the editor
+- C1-C3 (Sprint 2): in-browser PGlite sandbox + ground-truth row count
+- D1: Cloudflare Pages production deploy at `safesql.pages.dev`
+- D2: Custom domain `safesql.realitydb.dev`
+  - CNAME `safesql.realitydb.dev` → `safesql.pages.dev` (proxied)
+  - Custom domain registered via Pages API (wrangler has no domain CLI);
+    Google CA cert provisioned, status `active`
+  - `SITE_URL` Pages secret → `https://safesql.realitydb.dev` (Stripe
+    success/cancel URLs)
+
+**Decisions / gotchas to remember:**
+- Wrangler `pages secret put` can silently set an empty string. If a Function
+  reports a secret as missing despite `pages secret list` showing it, re-set
+  it explicitly via stdin pipe and redeploy.
+- Pages secrets only take effect on the *next* deployment — `secret put` alone
+  does not refresh running Functions.
+- Custom domains added via the Pages API serve traffic immediately under the
+  parent zone's Universal SSL while the per-domain Google CA cert provisions
+  in the background.
+- SafeSQL is positioned as B2B infrastructure (DevTools budget), NOT
+  education — the product line table now reflects this.
 
 ### May 3, 2026 — Marathon session
 
