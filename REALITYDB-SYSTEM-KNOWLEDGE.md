@@ -451,6 +451,34 @@ random_string, zip_code, city, state, street_address, template
 | fintech.json | 99/100 | HIGH | customers, merchants |
 | telecom.json | 99/100 | HIGH | subscribers, plans, cell_towers, device_inventory |
 
+### Sandbox template scores (audited 2026-05-09)
+
+Effective score = (Fidelity + Structure) / 2 — sandbox templates ship realistic PII intentionally so the Privacy pillar is excluded. Full audit at `realitydb-internal/03-sandbox/SANDBOX-DATASET-AUDIT-REPORT.md`.
+
+| Template | Rows | Effective | Confidence |
+|---|---:|---:|---|
+| ecommerce | 27,650 | 100 | HIGH |
+| healthcare | 50,200 | 100 | VERY_HIGH |
+| cybersecurity | 490 | 100 | LOW |
+| blog-starter | 1,220 | 100 | MEDIUM |
+| fintech | 25,700 | 99 | HIGH |
+| saas | 26,680 | 99 | HIGH |
+| education | 17,700 | 99 | HIGH |
+| ecommerce-starter | 3,350 | 99 | MEDIUM |
+| kenya-cbc | 7,330 | 98 | HIGH |
+| ai-events | 655 | 97 | MEDIUM |
+| oncology | 21,736 | 97 | HIGH |
+| saas-starter | 904 | 97 | MEDIUM |
+| logistics | 560 | 96 | MEDIUM |
+| mpesa | 6,650 | 96 | HIGH |
+| sql-traps | 9,120 | 96 | HIGH (intentional bugs) |
+| sacco | 8,124 | 95 | HIGH |
+| va-healthcare | — | — | hidden (`comingSoon`) |
+| dod-logistics | — | — | hidden |
+| cdc-epidemiology | — | — | hidden |
+
+All 16 visible sandbox templates score ≥95 effective. Structure pillar is 100 across the board.
+
 ### Score targets by audience
 
 | Audience | Min score | Min confidence |
