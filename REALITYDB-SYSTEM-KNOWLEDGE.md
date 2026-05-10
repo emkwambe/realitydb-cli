@@ -469,10 +469,10 @@ Effective score = (Fidelity + Structure) / 2 — sandbox templates ship realisti
 | ai-events | 655 | 97 | MEDIUM |
 | oncology | 21,736 | 97 | HIGH |
 | saas-starter | 904 | 97 | MEDIUM |
-| logistics | 560 | 96 | MEDIUM |
-| mpesa | 6,650 | 96 | HIGH |
+| logistics | 560 | 97 | HIGH |
+| mpesa | 6,650 | 97 | HIGH |
+| sacco | 8,124 | 97 | HIGH |
 | sql-traps | 9,120 | 96 | HIGH (intentional bugs) |
-| sacco | 8,124 | 95 | HIGH |
 | va-healthcare | — | — | hidden (`comingSoon`) |
 | dod-logistics | — | — | hidden |
 | cdc-epidemiology | — | — | hidden |
