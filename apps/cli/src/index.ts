@@ -625,6 +625,41 @@ program
   .action(async (...args: any[]) => { const _g = gateCommand('seed'); if (!_g.allowed) { printUpgradePrompt(_g.reason!); process.exit(1); } await seedCommand(...args); })
 
 // ============================================
+// SEED SUPABASE COMMAND
+program
+  .command('seed:supabase')
+  .description('Generate Supabase-compatible seed data (supabase/seed.sql or direct connection)')
+  .requiredOption('-p, --pack <file>', 'RealityPack JSON file')
+  .option('-r, --rows <number>', 'Number of rows to generate', '10000')
+  .option('--to-file [path]', 'Write to file (default: supabase/seed.sql)')
+  .option('--connection <string>', 'PostgreSQL connection string')
+  .option('--supabase-url <url>', 'Supabase project URL (https://[ref].supabase.co)')
+  .option('--supabase-key <key>', 'Supabase service role key')
+  .option('--truncate', 'TRUNCATE tables before inserting')
+  .option('--create-tables', 'Create tables from pack schema before inserting')
+  .option('--drop-tables', 'Drop and recreate tables before inserting')
+  .option('--batch-size <number>', 'Rows per INSERT batch', '100')
+  .option('-s, --seed <number>', 'Deterministic seed for reproducibility')
+  .option('--dry-run', 'Preview without writing or connecting')
+  .action(async (options: any) => {
+    const { seedSupabaseCommand } = await import('./commands/seed-supabase.js');
+    await seedSupabaseCommand({
+      pack: options.pack,
+      rows: options.rows,
+      toFile: options.toFile === true ? 'supabase/seed.sql' : options.toFile,
+      connection: options.connection,
+      supabaseUrl: options.supabaseUrl,
+      supabaseKey: options.supabaseKey,
+      truncate: options.truncate,
+      createTables: options.createTables,
+      dropTables: options.dropTables,
+      batchSize: options.batchSize,
+      seed: options.seed,
+      dryRun: options.dryRun,
+    });
+  });
+
+// ============================================
 // INIT COMMAND (Setup wizard)
 
 program
