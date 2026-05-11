@@ -835,3 +835,25 @@ RealityDB Packs:  C:\Users\HP\Documents\realityDB Packs\
 *This document is the single source of truth for the RealityDB platform.*  
 *Update it in the same commit as any feature, fix, or architectural decision.*  
 *If the code and this document disagree, the code is wrong or this document is stale — fix both.*
+
+## Supabase Integration (May 11, 2026) — v2.38.0
+
+Commands shipped:
+  realitydb seed:supabase    — generate supabase/seed.sql or seed directly
+  realitydb examine scan:supabase — infer pack JSON from live Supabase schema
+  realitydb examine supabase — assess data quality of live database
+
+Tested on MathPivot (qpoiufyjancwijjkiaui, us-west-2):
+  124 tables, 1604 columns, 206 FKs scanned in 3.6s
+  9,983 rows generated in 0.27s at 36,974 rows/sec
+  Assessment: 89/100 (FK integrity 0% — engine limitation)
+
+Session pooler format (IPv4-compatible):
+  postgres://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:5432/postgres
+
+Known limitation: FK integrity 0% on scanned packs
+  Fix sprint: realitydb-internal\01-cli-engine\FK-AWARE-SPRINT-PROMPT.md
+  Root cause: engine.ts:252 only tracks colName === 'id'
+  Fix: track all PK columns + normalize table name lookups
+
+Commits: b506904, fb4b9c6, 1b7b769, current
