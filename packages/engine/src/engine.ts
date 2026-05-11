@@ -250,8 +250,20 @@ export function generateData(
           row[colName] = generateMockValue(def, colName);
         }
 
-        // Track IDs for foreign key lookups
-        if (colName === 'id') {
+        // Track IDs for foreign key lookups.
+        // A column is treated as a PK if any of:
+        //   - it's literally named 'id' (most common)
+        //   - the table declares it via primaryKey/isPrimaryKey
+        //   - the column is uuid-strategy and isn't an FK reference (typical for scanned packs
+        //     where the table-level PK isn't a separately-tracked field but the first uuid col is)
+        const tablePK = (table as any).primaryKey;
+        const isPK =
+          colName === 'id' ||
+          (colDef as any)?.isPK === true ||
+          (colDef as any)?.isPrimaryKey === true ||
+          (typeof tablePK === 'string' && tablePK === colName) ||
+          (Array.isArray(tablePK) && tablePK.includes(colName));
+        if (isPK && row[colName] != null) {
           ids.push(row[colName]);
         }
       }

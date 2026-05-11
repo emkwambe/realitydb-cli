@@ -57,12 +57,25 @@ export function normalizeTables(pack: any): { tables: NormalizedTable[]; templat
           };
         });
       } else {
-        // Format 1: plain array of { name, columns: {...}, ... }
-        tables = pack.tables.map((t: any) => ({
-          name: t.name || t.table_name || 'unknown',
-          columns: t.columns || t.schema || {},
-          foreignKeys: extractForeignKeys(t.columns || t.schema || {}),
-        }));
+        // Format 1: plain array of { name, columns, ... }
+        // columns may be a Record<string, ColumnDef> OR an array of { name, ... } objects
+        // (the latter is what scan-infer / scan:supabase emit). Convert array form to a
+        // Record keyed by col.name so downstream Object.entries() yields real column names.
+        tables = pack.tables.map((t: any) => {
+          const rawCols = t.columns || t.schema || {};
+          const cols = Array.isArray(rawCols)
+            ? Object.fromEntries(
+                rawCols
+                  .filter((c: any) => c && c.name)
+                  .map((c: any) => [c.name, c])
+              )
+            : rawCols;
+          return {
+            name: t.name || t.table_name || 'unknown',
+            columns: cols,
+            foreignKeys: extractForeignKeys(cols),
+          };
+        });
       }
     } else if (typeof pack.tables === 'object') {
       // Format 2: tables is an object keyed by table name (Studio export format)
