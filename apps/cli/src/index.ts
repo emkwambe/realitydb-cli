@@ -1015,6 +1015,68 @@ examine
   .action(scanInferCommand);
 
 // ============================================================
+// SCAN SUPABASE COMMAND
+// ============================================================
+examine
+  .command('scan:supabase')
+  .description('Infer a RealityDB pack JSON from a live Supabase schema')
+  .option('--connection <string>', 'PostgreSQL connection string')
+  .option('--supabase-url <url>', 'Supabase project URL (https://[ref].supabase.co)')
+  .option('--supabase-key <key>', 'Supabase service role key')
+  .option('--schema <name>', 'Postgres schema to scan', 'public')
+  .option('--output <file>', 'Output pack JSON path')
+  .option('--review <file>', 'Output review manifest path')
+  .option('--exclude <tables>', 'Comma-separated table names to exclude')
+  .option('--json', 'Output as JSON')
+  .action(async (options: any) => {
+    const { scanSupabaseCommand } = await import('./commands/scan-supabase.js');
+    await scanSupabaseCommand({
+      connection: options.connection,
+      supabaseUrl: options.supabaseUrl,
+      supabaseKey: options.supabaseKey,
+      schema: options.schema,
+      output: options.output,
+      review: options.review,
+      exclude: options.exclude,
+      json: options.json,
+    });
+  });
+// ============================================================
+// EXAMINE SUPABASE COMMAND
+// ============================================================
+examine
+  .command('supabase')
+  .description('Assess data quality of a live Supabase database')
+  .option('--connection <string>', 'PostgreSQL connection string')
+  .option('--supabase-url <url>', 'Supabase project URL (https://[ref].supabase.co)')
+  .option('--supabase-key <key>', 'Supabase service role key')
+  .option('--schema <name>', 'Postgres schema to assess', 'public')
+  .option('--tables <names>', 'Comma-separated table names to include')
+  .option('--exclude <tables>', 'Comma-separated table names to exclude')
+  .option('--pack <file>', 'Pack JSON for cardinality scoring')
+  .option('--sample-rows <n>', 'Rows per table to sample', '5000')
+  .option('--output <file>', 'Save report to file')
+  .option('--json', 'Output as JSON')
+  .action(async (options: any) => {
+    const { examineSupabaseCommand } = await import('./commands/examine-supabase.js');
+    await examineSupabaseCommand({
+      connection: options.connection,
+      supabaseUrl: options.supabaseUrl,
+      supabaseKey: options.supabaseKey,
+      schema: options.schema,
+      tables: options.tables,
+      exclude: options.exclude,
+      pack: options.pack,
+      sampleRows: options.sampleRows,
+      output: options.output,
+      json: options.json,
+    });
+  });
+
+
+
+
+// ============================================================
 // COMPLY — Policy & Rules
 // ============================================================
 const comply = program.command('comply').description('Comply — compliance, policy, and rules enforcement');
