@@ -491,7 +491,7 @@ app.post('/v1/labs/:id/share', async (c) => {
     connectionString: lab.connection_string,
     readOnly: true,
     note: 'Share this connection string. Recipients can query but should not modify data.',
-    expiresAt: lab.expires_at,
+    expiresAt: new Date(lab.expires_at as string).toISOString(),
   });
 });
 
