@@ -42,7 +42,7 @@ RealityDB is a synthetic data generation and SQL learning ecosystem built by Mpi
 | Studio | ✅ Live | studio.realitydb.dev | Visual pack designer + AI generation |
 | Sandbox | ✅ Live | sandbox.realitydb.dev | Browser SQL learning environment |
 | SimLab | ✅ Live | realitydb-lab-api.eddy-078.workers.dev | Disposable database branches |
-| SafeSQL | ✅ Live | safesql.realitydb.dev | Pre-execution SQL semantic validation |
+| SafeSQL | ✅ Live (v0.9.1, Sprint 12 complete) | safesqlpro.dev | Pre-execution SQL semantic validation — 33 detectors (D1–D36) + custom rules, 334 tests; self-serve account delete (Stripe+Supabase+Clerk); REST API, GitHub Action (+ CI/CD test workflow), CLI, dbt, VS Code ext, Slack alerts, real teams model, team analytics, approval workflow, SOC2 audit log, schema connector (PostgreSQL + BigQuery + Snowflake), query library, blog, legal pages; Stripe live-mode (checkout→webhook plan sync, 6 events, billing portal + **Clerk-JWT-hardened**); NL custom-rule authoring (Layer 2 only); weekly email digest (Resend + cron); pricing ROI calculator; Clerk prod keys baked into build — Product Hunt launch-ready. Note: browser checkout/portal routed via `safesql.pages.dev` (custom-domain outbound 502 workaround, Sprint 12) |
 | Data Store | 📋 Planned | — | Pack marketplace |
 | RealityDB Assess | 📋 Planned | — | B2B compliance assessment service |
 | HireSQL | 📋 Planned | — | SQL hiring tool |
