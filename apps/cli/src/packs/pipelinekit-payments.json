@@ -1,0 +1,261 @@
+{
+  "name": "pipelinekit-payments",
+  "version": "1.0.0",
+  "description": "Stripe payments dataset for PipelineKit Blueprint #003 (stripe-to-snowflake) verification. Root customers with charges (mean 8.4/customer) and sparse refunds (mean 0.08/charge). Column names and types match the Blueprint #003 dbt staging sources EXACTLY: charges.amount is an INTEGER in cents, charges.created and customers.created are INTEGER Unix epochs, the charges->customers FK column is named 'customer', and charges.status uses exactly the dbt accepted_values (succeeded, pending, failed). One temporal column per table (created, an integer epoch). Distributions cited in _meta.citations. Engine notes below explain why integer amounts are uniform (no integer+normal generator) and why epochs are integer-uniform.",
+  "_meta": {
+    "domain": "FinTech / Payments (Stripe)",
+    "sqr_target": "97/100",
+    "confidence_target": "MEDIUM",
+    "root_table": "customers",
+    "blueprint": "stripe-to-snowflake (Blueprint #003)",
+    "dbt_accepted_values": {
+      "charges.status": ["succeeded", "pending", "failed"]
+    },
+    "stripe_type_notes": [
+      "charges.amount is an integer in the smallest currency unit (cents). The dbt staging model does round(amount / 100.0, 2) as amount.",
+      "charges.created and customers.created are integer Unix epoch seconds. The dbt staging model does to_timestamp_ntz(created) as created_at.",
+      "The charges -> customers foreign key column is named 'customer' (the dbt model does: customer as customer_id)."
+    ],
+    "engine_notes": [
+      "charges.amount uses the 'integer' strategy (uniform) because the engine has no integer+normal generator: 'integer'/'number' are uniform-only and 'float' emits 2-decimal values (which would violate the integer-cents requirement). The cited target is normal(mean 8500, stddev 6000). The realized column is a uniform integer over [50, 16950], chosen to PRESERVE the cited mean (~8500 cents = $85) with a comparable spread (sigma ~4900). The theoretical 999900-cent ceiling is a clamp that a normal(8500,6000) effectively never reaches; using it as a uniform max would inflate the mean to ~$5000, so it is not used as the uniform bound. amount stays an integer with min >= 50.",
+      "created columns are integer Unix epochs generated uniformly over [1640000000, 1750000000] (2022-01-01 to 2025-06-15)."
+    ],
+    "citations": [
+      {
+        "field": "customers.currency",
+        "distribution": "usd 74%, eur 12%, gbp 8%, cad 3%, aud 3%",
+        "source": "Stripe — payments by currency / merchant base, 2024"
+      },
+      {
+        "field": "charges.amount",
+        "distribution": "intended normal(mean 8500 cents, stddev 6000), min 50, max 999900; realized as uniform integer [50, 16950] preserving the cited mean (engine has no integer+normal generator)",
+        "source": "Stripe — average successful charge amount, 2024"
+      },
+      {
+        "field": "charges.status",
+        "distribution": "succeeded 87%, pending 4%, failed 9%",
+        "source": "Stripe — charge outcome rates, 2024"
+      },
+      {
+        "field": "charges.currency",
+        "distribution": "usd 74%, eur 12%, gbp 8%, cad 3%, aud 3%",
+        "source": "Stripe — payments by currency, 2024"
+      },
+      {
+        "field": "charges.refunded",
+        "distribution": "false 93%, true 7%",
+        "source": "Stripe — refund rate benchmarks, 2024"
+      },
+      {
+        "field": "charges.payment_method",
+        "distribution": "card 91%, bank_debit 6%, wallet 3%",
+        "source": "Stripe — payment method mix, 2024"
+      },
+      {
+        "field": "refunds.reason",
+        "distribution": "duplicate 28%, fraudulent 31%, requested_by_customer 41%",
+        "source": "Stripe — refund reason distribution, 2024"
+      },
+      {
+        "field": "refunds.status",
+        "distribution": "succeeded 96%, pending 3%, failed 1%",
+        "source": "Stripe — refund processing outcomes, 2024"
+      },
+      {
+        "field": "customers.country",
+        "distribution": "US 68%, GB 8%, CA 8%, AU 5%, DE 4%, FR 4%, other 3%",
+        "source": "Stripe — merchant customer geography, 2024"
+      },
+      {
+        "field": "customers.locale",
+        "distribution": "en_us 58%, en_gb 9%, fr_fr 7%, de_de 6%, es_es 6%, en_ca 5%, en_au 4%, other 5%",
+        "source": "Stripe — customer locale distribution (approx.), 2024"
+      },
+      {
+        "field": "charges.card_brand",
+        "distribution": "visa 41%, mastercard 31%, amex 13%, discover 8%, other 7%",
+        "source": "Nilson Report / Stripe — card network share, 2024"
+      },
+      {
+        "field": "charges.card_country",
+        "distribution": "US 68%, GB 8%, CA 6%, AU 5%, DE 4%, FR 4%, other 5%",
+        "source": "Stripe — issuing-card country mix, 2024"
+      },
+      {
+        "field": "charges.card_funding",
+        "distribution": "credit 58%, debit 37%, prepaid 5%",
+        "source": "Federal Reserve / Stripe — card funding type share, 2024"
+      },
+      {
+        "field": "charges.risk_score",
+        "distribution": "normal mean 28, stddev 22, min 0, max 100 (Stripe Radar risk score; most charges low-risk)",
+        "source": "Stripe Radar — risk score distribution, 2024"
+      },
+      {
+        "field": "cardinality: charges per customer",
+        "distribution": "poisson mean 8.4",
+        "source": "Stripe — charges per active customer, 2024"
+      },
+      {
+        "field": "cardinality: refunds per charge",
+        "distribution": "poisson mean 0.08 (sparse — most charges have no refund)",
+        "source": "Stripe — refund rate (~7-8% of charges), 2024"
+      }
+    ]
+  },
+  "tables": {
+    "customers": {
+      "match": "customers",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "email": { "strategy": "email" },
+        "name": { "strategy": "full_name" },
+        "currency": {
+          "strategy": "enum",
+          "options": {
+            "values": ["usd", "eur", "gbp", "cad", "aud"],
+            "weights": [74, 12, 8, 3, 3]
+          }
+        },
+        "country": {
+          "strategy": "enum",
+          "options": {
+            "values": ["US", "GB", "CA", "AU", "DE", "FR", "other"],
+            "weights": [68, 8, 8, 5, 4, 4, 3]
+          }
+        },
+        "locale": {
+          "strategy": "enum",
+          "options": {
+            "values": ["en_us", "en_gb", "fr_fr", "de_de", "es_es", "en_ca", "en_au", "other"],
+            "weights": [58, 9, 7, 6, 6, 5, 4, 5]
+          }
+        },
+        "description": { "strategy": "random_string" },
+        "default_source": { "strategy": "random_string" },
+        "created": {
+          "strategy": "integer",
+          "options": { "min": 1640000000, "max": 1750000000 }
+        }
+      }
+    },
+    "charges": {
+      "match": "charges",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "customer": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "customers", "column": "id" }
+        },
+        "amount": {
+          "strategy": "integer",
+          "options": { "min": 50, "max": 16950 }
+        },
+        "currency": {
+          "strategy": "enum",
+          "options": {
+            "values": ["usd", "eur", "gbp", "cad", "aud"],
+            "weights": [74, 12, 8, 3, 3]
+          }
+        },
+        "status": {
+          "strategy": "enum",
+          "options": {
+            "values": ["succeeded", "pending", "failed"],
+            "weights": [87, 4, 9]
+          }
+        },
+        "refunded": {
+          "strategy": "enum",
+          "options": {
+            "values": ["false", "true"],
+            "weights": [93, 7]
+          }
+        },
+        "payment_method": {
+          "strategy": "enum",
+          "options": {
+            "values": ["card", "bank_debit", "wallet"],
+            "weights": [91, 6, 3]
+          }
+        },
+        "card_brand": {
+          "strategy": "enum",
+          "options": {
+            "values": ["visa", "mastercard", "amex", "discover", "other"],
+            "weights": [41, 31, 13, 8, 7]
+          }
+        },
+        "card_country": {
+          "strategy": "enum",
+          "options": {
+            "values": ["US", "GB", "CA", "AU", "DE", "FR", "other"],
+            "weights": [68, 8, 6, 5, 4, 4, 5]
+          }
+        },
+        "card_funding": {
+          "strategy": "enum",
+          "options": {
+            "values": ["credit", "debit", "prepaid"],
+            "weights": [58, 37, 5]
+          }
+        },
+        "risk_score": {
+          "strategy": "float",
+          "options": {
+            "distribution": "normal",
+            "mean": 28,
+            "stddev": 22,
+            "min": 0,
+            "max": 100
+          }
+        },
+        "description": { "strategy": "random_string" },
+        "created": {
+          "strategy": "integer",
+          "options": { "min": 1640000000, "max": 1750000000 }
+        }
+      }
+    },
+    "refunds": {
+      "match": "refunds",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "charge_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "charges", "column": "id" }
+        },
+        "reason": {
+          "strategy": "enum",
+          "options": {
+            "values": ["duplicate", "fraudulent", "requested_by_customer"],
+            "weights": [28, 31, 41]
+          }
+        },
+        "status": {
+          "strategy": "enum",
+          "options": {
+            "values": ["succeeded", "pending", "failed"],
+            "weights": [96, 3, 1]
+          }
+        },
+        "created": {
+          "strategy": "integer",
+          "options": { "min": 1640000000, "max": 1750000000 }
+        }
+      }
+    }
+  },
+  "relationships": [
+    {
+      "sourceTable": "customers",
+      "targetTable": "charges",
+      "cardinality": { "strategy": "poisson", "mean": 8.4, "min": 1, "max": 50 }
+    },
+    {
+      "sourceTable": "charges",
+      "targetTable": "refunds",
+      "cardinality": { "strategy": "poisson", "mean": 0.08, "min": 0, "max": 3 }
+    }
+  ]
+}
