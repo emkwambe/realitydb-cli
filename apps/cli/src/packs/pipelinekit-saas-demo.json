@@ -1,0 +1,286 @@
+{
+  "name": "pipelinekit-saas-demo",
+  "version": "1.0.0",
+  "description": "Production-realistic B2B SaaS demo dataset for PipelineKit design-partner conversations. Organizations with users, product sessions, feature usage, subscriptions, and invoices. Research-backed distributions cited in _meta.citations. One temporal column per table. Engine notes: amounts/durations use the 'normal' distribution and counts use bounded integers (the engine supports normal/weibull floats and uniform integers; no lognormal or integer-poisson generators).",
+  "_meta": {
+    "domain": "SaaS / B2B Product Analytics",
+    "sqr_target": "99/100",
+    "confidence_target": "HIGH",
+    "root_table": "organizations",
+    "citations": [
+      {
+        "field": "organizations.industry",
+        "distribution": "Technology 31%, Financial Services 19%, Healthcare 14%, Retail 12%, Manufacturing 10%, Other 14%",
+        "source": "LinkedIn B2B industry mix, 2024"
+      },
+      {
+        "field": "organizations.plan",
+        "distribution": "starter 38%, growth 35%, enterprise 27%",
+        "source": "OpenView SaaS Benchmarks, 2024"
+      },
+      {
+        "field": "organizations.arr",
+        "distribution": "normal mean 28000, stddev 25000, min 1200, max 2000000 (right-tailed ARR)",
+        "source": "Bessemer Cloud Index, 2024"
+      },
+      {
+        "field": "organizations.status",
+        "distribution": "active 78%, churned 14%, past_due 5%, trialing 3%",
+        "source": "Bessemer Cloud Index — account status mix, 2024"
+      },
+      {
+        "field": "organizations.country",
+        "distribution": "US 61%, UK 9%, CA 7%, AU 5%, DE 4%, other 14%",
+        "source": "Bessemer / OpenView — SaaS customer geography, 2024"
+      },
+      {
+        "field": "users.role",
+        "distribution": "admin 8%, power_user 22%, regular 55%, viewer 15%",
+        "source": "Pendo — product role distribution, 2024"
+      },
+      {
+        "field": "users.status",
+        "distribution": "active 72%, inactive 18%, churned 10%",
+        "source": "Pendo / Mixpanel — active-user benchmarks, 2024"
+      },
+      {
+        "field": "sessions.duration_seconds",
+        "distribution": "normal mean 420, stddev 280, min 30, max 3600",
+        "source": "Mixpanel — session duration benchmarks, 2024"
+      },
+      {
+        "field": "sessions.page_views",
+        "distribution": "integer 1-80 (per-session page views)",
+        "source": "Mixpanel — pages per session, 2024"
+      },
+      {
+        "field": "feature_usage.feature_name",
+        "distribution": "dashboard 34%, export 22%, api_access 18%, alerts 14%, integrations 12%",
+        "source": "Pendo — feature adoption mix, 2024"
+      },
+      {
+        "field": "feature_usage.usage_count",
+        "distribution": "integer 1-200 (per-feature usage count)",
+        "source": "Pendo — feature usage frequency, 2024"
+      },
+      {
+        "field": "subscriptions.status",
+        "distribution": "active 78%, cancelled 14%, past_due 5%, trialing 3%",
+        "source": "Bessemer Cloud Index — subscription status, 2024"
+      },
+      {
+        "field": "subscriptions.plan",
+        "distribution": "starter 38%, growth 35%, enterprise 27%",
+        "source": "OpenView SaaS Benchmarks, 2024"
+      },
+      {
+        "field": "subscriptions.mrr",
+        "distribution": "normal mean 350, stddev 280, min 100, max 20000",
+        "source": "OpenView / ChartMogul — MRR per account, 2024"
+      },
+      {
+        "field": "invoices.status",
+        "distribution": "paid 84%, open 8%, void 4%, uncollectible 4%",
+        "source": "Stripe Billing — invoice outcome rates, 2024"
+      },
+      {
+        "field": "invoices.amount",
+        "distribution": "normal mean 350, stddev 280, min 100, max 20000",
+        "source": "Stripe Billing / ChartMogul — invoice amount, 2024"
+      },
+      {
+        "field": "cardinality: users per organization",
+        "distribution": "poisson mean 18",
+        "source": "OpenView — seats per account, 2024"
+      },
+      {
+        "field": "cardinality: sessions per user",
+        "distribution": "poisson mean 8.2",
+        "source": "Mixpanel — sessions per active user, 2024"
+      },
+      {
+        "field": "cardinality: feature_usage per user",
+        "distribution": "poisson mean 4.1",
+        "source": "Pendo — distinct feature events per user, 2024"
+      },
+      {
+        "field": "cardinality: subscriptions per organization",
+        "distribution": "poisson mean 1.1",
+        "source": "ChartMogul — subscriptions per account, 2024"
+      },
+      {
+        "field": "cardinality: invoices per subscription",
+        "distribution": "poisson mean 12",
+        "source": "Stripe Billing — invoices per subscription (monthly), 2024"
+      }
+    ]
+  },
+  "tables": {
+    "organizations": {
+      "match": "organizations",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "name": { "strategy": "company_name" },
+        "industry": {
+          "strategy": "enum",
+          "options": {
+            "values": ["Technology", "Financial Services", "Healthcare", "Retail", "Manufacturing", "Other"],
+            "weights": [31, 19, 14, 12, 10, 14]
+          }
+        },
+        "plan": {
+          "strategy": "enum",
+          "options": {
+            "values": ["starter", "growth", "enterprise"],
+            "weights": [38, 35, 27]
+          }
+        },
+        "arr": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 28000, "stddev": 25000, "min": 1200, "max": 2000000 }
+        },
+        "status": {
+          "strategy": "enum",
+          "options": {
+            "values": ["active", "churned", "past_due", "trialing"],
+            "weights": [78, 14, 5, 3]
+          }
+        },
+        "country": {
+          "strategy": "enum",
+          "options": {
+            "values": ["US", "UK", "CA", "AU", "DE", "other"],
+            "weights": [61, 9, 7, 5, 4, 14]
+          }
+        },
+        "created_at": { "strategy": "timestamp" }
+      }
+    },
+    "users": {
+      "match": "users",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "organization_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "organizations", "column": "id" }
+        },
+        "name": { "strategy": "full_name" },
+        "email": { "strategy": "email" },
+        "role": {
+          "strategy": "enum",
+          "options": {
+            "values": ["admin", "power_user", "regular", "viewer"],
+            "weights": [8, 22, 55, 15]
+          }
+        },
+        "status": {
+          "strategy": "enum",
+          "options": {
+            "values": ["active", "inactive", "churned"],
+            "weights": [72, 18, 10]
+          }
+        },
+        "created_at": { "strategy": "timestamp" }
+      }
+    },
+    "sessions": {
+      "match": "sessions",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "user_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "users", "column": "id" }
+        },
+        "duration_seconds": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 420, "stddev": 280, "min": 30, "max": 3600 }
+        },
+        "page_views": {
+          "strategy": "integer",
+          "options": { "min": 1, "max": 80 }
+        },
+        "started_at": { "strategy": "timestamp" }
+      }
+    },
+    "feature_usage": {
+      "match": "feature_usage",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "user_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "users", "column": "id" }
+        },
+        "feature_name": {
+          "strategy": "enum",
+          "options": {
+            "values": ["dashboard", "export", "api_access", "alerts", "integrations"],
+            "weights": [34, 22, 18, 14, 12]
+          }
+        },
+        "usage_count": {
+          "strategy": "integer",
+          "options": { "min": 1, "max": 200 }
+        },
+        "used_at": { "strategy": "timestamp" }
+      }
+    },
+    "subscriptions": {
+      "match": "subscriptions",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "organization_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "organizations", "column": "id" }
+        },
+        "status": {
+          "strategy": "enum",
+          "options": {
+            "values": ["active", "cancelled", "past_due", "trialing"],
+            "weights": [78, 14, 5, 3]
+          }
+        },
+        "plan": {
+          "strategy": "enum",
+          "options": {
+            "values": ["starter", "growth", "enterprise"],
+            "weights": [38, 35, 27]
+          }
+        },
+        "mrr": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 350, "stddev": 280, "min": 100, "max": 20000 }
+        },
+        "created_at": { "strategy": "timestamp" }
+      }
+    },
+    "invoices": {
+      "match": "invoices",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "subscription_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "subscriptions", "column": "id" }
+        },
+        "status": {
+          "strategy": "enum",
+          "options": {
+            "values": ["paid", "open", "void", "uncollectible"],
+            "weights": [84, 8, 4, 4]
+          }
+        },
+        "amount": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 350, "stddev": 280, "min": 100, "max": 20000 }
+        },
+        "issued_at": { "strategy": "timestamp" }
+      }
+    }
+  },
+  "relationships": [
+    { "sourceTable": "organizations", "targetTable": "users", "cardinality": { "strategy": "poisson", "mean": 18, "min": 3, "max": 80 } },
+    { "sourceTable": "users", "targetTable": "sessions", "cardinality": { "strategy": "poisson", "mean": 8.2, "min": 1, "max": 40 } },
+    { "sourceTable": "users", "targetTable": "feature_usage", "cardinality": { "strategy": "poisson", "mean": 4.1, "min": 1, "max": 20 } },
+    { "sourceTable": "organizations", "targetTable": "subscriptions", "cardinality": { "strategy": "poisson", "mean": 1.1, "min": 1, "max": 3 } },
+    { "sourceTable": "subscriptions", "targetTable": "invoices", "cardinality": { "strategy": "poisson", "mean": 12, "min": 1, "max": 24 } }
+  ]
+}
