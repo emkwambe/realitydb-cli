@@ -178,3 +178,9 @@ banking_*.json
 .wrangler/
 
 output/
+
+# RealityDB generated SQL artifacts
+*-sample.sql
+*-10k.sql
+*-100k.sql
+inspect_*.py
