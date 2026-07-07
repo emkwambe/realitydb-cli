@@ -1,25 +1,87 @@
-export function generateMockValue(colDef: any, colName?: string): any {
+export function generateMockValue(colDef: any, colName?: string, tableName?: string): any {
   if (typeof colDef === 'string') {
-    return generateByStrategy(colDef, {}, colName);
+    return generateByStrategy(colDef, {}, colName, tableName);
   }
   if (colDef && typeof colDef === 'object') {
-    return generateByStrategy(colDef.strategy || 'text', colDef.options || {}, colName);
+    return generateByStrategy(colDef.strategy || 'text', colDef.options || {}, colName, tableName);
   }
   return 'mock_value';
 }
 
-export function generateByStrategy(strategy: string, options: any, colName?: string): any {
+// Context-aware name pools for the company_name strategy — routed by table/column
+// name below so a single generic strategy doesn't leak restaurant names into
+// clinical, industrial, or device contexts.
+const CLINICAL_SITE_NAMES = [
+  'Memorial Cancer Center', 'University Medical Center',
+  'Regional Medical Institute', 'Cancer Research Hospital',
+  'Academic Health Center', 'National Oncology Institute',
+  'St. Mary Medical Center', 'General Hospital',
+  'Presbyterian Medical Center', 'Baptist Health Institute',
+  'Mercy Cancer Center', 'Johns Hopkins Affiliate',
+  'Stanford Cancer Institute', 'Mayo Clinic Partner Site',
+  'Dana-Farber Affiliate', 'MD Anderson Partner',
+];
+const TRIAL_NAMES = [
+  'BEACON-1 Phase III Study', 'HORIZON Randomized Trial',
+  'CLARITY Phase II Investigation', 'SUMMIT Efficacy Study',
+  'APEX Phase III Trial', 'MERIDIAN Safety Study',
+  'PINNACLE Randomized Controlled Trial', 'ATLAS Phase I Study',
+  'NEXUS Dose Escalation Study', 'VERTEX Phase III Protocol',
+  'CASCADE Biomarker Study', 'FRONTIER Combination Trial',
+];
+const INDUSTRIAL_COMPANY_NAMES = [
+  'Precision Industrial Corp', 'Advanced Manufacturing Ltd',
+  'Global Components Inc', 'TechParts International',
+  'Industrial Solutions Group', 'Prime Manufacturing Co',
+  'Allied Components Corp', 'Strategic Suppliers Inc',
+  'Continental Parts Ltd', 'Pacific Manufacturing Group',
+  'Atlas Industrial Supply', 'Meridian Components Corp',
+  'Apex Manufacturing Solutions', 'Summit Industrial Group',
+  'Vector Parts International', 'Nexus Supply Chain Inc',
+];
+const DRUG_NAMES = [
+  'Metformin', 'Lisinopril', 'Atorvastatin', 'Levothyroxine',
+  'Amlodipine', 'Omeprazole', 'Losartan', 'Albuterol',
+  'Gabapentin', 'Hydrochlorothiazide', 'Sertraline',
+  'Montelukast', 'Fluticasone', 'Pantoprazole', 'Escitalopram',
+  'Bupropion', 'Trazodone', 'Duloxetine', 'Tamsulosin',
+  'Carvedilol', 'Furosemide', 'Warfarin', 'Metoprolol',
+  'Prednisone', 'Acetaminophen', 'Ibuprofen', 'Amoxicillin',
+];
+const PHONE_MODEL_NAMES = [
+  'Galaxy S24 Ultra', 'iPhone 15 Pro', 'Pixel 8 Pro',
+  'OnePlus 12', 'Galaxy A54', 'iPhone 14', 'Moto G Power',
+  'Galaxy S23', 'Pixel 7a', 'iPhone SE', 'Galaxy A34',
+  'Redmi Note 13', 'Nothing Phone 2', 'Galaxy Z Fold 5',
+  'iPhone 15 Plus', 'Pixel 8', 'Galaxy S24', 'OnePlus Nord',
+];
+
+function pickCompanyNamePool(colName?: string, tableName?: string): string[] {
+  const t = (tableName || '').toLowerCase();
+  const c = (colName || '').toLowerCase();
+
+  if (t.includes('site') && c.includes('name')) return CLINICAL_SITE_NAMES;
+  if (t.includes('trial') && c.includes('name')) return TRIAL_NAMES;
+  if (t.includes('medication') || c === 'med_name' || c === 'drug_name') return DRUG_NAMES;
+  if ((t.includes('supplier') || t.includes('vendor')) && c.includes('name')) return INDUSTRIAL_COMPANY_NAMES;
+  if ((t.includes('device') || t.includes('inventory')) && c.includes('model')) return PHONE_MODEL_NAMES;
+  if ((t.includes('carrier') || t.includes('manufacturer')) && c.includes('name')) return INDUSTRIAL_COMPANY_NAMES;
+
+  return [
+    'Sunrise Bistro', 'Golden Plate', 'Harbor Grill', 'Mountain View Cafe',
+    'City Kitchen', 'The Local Table', 'Fresh & Co', 'Oak & Vine',
+    'Blue Ocean Sushi', 'Red Pepper Thai', 'Corner Deli', 'The Rustic Fork',
+    'Sage & Thyme', 'Firebird Pizza', 'Maple Street Diner', 'Cloud Nine Cafe',
+    'The Brass Tap', 'Luna Restaurant', 'Green Leaf Bistro', 'Stone Oven Bakery',
+  ];
+}
+
+export function generateByStrategy(strategy: string, options: any, colName?: string, tableName?: string): any {
   switch (strategy) {
     case 'uuid':
       return `${randomHex(8)}-${randomHex(4)}-4${randomHex(3)}-${randomHex(4)}-${randomHex(12)}`;
     case 'company_name': {
-      const companies = [
-        'Sunrise Bistro', 'Golden Plate', 'Harbor Grill', 'Mountain View Cafe',
-        'City Kitchen', 'The Local Table', 'Fresh & Co', 'Oak & Vine',
-        'Blue Ocean Sushi', 'Red Pepper Thai', 'Corner Deli', 'The Rustic Fork',
-        'Sage & Thyme', 'Firebird Pizza', 'Maple Street Diner', 'Cloud Nine Cafe',
-        'The Brass Tap', 'Luna Restaurant', 'Green Leaf Bistro', 'Stone Oven Bakery',
-      ];
+      const companies = pickCompanyNamePool(colName, tableName);
       return companies[Math.floor(Math.random() * companies.length)];
     }
     case 'enum':

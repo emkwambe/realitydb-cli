@@ -211,7 +211,7 @@ export function generateData(
       for (const [colName, colDef] of Object.entries(table.columns)) {
         const def = colDef as any;
         if (def?.strategy === 'enum' && def?.options?.lifecycleRules) {
-          const enumValue = generateMockValue(def, colName);
+          const enumValue = generateMockValue(def, colName, table.name);
           row[colName] = enumValue;
           for (const rule of def.options.lifecycleRules) {
             if (rule.value === enumValue && rule.nullFields) {
@@ -241,13 +241,13 @@ export function generateData(
           if (refIds && refIds.length > 0) {
             row[colName] = refIds[Math.floor(Math.random() * refIds.length)];
           } else {
-            row[colName] = generateMockValue(def, colName);
+            row[colName] = generateMockValue(def, colName, table.name);
           }
         } else if (def?.options?.dependsOn && def?.options?.dependencyRule === 'after') {
           // Skip — handled in third pass after all other columns have values
           continue;
         } else {
-          row[colName] = generateMockValue(def, colName);
+          row[colName] = generateMockValue(def, colName, table.name);
         }
 
         // Track IDs for foreign key lookups.
@@ -285,7 +285,7 @@ export function generateData(
             const offset = (offsetDays + Math.floor(Math.random() * (maxDays - offsetDays))) * 24 * 60 * 60 * 1000;
             row[colName] = new Date(depTime + offset).toISOString();
           } else {
-            row[colName] = def?.nullable ? null : generateMockValue(def, colName);
+            row[colName] = def?.nullable ? null : generateMockValue(def, colName, table.name);
           }
         }
       }

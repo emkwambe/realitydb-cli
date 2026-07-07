@@ -137,8 +137,8 @@
         "drug_class": {
           "strategy": "enum",
           "options": {
-            "values": ["statin", "ACE_inhibitor", "biguanide", "calcium_blocker", "beta_blocker", "PPI", "ARB", "bronchodilator", "anticonvulsant", "SSRI", "antibiotic", "hormone"],
-            "weights": [12, 10, 10, 9, 9, 8, 8, 7, 7, 7, 7, 6]
+            "values": ["biguanide", "statin", "ACE_inhibitor", "ARB", "beta_blocker", "thyroid_hormone", "SSRI", "proton_pump_inhibitor", "calcium_channel_blocker", "anticoagulant", "bronchodilator", "antibiotic", "opioid", "NSAID"],
+            "weights": [12, 14, 10, 8, 10, 5, 8, 7, 8, 5, 4, 5, 2, 2]
           }
         },
         "controlled_substance": {
@@ -156,7 +156,7 @@
       "columns": {
         "id": { "strategy": "uuid" },
         "full_name": { "strategy": "full_name" },
-        "date_of_birth": { "strategy": "past_date" },
+        "date_of_birth": { "strategy": "past_date", "options": { "minYearsAgo": 18, "maxYearsAgo": 100 } },
         "gender": {
           "strategy": "enum",
           "options": {
