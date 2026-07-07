@@ -115,8 +115,8 @@
         "marker": {
           "strategy": "enum",
           "options": {
-            "values": ["HER2", "PD-L1", "ALK"],
-            "weights": [33, 33, 33]
+            "values": ["PD-L1", "HER2", "ALK"],
+            "weights": [55, 30, 15]
           }
         },
         "expression_level": {
