@@ -1,13 +1,13 @@
 # RealityDB CLI Reference
 ## Version 2.38 — July 2026
-## 65 commands across 5 namespaces
+## 66 commands across 5 namespaces
 
 Install: `npm install -g realitydb`
 Verify:  `realitydb --version`
 
 ---
 
-## Quick Reference — All 65 Commands
+## Quick Reference — All 66 Commands
 
 ### Top-Level (39 commands)
 
@@ -54,13 +54,14 @@ Verify:  `realitydb --version`
 | `attest` | Namespace: certification and provenance | — |
 | `lab` | Namespace: simulation lab | — |
 
-### examine namespace (6 subcommands)
+### examine namespace (7 subcommands)
 | Command | Description |
 |---------|-------------|
 | `examine assess` | Assess synthetic data quality — FK, temporal, enum, overall |
 | `examine profile` | Statistical profiling of a SQL or CSV dataset |
 | `examine diff` | Compare two SQL datasets — schema, row counts, distributions |
 | `examine scan` | Infer a RealityDB pack from a SQL schema (DDL) file |
+| `examine bias` | Bias examination — EU AI Act Article 10(f) demographic coverage, skew, proxies |
 | `examine scan:supabase` | Infer a pack from a live Supabase database |
 | `examine supabase` | Assess data quality of a live Supabase database |
 
@@ -997,6 +998,62 @@ Example:
 ```bash
 realitydb examine scan schema.sql --output inferred-pack.json
 ```
+
+---
+
+### `realitydb examine bias`
+
+Bias examination for EU AI Act Article 10(f). Reports demographic
+subgroup coverage, distribution skew, and proxy-variable detection —
+the analyses `examine assess` does not cover.
+
+```
+realitydb examine bias [options] <file>
+
+Arguments:
+  file                   SQL or CSV dataset to examine (required)
+
+Options:
+  --pack <file>          Pack JSON for column context — enables
+                         zero-representation detection against declared
+                         enum values (recommended)
+  --json                 Output as JSON
+  --output <file>        Save report to file
+  -h, --help             Display help
+```
+
+The report contains four sections:
+
+1. Demographic coverage — for columns matching demographic heuristics
+   (gender/sex, age, country/nationality, language, race/ethnicity):
+   value percentages, zero-representation flags (a declared enum value
+   with no rows), and >80% over-representation flags.
+2. Distribution skew — Gini coefficient per enum column. Flags
+   Gini > 0.6 (highly concentrated) and Gini < 0.1 (suspiciously uniform).
+3. Proxy variables — columns that may proxy for protected characteristics
+   (zip/postal code, income/salary, neighborhood/district, school/education).
+   Flagged for human review only — not an assertion of bias.
+4. Article 10(f) status:
+   - `pass`: no gaps, no high-risk proxies, skew within range
+   - `review_recommended`: proxy variables detected OR a zero-representation group
+   - `attention_required`: zero-representation in a high-value column
+     (gender or race/ethnicity)
+
+Examples:
+```bash
+# Bias examination with pack context (recommended)
+realitydb examine bias healthcare.sql \
+  --pack healthcare.json \
+  --json \
+  --output healthcare-bias.json
+
+# Quick console summary
+realitydb examine bias healthcare.sql --pack healthcare.json
+```
+
+EU compliance note: This report satisfies the EU AI Act Article 10(f)
+mandatory bias-examination requirement for training datasets. Retain the
+JSON report alongside the dataset as Article 10 evidence.
 
 ---
 
