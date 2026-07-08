@@ -1088,7 +1088,7 @@ realitydb comply report [options]
 
 Options:
   --file <file>          Dataset to assess (SQL or CSV) (required)
-  --framework <name>     Framework: hipaa, gdpr, pci, soc2, eu-ai-act
+  --framework <name>     Framework: hipaa, gdpr, pci, soc2, eu-ai-act, dora
   --output <file>        Output path (default: auto-named)
   --json                 Output JSON instead of HTML
   -h, --help             Display help
@@ -1123,6 +1123,14 @@ realitydb comply report \
   --framework eu-ai-act \
   --output eu-banking-aiact-report.html
 ```
+
+DORA report covers:
+- Article 6: ICT risk management (version tracking, audit trail)
+- Article 9: Protection (synthetic provenance, Ed25519 certificate)
+- Article 10: Detection (FK integrity, temporal logic scores)
+- Article 11: Response (deterministic seed = reproducible recovery)
+- Article 12: Backup (audit log availability)
+- Article 16: Third-party risk (on-premise CLI, vendor version)
 
 EU AI Act report covers:
 - Article 10(b): Data origin and provenance (_realitydb_meta watermark)
