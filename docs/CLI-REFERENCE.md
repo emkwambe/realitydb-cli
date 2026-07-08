@@ -112,7 +112,7 @@ Options:
                          Built-in: fintech, healthcare, oncology,
                          supply-chain, telecom, universal
   --rows <n>             Number of rows to generate (default: 1000)
-  --format <fmt>         Output format: json, sql, csv (default: json)
+  --format <fmt>         Output format: json, sql, csv, parquet (default: json)
   --seed <n>             Deterministic seed for reproducible output
   -o, --output <file>    Output file path (required for --format sql/csv)
   --drop-tables          Prepend DROP TABLE IF EXISTS (SQL format)
