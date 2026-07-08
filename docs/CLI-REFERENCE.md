@@ -1122,15 +1122,14 @@ realitydb comply report \
   --file eu-banking.sql \
   --framework eu-ai-act \
   --output eu-banking-aiact-report.html
-```
 
-DORA report covers:
-- Article 6: ICT risk management (version tracking, audit trail)
-- Article 9: Protection (synthetic provenance, Ed25519 certificate)
-- Article 10: Detection (FK integrity, temporal logic scores)
-- Article 11: Response (deterministic seed = reproducible recovery)
-- Article 12: Backup (audit log availability)
-- Article 16: Third-party risk (on-premise CLI, vendor version)
+# DORA ICT compliance report (EU financial entities)
+realitydb comply report \
+  --file eu-banking.sql \
+  --framework dora \
+  --output eu-banking-dora.json \
+  --json
+```
 
 EU AI Act report covers:
 - Article 10(b): Data origin and provenance (_realitydb_meta watermark)
@@ -1140,6 +1139,14 @@ EU AI Act report covers:
 - Article 10(f): Bias examination summary
 - Article 11: Technical documentation readiness
 - Article 12: Logging and audit trail
+
+DORA report covers:
+- Article 6: ICT risk management (version tracking, audit trail)
+- Article 9: Protection (synthetic provenance, Ed25519 certificate)
+- Article 10: Detection (FK integrity, temporal logic scores)
+- Article 11: Response (deterministic seed = reproducible recovery)
+- Article 12: Backup (audit log availability)
+- Article 16: Third-party risk (on-premise CLI, vendor version)
 
 ---
 
