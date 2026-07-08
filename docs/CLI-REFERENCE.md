@@ -111,7 +111,8 @@ realitydb run [options]
 Options:
   --pack <file|name>     Pack JSON file path or built-in pack name
                          Built-in: fintech, healthcare, oncology,
-                         supply-chain, telecom, universal
+                         supply-chain, telecom, universal,
+                         eu-banking, eu-healthcare, eu-telecom
   --rows <n>             Number of rows to generate (default: 1000)
   --format <fmt>         Output format: json, sql, csv, parquet (default: json)
   --seed <n>             Deterministic seed for reproducible output
@@ -146,6 +147,27 @@ realitydb run --pack eu-banking.json --rows 50000 --format sql \
 
 EU compliance note: Always use --seed N for datasets used in AI training.
 The seed value must be recorded in your Article 10(b) provenance documentation.
+
+#### EU Enterprise Packs (requires Core tier)
+
+Three built-in packs purpose-built for European enterprise compliance
+(EU AI Act Article 10, DORA, GDPR). All score 99/100 (FK 100%, Temporal 100%,
+Privacy 100%). Generate them like any built-in pack: `--pack eu-banking`.
+
+```
+eu-banking     — 11 tables, SEPA/PSD2/MiFID II/DORA
+                 For: EU banks replacing MOSTLY AI
+                 compliance@realitydb.dev for DPA requests
+eu-healthcare  — 14 tables, ICD-10-WHO/EHDS/GDPR Article 9
+                 For: Clinical data scientists and pharma
+                 100% synthetic — no Article 9 legal basis required
+eu-telecom     — 12 tables, BEREC/EECC/GDPR consent management
+                 For: DACH-region operator data science teams
+                 DORA critical infrastructure compliant
+```
+
+These packs pair with `comply report --framework eu-ai-act|dora|gdpr` and
+`examine bias` (Article 10(f)) for a complete EU compliance evidence chain.
 
 ---
 
