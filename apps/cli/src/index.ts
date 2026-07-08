@@ -1014,6 +1014,21 @@ examine
   .option('--review <file>', 'Output review manifest path')
   .action(scanInferCommand);
 
+examine
+  .command('bias <file>')
+  .description('Bias examination — EU AI Act Article 10(f) demographic coverage, distribution skew, and proxy detection')
+  .option('--pack <file>', 'Pack JSON for column context (enables zero-representation detection)')
+  .option('--json', 'Output as JSON')
+  .option('--output <file>', 'Save report to file')
+  .action(async (file: string, options: any) => {
+    const { examineBiasCommand } = await import('./commands/examine-bias.js');
+    await examineBiasCommand(file, {
+      pack: options.pack,
+      json: options.json,
+      output: options.output,
+    });
+  });
+
 // ============================================================
 // SCAN SUPABASE COMMAND
 // ============================================================
