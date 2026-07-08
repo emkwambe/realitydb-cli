@@ -178,6 +178,7 @@ async function runHandler(options: any) {
         fintech: 'FinTech Platform — 9 tables (customers, accounts, transactions, fraud)',
         'eu-banking': 'EU Banking — 11 tables (SEPA, PSD2, MiFID II, KYC, AML/SAR)',
         'eu-healthcare': 'EU Healthcare — 14 tables (ICD-10, EHDS, GDPR Art.9)',
+        'eu-telecom': 'EU Telecom — 12 tables (BEREC, EECC, GDPR consent)',
       };
       if (!options.pack.includes('/') && !options.pack.includes('\\') && !options.pack.endsWith('.json')) {
         if (options.pack === 'list') {
