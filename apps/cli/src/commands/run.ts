@@ -196,6 +196,7 @@ export async function runCommand(options: RunOptions): Promise<void> {
     telecom: 'Telecom & Network — 21 tables (subscribers, towers, billing, churn)',
     fintech: 'FinTech Platform — 5 tables (customers, transactions, fraud)',
     'eu-banking': 'EU Banking — 11 tables (SEPA, PSD2, MiFID II, KYC, AML/SAR)',
+    'eu-healthcare': 'EU Healthcare — 14 tables (ICD-10, EHDS, GDPR Art.9)',
   };
 
   // If pack is a built-in name (no slashes, no .json extension), try bundled pack

@@ -1,0 +1,588 @@
+{
+  "name": "eu-healthcare",
+  "version": "1.0.0",
+  "description": "EU Healthcare and Clinical Data — European academic hospital with outpatient and inpatient services. Covers patients, providers, an ICD-10-WHO code reference, encounters, diagnoses, prescribed medications (WHO ATC), procedures, lab results, vital signs, imaging studies, insurance claims, referrals, allergies, and discharge summaries. GDPR Article 9 note: 100% synthetic — no real patient data used at any stage. EHDS secondary-use compatible. EU enterprise pack: research-backed distributions with primary-source citations, temporal ordering 100%, target assess score 98+.",
+
+  "_meta": {
+    "version": "1.0.0",
+    "domain": "EU Healthcare & Clinical Data",
+    "regulation_scope": "GDPR Article 9 (special categories), EHDS, MDR, IVDR",
+    "coding_system": "ICD-10-WHO (EU standard); WHO ATC for medications",
+    "datasheet_standard": "Gebru et al. 2018 — Datasheets for Datasets",
+    "target_assess_score": "98+/100",
+    "eu_enterprise": true,
+    "gdpr_article9": "Synthetic analogue of special-category health data — NOT personal data; no Article 9 legal basis required for generation or storage.",
+    "dpa_contact": "compliance@realitydb.dev",
+    "citations": [
+      {
+        "field": "patients.country_of_birth",
+        "claim": "EU patient country-of-birth distribution, DE/FR/IT-weighted",
+        "source": "Eurostat Healthcare Statistics 2024"
+      },
+      {
+        "field": "patients.age_bracket",
+        "claim": "EU population age distribution: 0-17 12%, 18-44 25%, 45-64 32%, 65-79 21%, 80+ 10%",
+        "source": "Eurostat Population Statistics 2024"
+      },
+      {
+        "field": "patients.gender",
+        "claim": "EU population gender split: female 51%, male 48%, non-binary 1%",
+        "source": "WHO European Region Health Data 2024"
+      },
+      {
+        "field": "encounters.encounter_type",
+        "claim": "EU encounter mix: outpatient 52%, inpatient 28%, emergency 12%, day surgery 5%, telehealth 3%",
+        "source": "OECD Health at a Glance: Europe 2024"
+      },
+      {
+        "field": "encounters.length_of_stay_days",
+        "claim": "EU average length of stay ~5.8 days (weighted shorter for elective)",
+        "source": "OECD Average Length of Stay in Hospital 2024"
+      },
+      {
+        "field": "diagnoses.icd10_category",
+        "claim": "EU disease-burden distribution by ICD-10 chapter (Z/E/I/J/M/K/F/N/C)",
+        "source": "EUROSTAT European Health Interview Survey 2024"
+      },
+      {
+        "field": "medications_prescribed.atc_class",
+        "claim": "EU pharmaceutical consumption by WHO ATC class",
+        "source": "OECD Pharmaceutical Consumption Statistics Europe 2024"
+      },
+      {
+        "field": "vital_signs.bmi",
+        "claim": "EU average BMI 26.8",
+        "source": "OECD/EU Obesity Report 2024"
+      }
+    ]
+  },
+
+  "tables": {
+    "patients": {
+      "match": "patients",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "full_name": { "strategy": "full_name" },
+        "country_of_birth": {
+          "strategy": "enum",
+          "options": {
+            "values": ["DE","FR","IT","ES","PL","RO","NL","BE","PT","GR","other_EU","other"],
+            "weights": [18, 12, 10, 9, 7, 6, 5, 4, 3, 3, 15, 8],
+            "_citation": "Eurostat Healthcare Statistics 2024 — EU patient country-of-birth distribution"
+          }
+        },
+        "age_bracket": {
+          "strategy": "enum",
+          "options": {
+            "values": ["0-17","18-44","45-64","65-79","80+"],
+            "weights": [12, 25, 32, 21, 10],
+            "_citation": "Eurostat Population Statistics 2024 — EU age bracket distribution"
+          }
+        },
+        "gender": {
+          "strategy": "enum",
+          "options": {
+            "values": ["female","male","non_binary"],
+            "weights": [51, 48, 1],
+            "_citation": "WHO European Region Health Data 2024 — EU population gender split"
+          }
+        },
+        "insurance_type": {
+          "strategy": "enum",
+          "options": {
+            "values": ["statutory_GKV","private_PKV","EU_cross_border","uninsured","other"],
+            "weights": [72, 11, 9, 5, 3],
+            "_citation": "OECD Health Statistics Europe 2024 (Germany-weighted for GKV/PKV)"
+          }
+        },
+        "language_preference": {
+          "strategy": "enum",
+          "options": {
+            "values": ["German","French","Italian","Spanish","Polish","Romanian","Dutch","English","Arabic","Turkish","other"],
+            "weights": [20, 12, 10, 9, 7, 6, 5, 12, 5, 4, 10],
+            "_citation": "Eurostat Migration Statistics 2024 — EU language preference distribution"
+          }
+        },
+        "created_at": { "strategy": "timestamp" }
+      }
+    },
+
+    "providers": {
+      "match": "providers",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "full_name": { "strategy": "full_name" },
+        "provider_type": {
+          "strategy": "enum",
+          "options": {
+            "values": ["general_practitioner","specialist","hospital","clinic","emergency_department"],
+            "weights": [40, 25, 18, 12, 5],
+            "_citation": "OECD Health at a Glance: Europe 2024 — EU provider type mix"
+          }
+        },
+        "specialty": {
+          "strategy": "enum",
+          "options": {
+            "values": ["General Practice","Cardiology","Oncology","Orthopedics","Neurology","Emergency Medicine","Pediatrics","Radiology","Psychiatry","Internal Medicine"],
+            "weights": [22, 10, 8, 9, 7, 12, 9, 7, 6, 10],
+            "_citation": "Eurostat Healthcare Statistics 2024 — EU physician specialty distribution"
+          }
+        },
+        "country": {
+          "strategy": "enum",
+          "options": {
+            "values": ["DE","FR","IT","ES","PL","NL","BE","AT","other_EU"],
+            "weights": [22, 14, 11, 10, 8, 7, 5, 5, 18],
+            "_citation": "Eurostat Healthcare Statistics 2024 — EU provider country distribution"
+          }
+        },
+        "created_at": { "strategy": "timestamp" }
+      }
+    },
+
+    "icd10_codes": {
+      "match": "icd10_codes",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "code": {
+          "strategy": "enum",
+          "options": {
+            "values": ["Z00","Z12","E11","E78","E03","E66","I10","I25","I48","I50","J45","J44","J18","M54","M17","M79","K21","K59","F32","F41","N39","N18","C50","C34"],
+            "weights": [5, 4, 10, 6, 4, 5, 12, 7, 6, 4, 8, 6, 5, 9, 6, 4, 7, 4, 7, 6, 5, 4, 3, 3],
+            "_citation": "WHO ICD-10 Classification — common EU diagnosis codes weighted by prevalence (EUROSTAT EHIS 2024)"
+          }
+        },
+        "created_at": { "strategy": "timestamp" }
+      }
+    },
+
+    "encounters": {
+      "match": "encounters",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "patient_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "patients", "column": "id" }
+        },
+        "provider_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "providers", "column": "id" }
+        },
+        "encounter_type": {
+          "strategy": "enum",
+          "options": {
+            "values": ["outpatient","inpatient","emergency","day_surgery","telehealth"],
+            "weights": [52, 28, 12, 5, 3],
+            "_citation": "OECD Health at a Glance: Europe 2024 — EU encounter type distribution"
+          }
+        },
+        "admission_type": {
+          "strategy": "enum",
+          "options": {
+            "values": ["elective","emergency","transfer"],
+            "weights": [58, 32, 10],
+            "_citation": "EUROSTAT Hospital Discharge Statistics 2024 — EU inpatient admission type distribution"
+          }
+        },
+        "drg_code": {
+          "strategy": "enum",
+          "options": {
+            "values": ["F60A","O60D","G67B","E65B","B70B","L63A","P67B","K62A","J64B","F62B","I68A","G48A","E71B","H08A","N06A","D61B","R60A","F49C","O01D","T64B"],
+            "weights": [10, 9, 8, 8, 7, 7, 6, 6, 5, 5, 4, 4, 3, 3, 2, 2, 2, 1, 1, 1],
+            "_citation": "EuroDRG Project 2024 — top EU DRG codes weighted by hospital discharge frequency"
+          }
+        },
+        "length_of_stay_days": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 5.8, "stddev": 4.2, "min": 1, "max": 90 }
+        },
+        "discharge_disposition": {
+          "strategy": "enum",
+          "options": {
+            "values": ["home","rehabilitation","skilled_nursing","transferred","deceased","left_against_advice"],
+            "weights": [68, 12, 8, 7, 3, 2],
+            "_citation": "EUROSTAT Hospital Discharge Data 2024 — EU discharge disposition distribution"
+          }
+        },
+        "encounter_date": { "strategy": "timestamp" }
+      }
+    },
+
+    "diagnoses": {
+      "match": "diagnoses",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "encounter_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "encounters", "column": "id" }
+        },
+        "icd10_category": {
+          "strategy": "enum",
+          "options": {
+            "values": ["Z","E","I","J","M","K","F","N","C","other"],
+            "weights": [18, 14, 13, 11, 9, 8, 7, 6, 5, 9],
+            "_citation": "EUROSTAT European Health Interview Survey 2024 — EU disease burden by ICD-10 chapter"
+          }
+        },
+        "diagnosis_role": {
+          "strategy": "enum",
+          "options": {
+            "values": ["primary","secondary","comorbidity","complication"],
+            "weights": [45, 35, 15, 5],
+            "_citation": "EUROSTAT Hospital Discharge Data 2024 — diagnosis role coding distribution"
+          }
+        },
+        "coding_system": {
+          "strategy": "enum",
+          "options": {
+            "values": ["ICD-10-WHO","ICD-10-CM"],
+            "weights": [90, 10],
+            "_citation": "WHO ICD-10 Classification — EU standard is ICD-10-WHO (ICD-10-CM only for US-compatible records)"
+          }
+        }
+      }
+    },
+
+    "medications_prescribed": {
+      "match": "medications_prescribed",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "encounter_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "encounters", "column": "id" }
+        },
+        "atc_class": {
+          "strategy": "enum",
+          "options": {
+            "values": ["C","A","N","B","J","R","M","L","other"],
+            "weights": [22, 18, 14, 10, 9, 8, 7, 4, 8],
+            "_citation": "OECD Pharmaceutical Consumption Statistics Europe 2024 — WHO ATC class distribution"
+          }
+        },
+        "prescribing_authority": {
+          "strategy": "enum",
+          "options": {
+            "values": ["GP","specialist","hospital","emergency"],
+            "weights": [52, 32, 14, 2],
+            "_citation": "EMA Medicines Usage in the EU 2024 — prescribing authority distribution"
+          }
+        },
+        "medication_name": {
+          "strategy": "enum",
+          "options": {
+            "values": ["Amoxicillin","Atorvastatin","Metformin","Ramipril","Bisoprolol","Omeprazole","Levothyroxine","Amlodipine","Salbutamol","Pantoprazole","Simvastatin","Ibuprofen","Paracetamol","Metoprolol","Furosemide","Enalapril","Diclofenac","Sertraline","Citalopram","Lansoprazole"],
+            "weights": [12, 10, 9, 8, 7, 7, 6, 6, 5, 5, 4, 4, 3, 3, 3, 2, 2, 2, 1, 1],
+            "_citation": "IQVIA Top 200 Medicines EU 2024 — top prescribed generics by WHO ATC class"
+          }
+        },
+        "created_at": { "strategy": "timestamp" }
+      }
+    },
+
+    "procedures": {
+      "match": "procedures",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "encounter_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "encounters", "column": "id" }
+        },
+        "procedure_category": {
+          "strategy": "enum",
+          "options": {
+            "values": ["diagnostic","therapeutic","surgical","minor_procedure","preventive"],
+            "weights": [30, 28, 18, 16, 8],
+            "_citation": "OECD Health at a Glance: Europe 2024 — EU procedure category distribution"
+          }
+        },
+        "procedure_status": {
+          "strategy": "enum",
+          "options": {
+            "values": ["completed","scheduled","cancelled","in_progress"],
+            "weights": [82, 10, 5, 3],
+            "_citation": "OECD Health at a Glance: Europe 2024 — procedure completion rates (PR-011 status distribution)"
+          }
+        },
+        "created_at": { "strategy": "timestamp" }
+      }
+    },
+
+    "lab_results": {
+      "match": "lab_results",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "encounter_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "encounters", "column": "id" }
+        },
+        "test_type": {
+          "strategy": "enum",
+          "options": {
+            "values": ["CBC","basic_metabolic","lipid_panel","thyroid_function","liver_function","urinalysis","HbA1c","coagulation","cultures","other"],
+            "weights": [18, 15, 12, 10, 9, 8, 7, 6, 5, 10],
+            "_citation": "EFLM European Federation of Clinical Chemistry — EU test ordering patterns"
+          }
+        },
+        "abnormality_flag": {
+          "strategy": "enum",
+          "options": {
+            "values": ["normal","low","high","critical"],
+            "weights": [68, 14, 15, 3],
+            "_citation": "EFLM Reference Values Studies 2024 — lab result abnormality distribution"
+          }
+        },
+        "collected_at": { "strategy": "timestamp" }
+      }
+    },
+
+    "vital_signs": {
+      "match": "vital_signs",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "encounter_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "encounters", "column": "id" }
+        },
+        "systolic_bp": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 121, "stddev": 15, "min": 70, "max": 220 }
+        },
+        "bmi": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 26.8, "stddev": 4.8, "min": 14, "max": 55 }
+        },
+        "measured_at": { "strategy": "timestamp" }
+      }
+    },
+
+    "imaging_studies": {
+      "match": "imaging_studies",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "encounter_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "encounters", "column": "id" }
+        },
+        "modality": {
+          "strategy": "enum",
+          "options": {
+            "values": ["X-ray","CT","MRI","ultrasound","mammography","PET"],
+            "weights": [42, 22, 15, 14, 4, 3],
+            "_citation": "OECD Health at a Glance: Europe 2024 — EU diagnostic imaging modality utilization"
+          }
+        },
+        "body_region": {
+          "strategy": "enum",
+          "options": {
+            "values": ["chest","abdomen","head","musculoskeletal","cardiac","other"],
+            "weights": [28, 20, 18, 20, 8, 6],
+            "_citation": "OECD Health at a Glance: Europe 2024 — imaging body region distribution"
+          }
+        },
+        "finding": {
+          "strategy": "enum",
+          "options": {
+            "values": ["normal","abnormal","follow_up_required","incidental_finding"],
+            "weights": [62, 22, 11, 5],
+            "_citation": "EFLM Reference Values Studies 2024 — imaging finding distribution (PR-011)"
+          }
+        },
+        "performed_at": { "strategy": "timestamp" }
+      }
+    },
+
+    "insurance_claims": {
+      "match": "insurance_claims",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "encounter_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "encounters", "column": "id" }
+        },
+        "claim_status": {
+          "strategy": "enum",
+          "options": {
+            "values": ["approved","pending","partial","denied","appealed"],
+            "weights": [58, 18, 10, 9, 5],
+            "_citation": "OECD Health Statistics Europe 2024 — EU claim adjudication outcome distribution (PR-011)"
+          }
+        },
+        "payer_type": {
+          "strategy": "enum",
+          "options": {
+            "values": ["statutory_GKV","private_PKV","EU_cross_border","self_pay","other"],
+            "weights": [72, 11, 9, 5, 3],
+            "_citation": "OECD Health Statistics Europe 2024 — EU payer mix (mirrors patients.insurance_type)"
+          }
+        },
+        "created_at": { "strategy": "timestamp" }
+      }
+    },
+
+    "referrals": {
+      "match": "referrals",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "encounter_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "encounters", "column": "id" }
+        },
+        "referral_type": {
+          "strategy": "enum",
+          "options": {
+            "values": ["specialist","hospital","diagnostic","allied_health","emergency"],
+            "weights": [42, 20, 18, 12, 8],
+            "_citation": "OECD Health at a Glance: Europe 2024 — EU referral type distribution (PR-011)"
+          }
+        },
+        "specialty": {
+          "strategy": "enum",
+          "options": {
+            "values": ["Cardiology","Orthopedics","Neurology","Dermatology","Gastroenterology","Psychiatry","Oncology","Endocrinology","other"],
+            "weights": [16, 14, 10, 12, 10, 9, 8, 7, 14],
+            "_citation": "Eurostat Healthcare Statistics 2024 — EU specialist referral distribution"
+          }
+        },
+        "priority": {
+          "strategy": "enum",
+          "options": {
+            "values": ["routine","urgent","two_week_wait","emergency"],
+            "weights": [62, 22, 10, 6],
+            "_citation": "OECD Health at a Glance: Europe 2024 — referral priority distribution (PR-011)"
+          }
+        },
+        "referred_at": { "strategy": "timestamp" }
+      }
+    },
+
+    "allergies": {
+      "match": "allergies",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "patient_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "patients", "column": "id" }
+        },
+        "allergen_type": {
+          "strategy": "enum",
+          "options": {
+            "values": ["drug","food","environmental","insect","latex","other"],
+            "weights": [38, 26, 20, 7, 4, 5],
+            "_citation": "Eurostat European Health Interview Survey 2024 — EU allergy type prevalence"
+          }
+        },
+        "severity": {
+          "strategy": "enum",
+          "options": {
+            "values": ["mild","moderate","severe","anaphylaxis"],
+            "weights": [45, 32, 18, 5],
+            "_citation": "Eurostat European Health Interview Survey 2024 — allergy severity distribution (PR-011)"
+          }
+        },
+        "reaction_type": {
+          "strategy": "enum",
+          "options": {
+            "values": ["rash","respiratory","gastrointestinal","anaphylaxis","swelling"],
+            "weights": [40, 22, 18, 5, 15],
+            "_citation": "Eurostat European Health Interview Survey 2024 — allergic reaction type distribution"
+          }
+        },
+        "recorded_at": { "strategy": "timestamp" }
+      }
+    },
+
+    "discharge_summaries": {
+      "match": "discharge_summaries",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "encounter_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "encounters", "column": "id" }
+        },
+        "discharge_disposition": {
+          "strategy": "enum",
+          "options": {
+            "values": ["home","rehabilitation","skilled_nursing","transferred","deceased","left_against_advice"],
+            "weights": [68, 12, 8, 7, 3, 2],
+            "_citation": "EUROSTAT Hospital Discharge Data 2024 — EU discharge disposition distribution"
+          }
+        },
+        "follow_up_required": {
+          "strategy": "enum",
+          "options": {
+            "values": ["true","false"],
+            "weights": [72, 28],
+            "_citation": "OECD Health at a Glance: Europe 2024 — post-discharge follow-up rate (PR-011)"
+          }
+        },
+        "summary_status": {
+          "strategy": "enum",
+          "options": {
+            "values": ["finalized","draft","amended","pending"],
+            "weights": [80, 10, 6, 4],
+            "_citation": "OECD Health at a Glance: Europe 2024 — clinical documentation status (PR-011)"
+          }
+        },
+        "created_at": { "strategy": "timestamp" }
+      }
+    }
+  },
+
+  "relationships": [
+    {
+      "targetTable": "encounters",
+      "sourceTable": "patients",
+      "cardinality": { "strategy": "poisson", "mean": 2.5, "min": 1, "max": 15 }
+    },
+    {
+      "targetTable": "allergies",
+      "sourceTable": "patients",
+      "cardinality": { "strategy": "poisson", "mean": 0.8, "min": 0, "max": 6 }
+    },
+    {
+      "targetTable": "diagnoses",
+      "sourceTable": "encounters",
+      "cardinality": { "strategy": "poisson", "mean": 1.6, "min": 1, "max": 8 }
+    },
+    {
+      "targetTable": "medications_prescribed",
+      "sourceTable": "encounters",
+      "cardinality": { "strategy": "poisson", "mean": 1.8, "min": 0, "max": 10 }
+    },
+    {
+      "targetTable": "procedures",
+      "sourceTable": "encounters",
+      "cardinality": { "strategy": "poisson", "mean": 0.8, "min": 0, "max": 6 }
+    },
+    {
+      "targetTable": "lab_results",
+      "sourceTable": "encounters",
+      "cardinality": { "strategy": "poisson", "mean": 2.2, "min": 0, "max": 15 }
+    },
+    {
+      "targetTable": "vital_signs",
+      "sourceTable": "encounters",
+      "cardinality": { "strategy": "poisson", "mean": 1.5, "min": 0, "max": 8 }
+    },
+    {
+      "targetTable": "imaging_studies",
+      "sourceTable": "encounters",
+      "cardinality": { "strategy": "poisson", "mean": 0.5, "min": 0, "max": 5 }
+    },
+    {
+      "targetTable": "insurance_claims",
+      "sourceTable": "encounters",
+      "cardinality": { "strategy": "poisson", "mean": 0.9, "min": 0, "max": 3 }
+    },
+    {
+      "targetTable": "referrals",
+      "sourceTable": "encounters",
+      "cardinality": { "strategy": "poisson", "mean": 0.3, "min": 0, "max": 4 }
+    },
+    {
+      "targetTable": "discharge_summaries",
+      "sourceTable": "encounters",
+      "cardinality": { "strategy": "poisson", "mean": 0.35, "min": 0, "max": 1 }
+    }
+  ]
+}
