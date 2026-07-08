@@ -174,7 +174,25 @@
       "match": "customers",
       "columns": {
         "id": { "strategy": "uuid" },
-        "name": { "strategy": "company_name" },
+        "name": {
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "Apex Electronics Corp", "Summit Technologies Inc",
+              "Horizon Manufacturing Ltd", "Meridian Industrial Group",
+              "Vector Automotive Systems", "Atlas Aerospace Components",
+              "Pinnacle Defense Systems", "Caliber Medical Devices",
+              "Sterling Consumer Products", "Vanguard Energy Systems",
+              "Continental Agriculture Corp", "Pacific Robotics Inc",
+              "Nexus Construction Group", "Precision Instruments Ltd",
+              "Allied Industrial Systems", "Centurion Logistics Corp",
+              "Titan Manufacturing Group", "Global Components Ltd",
+              "Summit Distribution Inc", "Beacon Industrial Supply"
+            ],
+            "weights": [6,6,6,5,5,5,5,5,5,5,5,5,5,5,4,4,4,4,4,4],
+            "_citation": "Fortune 500 industrial customer naming patterns, Gartner Supply Chain Top 25 2024"
+          }
+        },
         "email": { "strategy": "email" },
         "segment": {
           "strategy": "enum",
