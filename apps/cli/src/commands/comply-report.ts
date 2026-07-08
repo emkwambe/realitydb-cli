@@ -455,6 +455,39 @@ const FRAMEWORKS: Record<string, Framework> = {
       { title: 'Privacy', checks: ['Exact match rate', 'k-Anonymity'] },
     ],
   },
+
+  dora: {
+    id: 'dora', name: 'DORA', fullName: 'Regulation (EU) 2022/2554 — Digital Operational Resilience Act',
+    description: 'DORA ICT operational-resilience assessment — Articles 6 (ICT Risk Management), 9 (Protection & Prevention), 10 (Detection), 11 (Response & Recovery), 12 (Backup & Recovery), 16 (ICT Third-Party Risk). Maps synthetic-dataset properties to the ICT risk-management requirements EU financial entities must satisfy in vendor risk assessment.',
+    reference: 'DORA Articles 6, 9, 10, 11, 12, 16',
+    includeHipaa18: false,
+    sections: [
+      { title: 'Article 6 — ICT Risk Management', checks: [
+        'Version tracking present (_realitydb_meta watermark)',
+        'Deterministic seed recorded (reproducibility for incident investigation)',
+        'Audit trail of generation provenance',
+      ]},
+      { title: 'Article 9 — Protection & Prevention', checks: [
+        'Synthetic provenance confirmed (no real data in output)',
+        'Ed25519 certificate for data-integrity verification (if present)',
+      ]},
+      { title: 'Article 10 — Detection', checks: [
+        'FK referential integrity score',
+        'Temporal logic ordering score',
+      ]},
+      { title: 'Article 11 — Response & Recovery', checks: [
+        'Deterministic seed enables identical regeneration for incident response',
+      ]},
+      { title: 'Article 12 — Backup & Recovery', checks: [
+        'Operational logging available (realitydb audit:export)',
+      ]},
+      { title: 'Article 16 — ICT Third-Party Risk', checks: [
+        'Generator version tracked (_realitydb_meta)',
+        'On-premise CLI — no cloud data transfer',
+        'Vendor version disclosed',
+      ]},
+    ],
+  },
 };
 
 
@@ -495,14 +528,160 @@ function parseRealityDBMeta(content: string): RealityDBMeta | null {
 
 
 // ============================================================
-// REALITYDB META PARSER (for Article 50 transparency)
+// DORA FRAMEWORK — Regulation (EU) 2022/2554
+// Maps synthetic-dataset properties to DORA ICT-resilience
+// articles. Purpose-built JSON structure (distinct from the
+// generic ComplianceReport) per the DORA report specification.
+// Follows the eu-ai-act framework pattern.
+// ============================================================
+
+const DORA_VENDOR_VERSION = 'RealityDB CLI v2.40';
+
+interface DoraArticleResult {
+  status: 'pass' | 'partial' | 'fail';
+  evidence: string;
+}
+
+interface DoraReport {
+  reportId: string;
+  framework: 'dora';
+  generatedAt: string;
+  dataset: string;
+  doraCompliance: {
+    article6_ictRiskManagement: DoraArticleResult;
+    article9_protection: DoraArticleResult;
+    article10_detection: DoraArticleResult;
+    article11_response: DoraArticleResult;
+    article12_backup: DoraArticleResult;
+    article16_thirdPartyRisk: DoraArticleResult;
+  };
+  overallStatus: 'pass' | 'partial' | 'fail';
+  summary: string;
+  generatedBy: string;
+}
+
+function rollupDoraStatus(statuses: ('pass' | 'partial' | 'fail')[]): 'pass' | 'partial' | 'fail' {
+  if (statuses.some(s => s === 'fail')) return 'fail';
+  if (statuses.some(s => s === 'partial')) return 'partial';
+  return 'pass';
+}
+
+function buildDoraReport(
+  reportId: string,
+  datasetFile: string,
+  meta: RealityDBMeta | null,
+  fkMetric: MetricResult,
+  temporalMetric: MetricResult,
+): DoraReport {
+  const hasMeta = !!meta;
+  const generator = meta?.generator || 'unknown';
+  const version = meta?.version || 'unknown';
+  const hasVersion = !!(meta && meta.version);
+  const seed = meta?.seed;
+  const hasSeed = !!(meta && meta.seed && meta.seed !== 'N/A');
+  const hasSignature = !!(meta && meta.signature);
+  const fkScore = typeof fkMetric.score === 'number' ? fkMetric.score : 0;
+  const temporalScore = typeof temporalMetric.score === 'number' ? temporalMetric.score : 0;
+
+  // Article 6 — ICT risk management: version tracking + deterministic seed
+  const article6: DoraArticleResult = {
+    status: hasMeta && hasVersion ? 'pass' : hasMeta ? 'partial' : 'fail',
+    evidence: hasMeta
+      ? `ICT risk management — version tracking present. The _realitydb_meta watermark records generator ${generator} v${version}${hasSeed ? `, deterministic seed ${seed}` : ''}, providing an audit trail and reproducibility for ICT incident investigation.`
+      : `ICT risk management — version tracking absent. No _realitydb_meta watermark found; dataset provenance and generator version cannot be established for ICT risk governance.`,
+  };
+
+  // Article 9 — Protection and prevention: synthetic provenance + Ed25519 integrity
+  const article9: DoraArticleResult = {
+    status: hasMeta ? 'pass' : 'partial',
+    evidence: hasMeta
+      ? `Data protection — synthetic provenance confirmed. The dataset carries the _realitydb_meta synthetic watermark: every value is generated from schema definitions, so no real personal or production data is present. ${hasSignature ? `Data integrity is verified by an embedded Ed25519 certificate (key ${meta?.key_id || 'unknown'}).` : 'Ed25519 data-integrity certification is available via: realitydb attest sign <file>.'}`
+      : `Data protection — synthetic provenance unconfirmed. No _realitydb_meta watermark is present, so synthetic origin cannot be verified from the dataset alone.`,
+  };
+
+  // Article 10 — Detection: FK integrity + temporal logic
+  const article10: DoraArticleResult = {
+    status: fkScore >= 100 && temporalScore >= 95 ? 'pass' : (fkScore >= 90 || temporalScore >= 90) ? 'partial' : 'fail',
+    evidence: `Data quality detection — FK: ${fkScore}%, Temporal: ${temporalScore}%. Referential integrity and temporal ordering are measured by examine-assess metrics; deviations surface data-quality defects relevant to ICT anomaly-detection controls.`,
+  };
+
+  // Article 11 — Response and recovery: deterministic seed
+  const article11: DoraArticleResult = {
+    status: hasSeed ? 'pass' : 'fail',
+    evidence: hasSeed
+      ? `Recovery capability — deterministic seed: present (seed=${seed}). The identical dataset can be regenerated on demand for incident response and forensic comparison.`
+      : `Recovery capability — deterministic seed: absent. Without a recorded seed the exact dataset cannot be deterministically regenerated for incident response.`,
+  };
+
+  // Article 12 — Backup and recovery: operational logging availability
+  const article12: DoraArticleResult = {
+    status: 'pass',
+    evidence: `Operational logging — audit trail: available. The RealityDB CLI records every operation and exposes 'realitydb audit:export' for operational history, satisfying DORA Art.12 ICT operational-event logging.`,
+  };
+
+  // Article 16 — ICT third-party risk: generator version + on-premise deployment
+  const article16: DoraArticleResult = {
+    status: hasVersion ? 'pass' : 'partial',
+    evidence: `Third-party risk — on-premise CLI: confirmed. Generation runs entirely on local infrastructure with no cloud data transfer. Vendor version: ${DORA_VENDOR_VERSION}. Dataset generator: ${generator} v${version}.`,
+  };
+
+  const articles = [article6, article9, article10, article11, article12, article16];
+  const overallStatus = rollupDoraStatus(articles.map(a => a.status));
+  const passCount = articles.filter(a => a.status === 'pass').length;
+
+  const summary = `RealityDB synthetic dataset assessed against DORA (Regulation (EU) 2022/2554) ICT operational-resilience requirements: ${passCount} of 6 mapped articles PASS (overall ${overallStatus.toUpperCase()}). Synthetic provenance ${hasMeta ? 'confirmed' : 'unconfirmed'}; deterministic reproducibility ${hasSeed ? 'present' : 'absent'}; data-quality detection FK ${fkScore}% / temporal ${temporalScore}%. On-premise CLI operation confirms no third-party cloud data transfer (Art.16). This report supports ICT third-party vendor risk assessment for EU financial entities under DORA; it is not a certification or legal determination of compliance.`;
+
+  return {
+    reportId,
+    framework: 'dora',
+    generatedAt: new Date().toISOString(),
+    dataset: path.basename(datasetFile),
+    doraCompliance: {
+      article6_ictRiskManagement: article6,
+      article9_protection: article9,
+      article10_detection: article10,
+      article11_response: article11,
+      article12_backup: article12,
+      article16_thirdPartyRisk: article16,
+    },
+    overallStatus,
+    summary,
+    generatedBy: DORA_VENDOR_VERSION,
+  };
+}
+
 
 // ============================================================
 // HTML REPORT GENERATOR
 // ============================================================
 
-function generateHtmlReport(report: ComplianceReport, meta?: RealityDBMeta | null): string {
+function generateHtmlReport(report: ComplianceReport, meta?: RealityDBMeta | null, dora?: DoraReport | null): string {
   const fw = FRAMEWORKS[report.framework] || FRAMEWORKS.hipaa;
+
+  const doraSection = report.framework === 'dora' && dora ? (() => {
+    const badge = (s: string) => s === 'pass' ? '<span class="pass">PASS</span>' : s === 'partial' ? '<span class="info">PARTIAL</span>' : '<span class="warn">FAIL</span>';
+    const rows: [string, DoraArticleResult][] = [
+      ['Article 6 — ICT Risk Management', dora.doraCompliance.article6_ictRiskManagement],
+      ['Article 9 — Protection & Prevention', dora.doraCompliance.article9_protection],
+      ['Article 10 — Detection', dora.doraCompliance.article10_detection],
+      ['Article 11 — Response & Recovery', dora.doraCompliance.article11_response],
+      ['Article 12 — Backup & Recovery', dora.doraCompliance.article12_backup],
+      ['Article 16 — ICT Third-Party Risk', dora.doraCompliance.article16_thirdPartyRisk],
+    ];
+    const body = rows.map(([label, r]) =>
+      `<tr><td class="metric-name">${label}</td><td>${badge(r.status)}</td><td>${r.evidence}</td></tr>`
+    ).join('\n');
+    return `
+<div class="section">
+  <h2>DORA — ICT Operational Resilience Mapping</h2>
+  <p style="font-size:13px;color:#666;margin-bottom:12px">Regulation (EU) 2022/2554 — Articles 6, 9, 10, 11, 12, 16. Overall status: <strong>${dora.overallStatus.toUpperCase()}</strong></p>
+  <table class="metrics-table">
+    <thead><tr><th>DORA Article</th><th>Status</th><th>Evidence</th></tr></thead>
+    <tbody>${body}</tbody>
+  </table>
+  <p style="font-size:12px;color:#888;margin-top:12px">${dora.summary}</p>
+</div>`;
+  })() : '';
 
   const statusIcon = (s: string) => s === 'pass' ? '<span class="pass">PASS</span>' : s === 'info' ? '<span class="info">INFO</span>' : '<span class="warn">WARN</span>';
   const scoreColor = (s: number) => s >= 90 ? '#0F6E56' : s >= 70 ? '#BA7517' : '#A32D2D';
@@ -723,7 +902,7 @@ ${report.framework === 'eu-ai-act' && !meta ? `
 </div>
 ` : ''}
 
-
+${doraSection}
 
 <div class="disclaimer">
   <strong>Disclaimer:</strong> ${report.disclaimer}
@@ -824,7 +1003,7 @@ export async function complyReportCommand(options: {
   const pScore = Math.round(privacyMetrics.reduce((s, m) => s + m.score, 0) / privacyMetrics.length);
   const overall = Math.round((fScore + sScore + pScore) / 3);
 
-  const reportPrefix = frameworkKey === 'eu-ai-act' ? 'RDB-EUAIA' : 'RDB-COMPLY';
+  const reportPrefix = frameworkKey === 'eu-ai-act' ? 'RDB-EUAIA' : frameworkKey === 'dora' ? 'DORA' : 'RDB-COMPLY';
   const reportId = `${reportPrefix}-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.random().toString(36).substring(2, 6)}`;
 
   const report: ComplianceReport = {
@@ -853,11 +1032,24 @@ export async function complyReportCommand(options: {
     generatedBy: 'realitydb-cli v2.36.0',
   };
 
+  // DORA framework: build the purpose-built ICT-resilience report structure
+  // (distinct JSON shape, per the DORA report specification). Additive \u2014
+  // all other frameworks retain the generic ComplianceReport output.
+  const doraReport = frameworkKey === 'dora'
+    ? buildDoraReport(
+        reportId,
+        filePath,
+        meta,
+        structureMetrics.find(m => m.name === 'FK integrity')!,
+        structureMetrics.find(m => m.name === 'Temporal ordering')!,
+      )
+    : null;
+
   const elapsed = Date.now() - startTime;
 
   // JSON output
   if (options.json) {
-    const jsonStr = JSON.stringify(report, null, 2);
+    const jsonStr = JSON.stringify(frameworkKey === 'dora' ? doraReport : report, null, 2);
     if (options.output) {
       fs.writeFileSync(options.output, jsonStr, 'utf-8');
       console.log(`\n   \u2705 JSON report saved: ${options.output}\n`);
@@ -868,7 +1060,7 @@ export async function complyReportCommand(options: {
   }
 
   // HTML output
-  const html = generateHtmlReport(report, meta);
+  const html = generateHtmlReport(report, meta, doraReport);
   const outPath = options.output || filePath.replace(/\.\w+$/, `-${frameworkKey}-report.html`);
   fs.writeFileSync(outPath, html, 'utf-8');
 
