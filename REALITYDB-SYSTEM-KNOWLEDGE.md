@@ -2,7 +2,7 @@
 **Single source of truth for all commands, capabilities, architecture, and processes**
 
 > Version: auto-generated from CLI v2.38.0 + Studio commit 9b898a7  
-> Last updated: May 3, 2026  
+> Last updated: July 8, 2026  
 > Maintained by: Mpingo Systems LLC  
 > Rule: This document is updated in the same commit as any feature change.
 
@@ -77,15 +77,18 @@ databox/
 │       │   │   ├── run.ts         # seed to database (legacy)
 │       │   │   ├── generate.ts    # generate CSV/JSON/Parquet
 │       │   │   └── [49 others]
-│       │   ├── packs/             # 6 marketplace packs (engine format JSON)
+│       │   ├── packs/             # 9 marketplace packs (engine format JSON)
 │       │   │   ├── fintech.json        # 99/100
 │       │   │   ├── healthcare.json     # 100/100
 │       │   │   ├── oncology.json       # 100/100
 │       │   │   ├── supply-chain.json   # 100/100
 │       │   │   ├── telecom.json        # 99/100
-│       │   │   └── universal.json      # 100/100
+│       │   │   ├── universal.json      # 100/100
+│       │   │   ├── eu-banking.json     # 99/100 (SEPA/PSD2/MiFID II/DORA)
+│       │   │   ├── eu-healthcare.json  # 99/100 (ICD-10/EHDS/GDPR Art.9)
+│       │   │   └── eu-telecom.json     # 99/100 (BEREC/EECC/GDPR consent)
 │       │   └── crypto/            # Ed25519 certification
-│       ├── smoke-test.cjs         # 158/158 integration tests
+│       ├── smoke-test.cjs         # 215/215 integration tests
 │       └── dist/                  # compiled output
 └── realitydb-internal/            # private design docs (not in repo)
     ├── PACK-AUTHORING-PROMPT.md   # AI prompt + 10-section guardrail checklist
@@ -161,7 +164,7 @@ realitydb run \
   [--min-confidence <LOW|MEDIUM|HIGH|VERY_HIGH>]
 ```
 
-**Built-in pack names:** `fintech`, `healthcare`, `oncology`, `supply-chain`, `telecom`, `universal`
+**Built-in pack names:** `fintech`, `healthcare`, `oncology`, `supply-chain`, `telecom`, `universal`, `eu-banking`, `eu-healthcare`, `eu-telecom`
 
 **H9 note:** SQL generation now uses streaming write — no V8 512MB string limit. 5M rows in 34s.
 
@@ -243,6 +246,7 @@ Use to verify budget math before large generations.
 | `examine scan:infer` | Infer pack JSON from SQL schema |
 | `examine temporal` | Check timestamp ordering |
 | `examine anomaly` | Detect anomalies in generated data |
+| `examine bias` | EU AI Act Article 10(f) bias examination — demographic coverage, distribution skew (Gini), proxy detection |
 
 ---
 
@@ -250,9 +254,11 @@ Use to verify budget math before large generations.
 
 | Command | Description |
 |---|---|
-| `comply report` | Generate compliance report (hipaa/sox/gdpr/pci) |
+| `comply report` | Generate compliance report (hipaa/gdpr/pci/soc2/eu-ai-act/dora) |
 | `comply scan` | Scan for compliance issues |
 | `comply doctor` | Auto-fix compliance issues in pack |
+
+**Compliance frameworks (`comply report --framework`):** `hipaa`, `gdpr`, `pci`, `soc2`, `eu-ai-act`, `dora`
 
 ```bash
 realitydb comply report \
@@ -450,6 +456,26 @@ random_string, zip_code, city, state, street_address, template
 | universal.json | 100/100 | HIGH | users, errors |
 | fintech.json | 99/100 | HIGH | customers, merchants |
 | telecom.json | 99/100 | HIGH | subscribers, plans, cell_towers, device_inventory |
+| eu-banking.json | 99/100 | HIGH | customers, currencies |
+| eu-healthcare.json | 99/100 | HIGH | patients, providers, icd10_codes |
+| eu-telecom.json | 99/100 | HIGH | subscribers, network_sites |
+
+### EU Enterprise Packs (July 2026)
+
+Three packs purpose-built for European enterprises:
+`eu-banking` (SEPA/PSD2/MiFID II/DORA), `eu-healthcare` (ICD-10/EHDS/GDPR Art.9),
+`eu-telecom` (BEREC/EECC/GDPR consent). All score 99/100 with FK 100%,
+Temporal 100%, Privacy 100%.
+
+| Pack | Domain | Tables | Score | Frameworks | Commit |
+|---|---|---|---|---|---|
+| `eu-banking` | EU Banking | 11 | 99/100 | SEPA, PSD2, MiFID II, DORA | `87af33d` |
+| `eu-healthcare` | EU Healthcare | 14 | 99/100 | ICD-10, EHDS, GDPR Article 9 | `2b73b9f` |
+| `eu-telecom` | EU Telecom | 12 | 99/100 | BEREC, EECC, GDPR consent | `a51ea5b` |
+
+`comply report` supports: `hipaa`, `gdpr`, `pci`, `soc2`, `eu-ai-act`, `dora`.
+`examine bias` produces EU AI Act Article 10(f) bias examination reports.
+Full pack specs: `realitydb-internal/EU-{BANKING,HEALTHCARE,TELECOM}-PACK-SPEC.md`.
 
 ### Sandbox template scores (audited 2026-05-09)
 
@@ -624,7 +650,7 @@ C:\Users\HP\Documents\realitydb-internal\engine-backups\
 ```powershell
 cd C:\Users\HP\Documents\databox\apps\cli
 node smoke-test.cjs
-# Must show: ✅ Passed: 158 ❌ Failed: 0
+# Must show: ✅ Passed: 215 ❌ Failed: 0
 ```
 
 ### Git conventions
