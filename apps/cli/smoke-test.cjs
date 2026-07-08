@@ -92,7 +92,7 @@ function fileTest(name, filePath, checkFn) {
 const bundledPacks = [];
 if (fs.existsSync(PACKS_DIR)) {
   for (const f of fs.readdirSync(PACKS_DIR)) {
-    if (f.endsWith('.json')) {
+    if (f.endsWith('.json') && !f.startsWith('pipelinekit-')) {
       bundledPacks.push({
         name: f.replace('.json', ''),
         path: path.join(PACKS_DIR, f),
