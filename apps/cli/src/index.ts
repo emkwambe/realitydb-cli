@@ -176,6 +176,7 @@ async function runHandler(options: any) {
         'supply-chain': 'Supply Chain — 24 tables (suppliers, shipments, warehouses)',
         telecom: 'Telecom & Network — 21 tables (subscribers, towers, billing, churn)',
         fintech: 'FinTech Platform — 9 tables (customers, accounts, transactions, fraud)',
+        'eu-banking': 'EU Banking — 11 tables (SEPA, PSD2, MiFID II, KYC, AML/SAR)',
       };
       if (!options.pack.includes('/') && !options.pack.includes('\\') && !options.pack.endsWith('.json')) {
         if (options.pack === 'list') {
