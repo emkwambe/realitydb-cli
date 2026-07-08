@@ -265,6 +265,20 @@ export async function simulateCommand(options: {
     }
   }
 
+  // Resolve built-in pack name (e.g. "fintech", "eu-banking") to its bundled
+  // file path — mirrors the run command's resolution logic.
+  if (!options.pack.includes('/') && !options.pack.includes('\\') && !options.pack.endsWith('.json')) {
+    const packDir = path.resolve(path.dirname(process.argv[1] || __filename), 'packs');
+    const bundledPath = path.resolve(packDir, options.pack + '.json');
+    if (fs.existsSync(bundledPath)) {
+      options.pack = bundledPath;
+    } else {
+      const userDir = path.resolve(process.env.HOME || process.env.USERPROFILE || '.', '.realitydb', 'templates');
+      const userPath = path.resolve(userDir, options.pack + '.json');
+      if (fs.existsSync(userPath)) options.pack = userPath;
+    }
+  }
+
   // Read pack
   const packPath = path.resolve(options.pack);
   if (!fs.existsSync(packPath)) {
