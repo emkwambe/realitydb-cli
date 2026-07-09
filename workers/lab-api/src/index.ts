@@ -12,6 +12,8 @@ interface Env {
   ENVIRONMENT: string;
   STRIPE_SECRET_KEY: string;
   STRIPE_WEBHOOK_SECRET: string;
+  DODO_API_KEY: string;        // Dodo Payments — test secret key
+  DODO_WEBHOOK_SECRET: string; // Dodo Payments — webhook signing secret
 }
 
 interface CreateLabRequest {
@@ -1489,6 +1491,91 @@ async function stripeGET(secretKey: string, endpoint: string): Promise<any> {
   return res.json();
 }
 
+// ============================================================
+// DODO PAYMENTS — primary payment processor (Stripe kept as fallback above)
+// ============================================================
+
+// Dodo API helper — JSON body, Bearer auth (mirrors stripeAPI but JSON not form-encoded)
+async function dodoAPI(
+  secretKey: string,
+  endpoint: string,
+  body?: Record<string, any>
+): Promise<any> {
+  const baseUrl = 'https://test.dodopayments.com';
+  const res = await fetch(`${baseUrl}/${endpoint}`, {
+    method: body ? 'POST' : 'GET',
+    headers: {
+      'Authorization': `Bearer ${secretKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  // Dodo occasionally returns non-JSON (404 HTML, empty body). Parse defensively
+  // so callers get structured data instead of an uncaught throw → 500.
+  const text = await res.text();
+  try {
+    return text ? JSON.parse(text) : {};
+  } catch {
+    return { _dodo_status: res.status, _dodo_raw: text.slice(0, 500) };
+  }
+}
+
+// Business ID: bus_0Ncmo4Hc4s7QRoViHC7Fj
+// Product ID map — canonical source of truth for allowed Dodo products
+const DODO_PRODUCTS: Record<string, string> = {
+  // Subscriptions
+  data_monthly:           'pdt_0NinRP4Mk686aNnADhRhU',  // $19/mo
+  data_annual:            'pdt_0NinRP3HWCLjw69NznlTi',  // $190/yr
+  professional_monthly:   'pdt_0NinRP43pfFk2k5DOihBs',  // $49/mo
+  professional_annual:    'pdt_0NinRP3KWaA3RrS38e7c2',  // $490/yr
+  enterprise_eu_monthly:  'pdt_0NinRP3IFyP7lyd5oDtcO',  // €499/mo
+  enterprise_eu_annual:   'pdt_0NinROrXFUYjVQcupdjhQ',  // €4,990/yr
+  // Credits (one-time)
+  credits_starter:        'pdt_0NinTleLnhc6LEfp5rvtp',  // $9  — 5 runs, 50K rows
+  credits_standard:       'pdt_0NinTldSfH9IE844neEoz',  // $29 — 20 runs, 100K rows
+  credits_research:       'pdt_0NinTlXhKqrkfPuALgsKP',  // $79 — 30 days, 500K rows
+  credits_eu_compliance:  'pdt_0NinTldTP8FAK3o4ky97P',  // €299 — 10 EU runs + comply
+};
+
+// Reverse lookup: product_id → product key
+function dodoProductKey(productId: string): string | undefined {
+  return Object.keys(DODO_PRODUCTS).find((k) => DODO_PRODUCTS[k] === productId);
+}
+
+// Subscription product → tier + explicit entitlement limits (per sprint spec).
+// NOTE: tiers 'data' / 'professional' / 'enterprise_eu' are NOT in TIER_LIMITS,
+// so limits are specified explicitly here rather than looked up.
+interface DodoTierLimits {
+  tier: string;
+  maxRows: number;
+  maxActiveLabs: number;
+  downloadsPerMonth: number;
+  labsDaily: number;
+}
+const DODO_SUBSCRIPTION_TIERS: Record<string, DodoTierLimits> = {
+  data_monthly:          { tier: 'data',          maxRows: 500000,    maxActiveLabs: 3,   downloadsPerMonth: 50,  labsDaily: 3 },
+  data_annual:           { tier: 'data',          maxRows: 500000,    maxActiveLabs: 3,   downloadsPerMonth: 50,  labsDaily: 3 },
+  professional_monthly:  { tier: 'professional',  maxRows: 2000000,   maxActiveLabs: 5,   downloadsPerMonth: 200, labsDaily: 10 },
+  professional_annual:   { tier: 'professional',  maxRows: 2000000,   maxActiveLabs: 5,   downloadsPerMonth: 200, labsDaily: 10 },
+  enterprise_eu_monthly: { tier: 'enterprise_eu', maxRows: 999999999, maxActiveLabs: 999, downloadsPerMonth: 999, labsDaily: 999 },
+  enterprise_eu_annual:  { tier: 'enterprise_eu', maxRows: 999999999, maxActiveLabs: 999, downloadsPerMonth: 999, labsDaily: 999 },
+};
+
+// One-time credit product → grant (per sprint spec).
+interface DodoCreditGrant {
+  runs?: number;
+  euRuns?: number;
+  researchDays?: number;
+  maxRowsPerRun: number;
+  euComplyEnabled?: boolean;
+}
+const DODO_CREDIT_PRODUCTS: Record<string, DodoCreditGrant> = {
+  credits_starter:       { runs: 5,  maxRowsPerRun: 50000 },
+  credits_standard:      { runs: 20, maxRowsPerRun: 100000 },
+  credits_research:      { researchDays: 30, maxRowsPerRun: 500000 },
+  credits_eu_compliance: { euRuns: 10, maxRowsPerRun: 100000, euComplyEnabled: true },
+};
+
 // Subscription price mapping — these get created on first deploy via /v1/stripe/setup
 const SUBSCRIPTION_TIERS: Record<string, { name: string; monthlyPriceCents: number; features: string }> = {
   core: { name: 'RealityDB Core', monthlyPriceCents: 4900, features: '50K rows, 3 active labs, SQL downloads' },
@@ -1801,6 +1888,243 @@ async function verifyStripeSignature(payload: string, header: string, secret: st
     return computed === signature;
   } catch {
     return false;
+  }
+}
+
+// ============================================================
+// DODO PAYMENTS ENDPOINTS
+// ============================================================
+
+// Create a Dodo hosted checkout session
+app.post('/v1/checkout', async (c) => {
+  const env = c.env;
+  if (!env.DODO_API_KEY) return c.json({ error: 'Dodo Payments not configured' }, 500);
+
+  const body = await c.req.json<{
+    product_id: string;
+    user_email: string;
+    success_url: string;
+    cancel_url: string;
+  }>().catch(() => null);
+
+  if (!body || !body.product_id || !body.user_email || !body.success_url || !body.cancel_url) {
+    return c.json({ error: 'product_id, user_email, success_url, and cancel_url are required' }, 400);
+  }
+
+  // Validate product_id is one we recognize
+  if (!dodoProductKey(body.product_id)) {
+    return c.json({ error: `Unknown product_id: ${body.product_id}` }, 400);
+  }
+
+  // Dodo checkout API: POST /checkouts with a `customer` object and `return_url`.
+  // (The sprint spec's `/checkout/sessions` + top-level `customer_email`/`success_url`
+  //  do not match Dodo's current API — corrected here per docs.dodopayments.com.
+  //  Client-facing request/response contract is kept exactly as the sprint defined.)
+  const session = await dodoAPI(env.DODO_API_KEY, 'checkouts', {
+    product_cart: [{ product_id: body.product_id, quantity: 1 }],
+    customer: { email: body.user_email },
+    return_url: body.success_url,
+    cancel_url: body.cancel_url,
+    metadata: {
+      user_email: body.user_email,
+      product_id: body.product_id,
+    },
+  });
+
+  const checkoutUrl = session?.checkout_url || session?.payment_link || session?.url;
+  const sessionId = session?.session_id || session?.id;
+
+  if (!checkoutUrl) {
+    // Surface Dodo's error so it can be debugged rather than returning a false success
+    return c.json({ error: 'Dodo checkout session failed', details: session }, 400);
+  }
+
+  return c.json({ checkout_url: checkoutUrl, session_id: sessionId });
+});
+
+// Dodo webhook handler — verify signature, ack immediately (200), then process async
+app.post('/v1/webhooks/dodo', async (c) => {
+  const env = c.env;
+  const rawBody = await c.req.text();
+
+  const valid = await verifyDodoSignature(
+    rawBody,
+    {
+      id: c.req.header('webhook-id'),
+      timestamp: c.req.header('webhook-timestamp'),
+      signature: c.req.header('webhook-signature'),
+    },
+    env.DODO_WEBHOOK_SECRET
+  );
+
+  if (!valid) return c.json({ error: 'Invalid signature' }, 401);
+
+  // Ack immediately (before processing) to prevent Dodo retries; process in the background.
+  let event: any;
+  try {
+    event = JSON.parse(rawBody);
+  } catch {
+    return c.json({ received: true });
+  }
+  c.executionCtx.waitUntil(processDodoEvent(env, event));
+  return c.json({ received: true });
+});
+
+// Verify a Dodo webhook using the Standard Webhooks scheme (HMAC-SHA256).
+// Signed content = `${webhook-id}.${webhook-timestamp}.${payload}`.
+async function verifyDodoSignature(
+  payload: string,
+  headers: { id?: string; timestamp?: string; signature?: string },
+  secret: string
+): Promise<boolean> {
+  try {
+    const { id, timestamp, signature } = headers;
+    if (!id || !timestamp || !signature || !secret) return false;
+
+    // Replay protection: reject timestamps older than 5 minutes
+    const age = Math.abs(Date.now() / 1000 - parseInt(timestamp, 10));
+    if (!Number.isFinite(age) || age > 300) return false;
+
+    const signedContent = `${id}.${timestamp}.${payload}`;
+    const enc = new TextEncoder();
+
+    // Standard Webhooks secrets are `whsec_<base64>`; the HMAC key is the decoded portion.
+    let keyBytes: Uint8Array;
+    if (secret.startsWith('whsec_')) {
+      keyBytes = Uint8Array.from(atob(secret.slice('whsec_'.length)), (ch) => ch.charCodeAt(0));
+    } else {
+      keyBytes = enc.encode(secret);
+    }
+
+    const computed = await hmacBase64(keyBytes, enc.encode(signedContent));
+
+    // Header is a space-separated list of `v1,<base64sig>` entries
+    const provided = signature.split(' ').map((s) => (s.includes(',') ? s.split(',')[1] : s));
+    if (provided.some((sig) => timingSafeEqual(sig, computed))) return true;
+
+    // Fallback: some setups HMAC the raw (undecoded) secret bytes
+    if (secret.startsWith('whsec_')) {
+      const rawComputed = await hmacBase64(enc.encode(secret), enc.encode(signedContent));
+      if (provided.some((sig) => timingSafeEqual(sig, rawComputed))) return true;
+    }
+
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+async function hmacBase64(keyBytes: Uint8Array, msg: Uint8Array): Promise<string> {
+  const key = await crypto.subtle.importKey('raw', keyBytes, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', key, msg);
+  return btoa(String.fromCharCode(...new Uint8Array(sig)));
+}
+
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let r = 0;
+  for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return r === 0;
+}
+
+// Upsert an entitlement row (mirrors the Stripe webhook upsert; no Stripe IDs).
+async function upsertDodoEntitlement(
+  env: Env,
+  userId: string,
+  limits: DodoTierLimits,
+  status: string,
+  periodEnd: string | null,
+  now: string
+): Promise<void> {
+  const entId = 'ent-' + crypto.randomUUID().split('-')[0];
+  await env.DB.prepare(
+    `INSERT INTO entitlements (id, user_id, tier, max_rows, max_active_labs, downloads_per_month, labs_daily_limit, status, current_period_end, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(user_id) DO UPDATE SET tier=excluded.tier, max_rows=excluded.max_rows, max_active_labs=excluded.max_active_labs, downloads_per_month=excluded.downloads_per_month, labs_daily_limit=excluded.labs_daily_limit, status=excluded.status, current_period_end=excluded.current_period_end, updated_at=excluded.updated_at`
+  ).bind(
+    entId, userId, limits.tier, limits.maxRows, limits.maxActiveLabs, limits.downloadsPerMonth, limits.labsDaily,
+    status, periodEnd, now, now
+  ).run();
+}
+
+// Process a verified Dodo webhook event.
+// NOTE: the entitlements schema has no runs / max_rows_per_run / research_expires_at /
+// eu_runs / eu_comply_enabled columns, so one-time credit grants are recorded in the
+// existing dataset_purchases table (lab_credits_remaining) as the closest existing store.
+// Adding those columns is a separate schema migration (out of scope for this one-file sprint).
+async function processDodoEvent(env: Env, event: any): Promise<void> {
+  const type: string = event?.type;
+  const data: any = event?.data || {};
+  const now = new Date().toISOString();
+
+  const productId: string | undefined = data.product_id || data.product_cart?.[0]?.product_id;
+  const email: string | undefined = data.customer?.email || data.metadata?.user_email;
+  const productKey = productId ? dodoProductKey(productId) : undefined;
+
+  try {
+    switch (type) {
+      case 'payment.succeeded': {
+        // One-time credit purchases (subscription first-payments arrive via subscription.active)
+        if (!email || !productKey) break;
+        const credit = DODO_CREDIT_PRODUCTS[productKey];
+        if (!credit) break;
+
+        const creditsRemaining = credit.runs ?? credit.euRuns ?? (credit.researchDays ? -1 : 0);
+        const purId = 'pur-' + crypto.randomUUID().split('-')[0];
+        await env.DB.prepare(
+          `INSERT INTO dataset_purchases (id, user_id, template, rows, price_cents, stripe_payment_id, status, lab_credits_remaining, created_at, completed_at)
+           VALUES (?, ?, ?, ?, ?, ?, 'completed', ?, ?, ?)`
+        ).bind(
+          purId, email, productKey, credit.maxRowsPerRun, 0,
+          data.payment_id || data.id || null, creditsRemaining, now, now
+        ).run();
+
+        console.log(`Dodo credits: ${email} → ${productKey} (credits=${creditsRemaining}, maxRowsPerRun=${credit.maxRowsPerRun}, euComply=${!!credit.euComplyEnabled})`);
+        break;
+      }
+
+      case 'subscription.active': {
+        if (!email || !productKey) break;
+        const limits = DODO_SUBSCRIPTION_TIERS[productKey];
+        if (!limits) break;
+        const periodEnd: string | null = data.current_period_end || data.next_billing_date || null;
+        await upsertDodoEntitlement(env, email, limits, 'active', periodEnd, now);
+        console.log(`Dodo subscription active: ${email} → ${limits.tier}`);
+        break;
+      }
+
+      case 'subscription.cancelled': {
+        if (!email) break;
+        // Keep access until current_period_end; only flip status.
+        await env.DB.prepare(`UPDATE entitlements SET status = 'cancelled', updated_at = ? WHERE user_id = ?`)
+          .bind(now, email).run();
+        console.log(`Dodo subscription cancelled: ${email}`);
+        break;
+      }
+
+      case 'subscription.renewed': {
+        if (!email) break;
+        const periodEnd: string | null = data.current_period_end || data.next_billing_date || null;
+        await env.DB.prepare(`UPDATE entitlements SET current_period_end = ?, status = 'active', updated_at = ? WHERE user_id = ?`)
+          .bind(periodEnd, now, email).run();
+        console.log(`Dodo subscription renewed: ${email}`);
+        break;
+      }
+
+      case 'subscription.on_hold': {
+        if (!email) break;
+        // Block generation — treat as community tier by marking on_hold.
+        await env.DB.prepare(`UPDATE entitlements SET status = 'on_hold', updated_at = ? WHERE user_id = ?`)
+          .bind(now, email).run();
+        console.log(`Dodo subscription on_hold: ${email}`);
+        break;
+      }
+
+      default:
+        console.log(`Dodo webhook: unhandled event type ${type}`);
+    }
+  } catch (err: any) {
+    console.error(`Dodo event processing error (${type}):`, err?.message);
   }
 }
 
