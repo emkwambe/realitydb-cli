@@ -605,6 +605,55 @@ VITE_AI_PROVIDER=claude   # claude | openai | gemini
 - **URL:** realitydb.dev
 - **Host:** Cloudflare Pages
 
+### Payments
+
+**Primary processor — Dodo Payments**
+- **Business ID:** `bus_0Ncmo4Hc4s7QRoViHC7Fj`
+- **Checkout endpoint:** `POST /v1/checkout` (validates `product_id`, returns `{ checkout_url, session_id }`)
+- **Webhook endpoint:** `https://realitydb-lab-api.eddy-078.workers.dev/v1/webhooks/dodo`
+  (Standard Webhooks HMAC-SHA256; verifies `webhook-id`/`webhook-timestamp`/`webhook-signature`, 401 on invalid)
+- **API host:** `https://test.dodopayments.com` (test mode), real endpoint is `POST /checkouts`
+- **Secrets (Worker):** `DODO_API_KEY`, `DODO_WEBHOOK_SECRET` (stored verbatim; `whsec_` portion base64-decoded for HMAC)
+- **Status:** Code live (commit `63ab911`, `workers/lab-api/src/index.ts`). Product IDs need live/test-mode alignment to complete checkout (gate 3).
+
+**Secondary processor — Stripe (preserved as fallback)**
+- **Account:** `acct_1TLxaa6sezd2LSNW`
+- **Endpoints (intact):** `/v1/stripe/setup`, `/v1/stripe/checkout`, `/v1/stripe/portal`, `/v1/stripe/webhook`
+- **Status:** Code preserved; Stripe webhook and checkout endpoints intact.
+
+#### Dodo Products (10 total)
+
+| Key | Product ID | Price |
+|---|---|---|
+| `data_monthly` | `pdt_0NinRP4Mk686aNnADhRhU` | $19/mo |
+| `data_annual` | `pdt_0NinRP3HWCLjw69NznlTi` | $190/yr |
+| `professional_monthly` | `pdt_0NinRP43pfFk2k5DOihBs` | $49/mo |
+| `professional_annual` | `pdt_0NinRP3KWaA3RrS38e7c2` | $490/yr |
+| `enterprise_eu_monthly` | `pdt_0NinRP3IFyP7lyd5oDtcO` | €499/mo |
+| `enterprise_eu_annual` | `pdt_0NinROrXFUYjVQcupdjhQ` | €4,990/yr |
+| `credits_starter` | `pdt_0NinTleLnhc6LEfp5rvtp` | $9 |
+| `credits_standard` | `pdt_0NinTldSfH9IE844neEoz` | $29 |
+| `credits_research` | `pdt_0NinTlXhKqrkfPuALgsKP` | $79 |
+| `credits_eu_compliance` | `pdt_0NinTldTP8FAK3o4ky97P` | €299 |
+
+#### Pricing Tiers
+
+| Tier | Price | Includes |
+|---|---|---|
+| Community | $0 | 10K rows/run, 3 runs/day, no compliance commands |
+| Data | $19/mo | Unlimited generation, ML commands, buyer watermark |
+| Professional | $49/mo | `comply report`, `examine bias`, `attest sign` |
+| Enterprise EU | €499/mo | On-premise, DPA, SEPA, dedicated support |
+
+#### Pending
+
+- Dodo business verification (submitted, 1–2 business days)
+- Product ID alignment (live mode vs test mode) — required to complete gate 3 checkout
+- Magic link auth system (not yet built)
+- Buyer watermark embedding in generation output (not yet built)
+- Pricing page at `realitydb.dev/pricing` (not yet built)
+- `/verify/:generation_id` endpoint (not yet built)
+
 ---
 
 ## 8. Development Conventions
