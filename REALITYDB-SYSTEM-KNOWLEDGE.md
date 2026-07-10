@@ -700,6 +700,7 @@ C:\Users\HP\Documents\realitydb-internal\engine-backups\
 cd C:\Users\HP\Documents\databox\apps\cli
 node smoke-test.cjs
 # Must show: ✅ Passed: 215 ❌ Failed: 0
+# Baseline: 215/215 at CLI v2.40.2 (post city-country pack fix, commit 7c32eb1)
 ```
 
 ### Git conventions
@@ -934,6 +935,17 @@ Marketplace:  score ≥ 97, confidence ≥ MEDIUM, citations required
 Academic:     score ≥ 99, confidence ≥ HIGH, all distributions cited
 Enterprise:   score = 100, confidence = VERY_HIGH, named human sign-off
 ```
+
+### Pack quality fixes
+
+**PACK QUALITY FIX — commit `7c32eb1` (2026-07-10)**
+- **Issue:** independent city generator produced impossible city-country combinations (US/Mumbai, FR/Tokyo, DE/New York).
+- **Fix:** replaced `"strategy": "city"` with a 22-city Western enum in:
+  - `fintech.json` (customers, merchants)
+  - `universal.json` (addresses)
+  - `pipelinekit-orders.json` (customers, addresses)
+- **Result:** non-Western impossibilities eliminated. Within-Western mismatches (US/Berlin, DE/Houston) accepted as international account holders. Per-row correlation deferred to Phase 5 `dependent_enum` strategy.
+- **Verified:** 215/215 smoke tests. fintech `examine assess` 99/100 at 10K rows.
 
 ## Appendix C — File Locations (Windows)
 
