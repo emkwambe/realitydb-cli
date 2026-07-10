@@ -86,7 +86,20 @@
         "full_name": { "strategy": "full_name" },
         "email": { "strategy": "email" },
         "phone": { "strategy": "phone" },
-        "city": { "strategy": "city" },
+        "city": {
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "New York", "Houston", "Chicago", "Phoenix", "Los Angeles", "Dallas",
+              "London", "Manchester", "Birmingham",
+              "Toronto", "Vancouver", "Calgary",
+              "Sydney", "Melbourne", "Brisbane",
+              "Berlin", "Munich", "Hamburg", "Frankfurt",
+              "Paris", "Lyon", "Marseille"
+            ],
+            "weights": [10, 6, 6, 4, 5, 4, 5, 2, 2, 5, 2, 2, 3, 2, 1, 3, 2, 2, 2, 3, 2, 1]
+          }
+        },
         "customer_tier": {
           "strategy": "enum",
           "options": {
@@ -187,7 +200,20 @@
           "foreignKey": { "table": "customers", "column": "id" }
         },
         "street_address": { "strategy": "street_address" },
-        "city": { "strategy": "city" },
+        "city": {
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "New York", "Houston", "Chicago", "Phoenix", "Los Angeles", "Dallas",
+              "London", "Manchester", "Birmingham",
+              "Toronto", "Vancouver", "Calgary",
+              "Sydney", "Melbourne", "Brisbane",
+              "Berlin", "Munich", "Hamburg", "Frankfurt",
+              "Paris", "Lyon", "Marseille"
+            ],
+            "weights": [10, 6, 6, 4, 5, 4, 5, 2, 2, 5, 2, 2, 3, 2, 1, 3, 2, 2, 2, 3, 2, 1]
+          }
+        },
         "state": { "strategy": "state" },
         "zip_code": { "strategy": "zip_code" },
         "created_at": { "strategy": "timestamp" }
