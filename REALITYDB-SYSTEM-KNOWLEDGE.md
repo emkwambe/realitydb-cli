@@ -1,8 +1,8 @@
 # RealityDB Platform — System Knowledge Base
 **Single source of truth for all commands, capabilities, architecture, and processes**
 
-> Version: auto-generated from CLI v2.38.0 + Studio commit 9b898a7  
-> Last updated: July 8, 2026  
+> Version: auto-generated from CLI v2.40.2 + Studio commit 9b898a7  
+> Last updated: July 10, 2026  
 > Maintained by: Mpingo Systems LLC  
 > Rule: This document is updated in the same commit as any feature change.
 
@@ -760,6 +760,33 @@ fix: H7v2 chunk-parse assessor + CRLF boundary fix
 ---
 
 ## 10. Session History and Decision Log
+
+### July 10, 2026 — CLI v2.40.2 security release
+
+**CLI version:** 2.40.2 (was 2.40.1) — published to npm `@realitydb/cli` on 2026-07-10.
+
+**Security fix — hardcoded `LAB_API_KEY` removed from CLI source** (`apps/cli/src/commands/lab.ts`):
+- `getApiKey()` now checks the `REALITYDB_API_KEY` env var first
+- falls back to the license file (`~/.realitydb/config`)
+- throws a helpful message if neither is present (`realitydb auth login` or set `REALITYDB_API_KEY`)
+- no credentials in the published npm package (verified: `rdb_lab_mpingo_2026` absent from `dist/index.js`)
+- Commits: `736a56a` (fix), `3b40584` (npm pkg fix). Smoke test 215/215.
+
+**`LAB_API_KEY` rotated 2026-07-10:**
+- old key `rdb_lab_mpingo_2026` is now invalid
+- new key stored in Cloudflare Worker secrets only (never in source)
+- Lab API Worker redeployed: version `6332916e`
+
+**npm token — granular access token created 2026-07-10:**
+- name: `realitydb-cli-publish-2026`
+- scope: `@realitydb` (read and write)
+- expires: 2026-08-09 — **rotate before expiry**
+
+**Pending security items:**
+- Magic link auth + JWT for CLI entitlement gating
+- Rate limiting on `/v1/labs` endpoint
+- Input validation on pack JSON files
+- Third-party pen test before enterprise DPA signing
 
 ### May 4, 2026 — SafeSQL Sprint 2 closeout
 
