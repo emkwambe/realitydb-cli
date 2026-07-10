@@ -9,21 +9,10 @@
         "id": { "strategy": "uuid" },
         "full_name": { "strategy": "full_name" },
         "email": {
-          "strategy": "enum",
+          "strategy": "dependent_email",
           "options": {
-            "values": [
-              "user8821@gmail.com", "contact4432@yahoo.com",
-              "me7743@hotmail.com", "info2291@proton.me",
-              "hello5512@outlook.com", "account9934@gmail.com",
-              "member3318@yahoo.com", "client7721@hotmail.com",
-              "secure4429@proton.me", "private8832@outlook.com",
-              "user2245@gmail.com", "contact7789@yahoo.com",
-              "me3312@hotmail.com", "info8821@proton.me",
-              "hello4423@outlook.com", "account1178@gmail.com",
-              "member9934@yahoo.com", "client2256@hotmail.com",
-              "secure7743@proton.me", "private3318@outlook.com"
-            ],
-            "weights": [5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5]
+            "derivesFrom": "full_name",
+            "domains": ["gmail.com", "yahoo.com", "hotmail.com", "proton.me", "outlook.com"]
           }
         },
         "phone": { "strategy": "phone" },
@@ -77,33 +66,19 @@
       "columns": {
         "id": { "strategy": "uuid" },
         "name": {
-          "strategy": "enum",
+          "strategy": "dependent_enum",
           "options": {
-            "values": [
-              "Metro Mart", "FreshGrove", "Daily Basket", "Corner Pantry",
-              "QuickStop", "City Deli", "Green Valley Market", "Urban Grocer",
-              "Spice Garden", "The Curry House", "Burger Republic", "Noodle Bar",
-              "Sakura Sushi", "Pita Palace", "Taco Mundo", "La Trattoria",
-              "SkyHigh Airlines", "FastTrack Rail", "Global Stays", "Budget Inn",
-              "City Cab", "Metro Shuttle", "Wanderlust Tours",
-              "CityPlex Cinema", "GameZone", "StreamFest", "LiveNation Tickets",
-              "MedPlus Pharmacy", "HealthFirst Clinic", "DentalCare Plus",
-              "VisionPro Opticians",
-              "TechHub Electronics", "StyleZone Apparel", "HomeGoods Plus",
-              "BookWorld", "SportsPro", "GadgetMart",
-              "NetPay", "SwiftTransfer", "CryptoEx", "PayLink",
-              "Other Merchant"
-            ],
-            "weights": [
-              3,3,3,3,3,3,3,3,
-              4,4,4,4,4,4,4,4,
-              3,3,3,3,3,3,3,
-              3,3,3,3,
-              3,3,3,3,
-              3,3,3,3,3,3,
-              3,3,3,3,
-              2
-            ]
+            "dependsOn": "category",
+            "map": {
+              "grocery":       ["Metro Mart", "FreshGrove", "Daily Basket", "Corner Pantry", "Urban Grocer"],
+              "restaurant":    ["Spice Garden", "The Curry House", "Noodle Bar", "Sakura Sushi", "La Trattoria"],
+              "travel":        ["SkyHigh Airlines", "Global Stays", "Budget Inn", "City Cab", "Wanderlust Tours"],
+              "entertainment": ["CityPlex Cinema", "GameZone", "StreamFest", "LiveNation Tickets"],
+              "healthcare":    ["MedPlus Pharmacy", "HealthFirst Clinic", "DentalCare Plus", "VisionPro Opticians"],
+              "retail":        ["TechHub Electronics", "StyleZone Apparel", "HomeGoods Plus", "SportsPro"],
+              "online":        ["NetPay", "SwiftTransfer", "CryptoEx", "PayLink"],
+              "other":         ["Other Merchant"]
+            }
           }
         },
         "category": {
