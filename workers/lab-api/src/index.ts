@@ -1501,7 +1501,7 @@ async function dodoAPI(
   endpoint: string,
   body?: Record<string, any>
 ): Promise<any> {
-  const baseUrl = 'https://test.dodopayments.com';
+  const baseUrl = 'https://live.dodopayments.com';
   const res = await fetch(`${baseUrl}/${endpoint}`, {
     method: body ? 'POST' : 'GET',
     headers: {
@@ -1524,17 +1524,17 @@ async function dodoAPI(
 // Product ID map — canonical source of truth for allowed Dodo products
 const DODO_PRODUCTS: Record<string, string> = {
   // Subscriptions
-  data_monthly:           'pdt_0NinRP4Mk686aNnADhRhU',  // $19/mo
-  data_annual:            'pdt_0NinRP3HWCLjw69NznlTi',  // $190/yr
-  professional_monthly:   'pdt_0NinRP43pfFk2k5DOihBs',  // $49/mo
-  professional_annual:    'pdt_0NinRP3KWaA3RrS38e7c2',  // $490/yr
-  enterprise_eu_monthly:  'pdt_0NinRP3IFyP7lyd5oDtcO',  // €499/mo
-  enterprise_eu_annual:   'pdt_0NinROrXFUYjVQcupdjhQ',  // €4,990/yr
+  data_monthly:           'pdt_0Nirf6Mx6bpCNmvw95xUp',  // $19/mo
+  data_annual:            'pdt_0Nirf6QAWnvSfWIQ7vuHw',  // $190/yr
+  professional_monthly:   'pdt_0NirfGsVdeTfxs1dDREhp',  // $49/mo
+  professional_annual:    'pdt_0NirfGvvtkR7JFAS2XPyF',  // $490/yr
+  enterprise_eu_monthly:  'pdt_0NirfeJV05qMdKB2WSu2g',  // €499/mo
+  enterprise_eu_annual:   'pdt_0NirfeOfJwXzZupRtDrua',  // €4,990/yr
   // Credits (one-time)
-  credits_starter:        'pdt_0NinTleLnhc6LEfp5rvtp',  // $9  — 5 runs, 50K rows
-  credits_standard:       'pdt_0NinTldSfH9IE844neEoz',  // $29 — 20 runs, 100K rows
-  credits_research:       'pdt_0NinTlXhKqrkfPuALgsKP',  // $79 — 30 days, 500K rows
-  credits_eu_compliance:  'pdt_0NinTldTP8FAK3o4ky97P',  // €299 — 10 EU runs + comply
+  credits_starter:        'pdt_0NirfeTLQMc7V6kgvfjMB',  // $9  — 5 runs, 50K rows
+  credits_standard:       'pdt_0Nirfs73dKQndnUGJgPh7',  // $29 — 20 runs, 100K rows
+  credits_research:       'pdt_0Nirfs8ke53HBG9iWKDvq',  // $79 — 30 days, 500K rows
+  credits_eu_compliance:  'pdt_0Nirfs9a1QlZ5AIDEBM7T',  // €299 — 10 EU runs + comply
 };
 
 // Reverse lookup: product_id → product key
