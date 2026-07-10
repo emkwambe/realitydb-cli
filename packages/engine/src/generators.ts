@@ -1,9 +1,32 @@
-export function generateMockValue(colDef: any, colName?: string, tableName?: string): any {
+// ─── Seeded PRNG — mulberry32 ────────────────────────────────────────────────
+// Inlined to preserve @realitydb/engine's zero-dependency contract.
+// Same seed always produces the identical output sequence; an undefined seed
+// falls back to rng() so existing unseeded callers are unaffected.
+export function createRng(seed: number | undefined): () => number {
+  if (seed === undefined || seed === null || Number.isNaN(seed)) return Math.random;
+  let state = seed | 0;
+  return function (): number {
+    state = (state + 0x6d2b79f5) | 0;
+    let t = Math.imul(state ^ (state >>> 15), 1 | state);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// Deterministic base timestamp derived from the seed (2024 anchor), so the
+// timestamp/past_date/future_date strategies reproduce under a fixed seed.
+// Undefined seed → Date.now() (current wall-clock behavior preserved).
+export function deriveBaseEpoch(seed: number | undefined): number {
+  if (seed === undefined || seed === null || Number.isNaN(seed)) return Date.now();
+  return new Date('2024-01-01').getTime() + (seed % (365 * 24 * 60 * 60 * 1000));
+}
+
+export function generateMockValue(colDef: any, colName?: string, tableName?: string, rng: () => number = Math.random, baseEpoch?: number): any {
   if (typeof colDef === 'string') {
-    return generateByStrategy(colDef, {}, colName, tableName);
+    return generateByStrategy(colDef, {}, colName, tableName, rng, baseEpoch);
   }
   if (colDef && typeof colDef === 'object') {
-    return generateByStrategy(colDef.strategy || 'text', colDef.options || {}, colName, tableName);
+    return generateByStrategy(colDef.strategy || 'text', colDef.options || {}, colName, tableName, rng, baseEpoch);
   }
   return 'mock_value';
 }
@@ -76,32 +99,32 @@ function pickCompanyNamePool(colName?: string, tableName?: string): string[] {
   ];
 }
 
-export function generateByStrategy(strategy: string, options: any, colName?: string, tableName?: string): any {
+export function generateByStrategy(strategy: string, options: any, colName?: string, tableName?: string, rng: () => number = Math.random, baseEpoch?: number): any {
   switch (strategy) {
     case 'uuid':
-      return `${randomHex(8)}-${randomHex(4)}-4${randomHex(3)}-${randomHex(4)}-${randomHex(12)}`;
+      return `${randomHex(8, rng)}-${randomHex(4, rng)}-4${randomHex(3, rng)}-${randomHex(4, rng)}-${randomHex(12, rng)}`;
     case 'company_name': {
       const companies = pickCompanyNamePool(colName, tableName);
-      return companies[Math.floor(Math.random() * companies.length)];
+      return companies[Math.floor(rng() * companies.length)];
     }
     case 'enum':
       if (options?.values && Array.isArray(options.values)) {
         if (options.weights && Array.isArray(options.weights)) {
-          return weightedRandom(options.values, options.weights);
+          return weightedRandom(options.values, options.weights, rng);
         }
-        return options.values[Math.floor(Math.random() * options.values.length)];
+        return options.values[Math.floor(rng() * options.values.length)];
       }
       return 'option_a';
     case 'timestamp': {
-      const now = Date.now();
-      const past = now - Math.floor(Math.random() * 365 * 24 * 60 * 60 * 1000);
+      const now = baseEpoch ?? Date.now();
+      const past = now - Math.floor(rng() * 365 * 24 * 60 * 60 * 1000);
       return new Date(past).toISOString();
     }
     case 'integer':
     case 'int': {
       const min = options?.min ?? 1;
       const max = options?.max ?? 1000;
-      return Math.floor(Math.random() * (max - min + 1)) + min;
+      return Math.floor(rng() * (max - min + 1)) + min;
     }
     case 'float':
     case 'decimal':
@@ -113,21 +136,21 @@ export function generateByStrategy(strategy: string, options: any, colName?: str
 
       if (dist === 'normal') {
         // Box-Muller transform for Normal sampling
-        const u1 = Math.random() || 1e-10; // avoid log(0)
-        const u2 = Math.random();
+        const u1 = rng() || 1e-10; // avoid log(0)
+        const u2 = rng();
         const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
         const mean = options?.mean ?? (fmin + fmax) / 2;
         const stddev = options?.stddev ?? (fmax - fmin) / 6;
         fvalue = mean + stddev * z;
       } else if (dist === 'weibull') {
         // Inverse CDF sampling: x = lambda * (-ln(1 - u))^(1/k)
-        const u = Math.random();
+        const u = rng();
         const k = options?.k ?? 1.5;
         const lambda = options?.lambda ?? (fmax - fmin) / 2;
         fvalue = lambda * Math.pow(-Math.log(1 - u), 1 / k);
       } else {
         // Uniform (default, unchanged behavior)
-        fvalue = Math.random() * (fmax - fmin) + fmin;
+        fvalue = rng() * (fmax - fmin) + fmin;
       }
 
       // Clip to declared range
@@ -135,46 +158,46 @@ export function generateByStrategy(strategy: string, options: any, colName?: str
       return parseFloat(fvalue.toFixed(2));
     }
     case 'boolean':
-      return Math.random() > 0.5;
+      return rng() > 0.5;
     case 'email': {
       const emailPrefixes = ['alex', 'maria', 'chen', 'fatima', 'omar', 'priya', 'james', 'sarah', 'raj', 'elena'];
       const emailDomains = ['gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'proton.me'];
-      return `${emailPrefixes[Math.floor(Math.random() * emailPrefixes.length)]}${Math.floor(Math.random() * 9999)}@${emailDomains[Math.floor(Math.random() * emailDomains.length)]}`;
+      return `${emailPrefixes[Math.floor(rng() * emailPrefixes.length)]}${Math.floor(rng() * 9999)}@${emailDomains[Math.floor(rng() * emailDomains.length)]}`;
     }
     case 'phone':
-      return `+1${Math.floor(1000000000 + Math.random() * 9000000000)}`;
+      return `+1${Math.floor(1000000000 + rng() * 9000000000)}`;
     case 'text':
     case 'string': {
       if (colName && /name/i.test(colName)) {
         const fn = ['James', 'Maria', 'Chen', 'Fatima', 'Alex', 'Priya', 'Omar', 'Sarah'];
         const ln = ['Smith', 'Garcia', 'Wang', 'Johnson', 'Patel', 'Kim', 'Brown', 'Ali'];
-        return fn[Math.floor(Math.random() * fn.length)] + ' ' + ln[Math.floor(Math.random() * ln.length)];
+        return fn[Math.floor(rng() * fn.length)] + ' ' + ln[Math.floor(rng() * ln.length)];
       }
-      return 'item_' + Math.floor(Math.random() * 10000);
+      return 'item_' + Math.floor(rng() * 10000);
     }
     case 'name':
     case 'full_name': {
       const firstNames = ['James', 'Maria', 'Chen', 'Fatima', 'Alex', 'Priya', 'Omar', 'Sarah'];
       const lastNames = ['Smith', 'Garcia', 'Wang', 'Johnson', 'Patel', 'Kim', 'Brown', 'Ali'];
-      return `${firstNames[Math.floor(Math.random() * firstNames.length)]} ${lastNames[Math.floor(Math.random() * lastNames.length)]}`;
+      return `${firstNames[Math.floor(rng() * firstNames.length)]} ${lastNames[Math.floor(rng() * lastNames.length)]}`;
     }
     case 'address':
-      return `${Math.floor(Math.random() * 9999)} Main St, City, ST ${Math.floor(10000 + Math.random() * 89999)}`;
+      return `${Math.floor(rng() * 9999)} Main St, City, ST ${Math.floor(10000 + rng() * 89999)}`;
     case 'future_date': {
-      const future = new Date(Date.now() + Math.floor(Math.random() * 365 * 24 * 60 * 60 * 1000));
+      const future = new Date((baseEpoch ?? Date.now()) + Math.floor(rng() * 365 * 24 * 60 * 60 * 1000));
       return future.toISOString();
     }
     case 'random_string': {
       const words = ['alpha', 'bravo', 'charlie', 'delta', 'echo', 'foxtrot', 'golf', 'hotel', 'india', 'juliet', 'kilo', 'lima', 'mike', 'nova', 'oscar', 'papa', 'quebec', 'romeo', 'sierra', 'tango'];
-      return words[Math.floor(Math.random() * words.length)] + '-' + words[Math.floor(Math.random() * words.length)] + '-' + Math.floor(Math.random() * 10000);
+      return words[Math.floor(rng() * words.length)] + '-' + words[Math.floor(rng() * words.length)] + '-' + Math.floor(rng() * 10000);
     }
     case 'past_date': {
       const minYears = options?.minYearsAgo ?? 0;
       const maxYears = options?.maxYearsAgo ?? 3;
-      const pastNow = Date.now();
+      const pastNow = baseEpoch ?? Date.now();
       const minMs = minYears * 365.25 * 24 * 60 * 60 * 1000;
       const maxMs = maxYears * 365.25 * 24 * 60 * 60 * 1000;
-      const pastTime = pastNow - minMs - Math.floor(Math.random() * (maxMs - minMs || 1));
+      const pastTime = pastNow - minMs - Math.floor(rng() * (maxMs - minMs || 1));
       return new Date(pastTime).toISOString();
     }
     case 'template': {
@@ -196,19 +219,19 @@ export function generateByStrategy(strategy: string, options: any, colName?: str
   // {{firstName}} — replace ALL occurrences (the old code used .replace which
   // only replaces the first match; multi-token patterns silently broke).
   while (tmpl.includes('{{firstName}}')) {
-    tmpl = tmpl.replace('{{firstName}}', tNames[Math.floor(Math.random() * tNames.length)]);
+    tmpl = tmpl.replace('{{firstName}}', tNames[Math.floor(rng() * tNames.length)]);
   }
  
   // {{domain}} — replace all
   while (tmpl.includes('{{domain}}')) {
-    tmpl = tmpl.replace('{{domain}}', tDomains[Math.floor(Math.random() * tDomains.length)]);
+    tmpl = tmpl.replace('{{domain}}', tDomains[Math.floor(rng() * tDomains.length)]);
   }
  
   // {{rowIndex}} — replace all. Use threaded row index when available.
   while (tmpl.includes('{{rowIndex}}')) {
     const rowIdx = options?._rowIndex !== undefined
       ? options._rowIndex
-      : Math.floor(Math.random() * 99999);
+      : Math.floor(rng() * 99999);
     tmpl = tmpl.replace('{{rowIndex}}', String(rowIdx));
   }
  
@@ -219,7 +242,7 @@ export function generateByStrategy(strategy: string, options: any, colName?: str
     const numMin = typeof options?.min === 'number' ? options.min : 1;
     const numMax = typeof options?.max === 'number' ? options.max : 9999;
     const span = Math.max(1, numMax - numMin);
-    const numVal = numMin + Math.floor(Math.random() * (span + 1));
+    const numVal = numMin + Math.floor(rng() * (span + 1));
     tmpl = tmpl.replace('{{number}}', String(numVal));
   }
  
@@ -229,44 +252,44 @@ export function generateByStrategy(strategy: string, options: any, colName?: str
 }
     case 'street_address': {
       const saStreets = ['Main St', 'Oak Ave', 'Park Blvd', 'Cedar Ln', 'Elm St', 'Maple Dr', 'Pine Rd', 'Lake Way'];
-      return Math.floor(100 + Math.random() * 9900) + ' ' + saStreets[Math.floor(Math.random() * saStreets.length)];
+      return Math.floor(100 + rng() * 9900) + ' ' + saStreets[Math.floor(rng() * saStreets.length)];
     }
     case 'city': {
       const gCities = ['New York', 'Los Angeles', 'Chicago', 'Houston', 'Phoenix', 'London', 'Toronto', 'Berlin', 'Sydney', 'Mumbai', 'Nairobi', 'Lagos'];
-      return gCities[Math.floor(Math.random() * gCities.length)];
+      return gCities[Math.floor(rng() * gCities.length)];
     }
     case 'state': {
       const gStates = ['NY', 'CA', 'IL', 'TX', 'AZ', 'FL', 'WA', 'CO', 'GA', 'NC', 'ON', 'BC'];
-      return gStates[Math.floor(Math.random() * gStates.length)];
+      return gStates[Math.floor(rng() * gStates.length)];
     }
     case 'zip_code':
-      return String(10000 + Math.floor(Math.random() * 89999));
+      return String(10000 + Math.floor(rng() * 89999));
     case 'ip_address':
-      return [10, Math.floor(Math.random() * 255), Math.floor(Math.random() * 255), Math.floor(1 + Math.random() * 254)].join('.');
+      return [10, Math.floor(rng() * 255), Math.floor(rng() * 255), Math.floor(1 + rng() * 254)].join('.');
     case 'number': {
       const nMin = options?.min ?? 1;
       const nMax = options?.max ?? 1000;
       const nPrec = options?.precision;
-      const nVal = Math.random() * (nMax - nMin) + nMin;
+      const nVal = rng() * (nMax - nMin) + nMin;
       return nPrec !== undefined ? parseFloat(nVal.toFixed(nPrec)) : Math.floor(nVal);
     }
     default:
-      return `mock_${strategy}_${Math.floor(Math.random() * 1000)}`;
+      return `mock_${strategy}_${Math.floor(rng() * 1000)}`;
   }
 }
 
-export function randomHex(length: number): string {
+export function randomHex(length: number, rng: () => number = Math.random): string {
   let result = '';
   const chars = '0123456789abcdef';
   for (let i = 0; i < length; i++) {
-    result += chars[Math.floor(Math.random() * chars.length)];
+    result += chars[Math.floor(rng() * chars.length)];
   }
   return result;
 }
 
-export function weightedRandom(values: any[], weights: number[]): any {
+export function weightedRandom(values: any[], weights: number[], rng: () => number = Math.random): any {
   const totalWeight = weights.reduce((a, b) => a + b, 0);
-  let random = Math.random() * totalWeight;
+  let random = rng() * totalWeight;
   for (let i = 0; i < values.length; i++) {
     random -= weights[i];
     if (random <= 0) return values[i];

@@ -1,5 +1,5 @@
 import type { NormalizedTable, GenerationResult } from './types';
-import { generateMockValue } from './generators';
+import { generateMockValue, createRng, deriveBaseEpoch, weightedRandom } from './generators';
 
 export function topologicalSort(tables: NormalizedTable[]): NormalizedTable[] {
   const tableMap = new Map(tables.map(t => [t.name, t]));
@@ -29,22 +29,22 @@ export function topologicalSort(tables: NormalizedTable[]): NormalizedTable[] {
 
 // --- Variable Cardinality Support ---
 
-function samplePoisson(lambda: number): number {
+function samplePoisson(lambda: number, rng: () => number = Math.random): number {
   if (lambda <= 0) return 0;
   if (lambda < 30) {
     const L = Math.exp(-lambda);
     let k = 0;
     let p = 1;
-    do { k++; p *= Math.random(); } while (p > L);
+    do { k++; p *= rng(); } while (p > L);
     return k - 1;
   } else {
-    const u = Math.random();
-    const z = Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * Math.random());
+    const u = rng();
+    const z = Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rng());
     return Math.max(0, Math.round(lambda + Math.sqrt(lambda) * z));
   }
 }
 
-function sampleCardinality(config: any): number {
+function sampleCardinality(config: any, rng: () => number = Math.random): number {
   if (!config || !config.strategy) return 1;
   let count: number;
   switch (config.strategy) {
@@ -52,10 +52,10 @@ function sampleCardinality(config: any): number {
       count = config.mean || 1;
       break;
     case 'poisson':
-      count = samplePoisson(config.mean || 1);
+      count = samplePoisson(config.mean || 1, rng);
       break;
     case 'uniform':
-      count = Math.floor(Math.random() * ((config.max || 3) - (config.min || 1) + 1)) + (config.min || 1);
+      count = Math.floor(rng() * ((config.max || 3) - (config.min || 1) + 1)) + (config.min || 1);
       break;
     default:
       count = 1;
@@ -193,8 +193,12 @@ export function generateData(
   ordered: NormalizedTable[],
   rowsPerTable: Record<string, number>,
   pack: any,
+  seed?: number,
 ): GenerationResult {
   const startTime = Date.now();
+  // Single shared seeded stream for the whole generation; undefined seed → Math.random.
+  const rng = createRng(seed);
+  const baseEpoch = deriveBaseEpoch(seed);
   const generatedIds: Record<string, any[]> = {};
   const allData: Record<string, any[]> = {};
 
@@ -211,7 +215,7 @@ export function generateData(
       for (const [colName, colDef] of Object.entries(table.columns)) {
         const def = colDef as any;
         if (def?.strategy === 'enum' && def?.options?.lifecycleRules) {
-          const enumValue = generateMockValue(def, colName, table.name);
+          const enumValue = generateMockValue(def, colName, table.name, rng, baseEpoch);
           row[colName] = enumValue;
           for (const rule of def.options.lifecycleRules) {
             if (rule.value === enumValue && rule.nullFields) {
@@ -239,15 +243,19 @@ export function generateData(
           const refTable = def.foreignKey.table;
           const refIds = generatedIds[refTable];
           if (refIds && refIds.length > 0) {
-            row[colName] = refIds[Math.floor(Math.random() * refIds.length)];
+            row[colName] = refIds[Math.floor(rng() * refIds.length)];
           } else {
-            row[colName] = generateMockValue(def, colName, table.name);
+            row[colName] = generateMockValue(def, colName, table.name, rng, baseEpoch);
           }
-        } else if (def?.options?.dependsOn && def?.options?.dependencyRule === 'after') {
+        } else if (
+          (def?.options?.dependsOn && def?.options?.dependencyRule === 'after') ||
+          def?.strategy === 'dependent_enum' ||
+          def?.strategy === 'dependent_email'
+        ) {
           // Skip — handled in third pass after all other columns have values
           continue;
         } else {
-          row[colName] = generateMockValue(def, colName, table.name);
+          row[colName] = generateMockValue(def, colName, table.name, rng, baseEpoch);
         }
 
         // Track IDs for foreign key lookups.
@@ -268,10 +276,38 @@ export function generateData(
         }
       }
 
-      // Third pass: generate dependsOn columns (temporal ordering)
+      // Third pass: dependent columns — dependent_enum / dependent_email, then temporal ordering
       for (const [colName, colDef] of Object.entries(table.columns)) {
         const def = colDef as any;
         if (row[colName] !== undefined) continue; // already generated or nullified
+
+        // dependent_enum — value drawn from a map keyed on a sibling column's value
+        if (def?.strategy === 'dependent_enum') {
+          if (activeLifecycleNulls.includes(colName)) { row[colName] = null; continue; }
+          const parentValue = row[def.options?.dependsOn];
+          const map = (def.options?.map || {}) as Record<string, any[]>;
+          const pool = map[parentValue] ?? map['default'] ?? Object.values(map)[0] ?? ['unknown'];
+          const wmap = def.options?.weights;
+          const weights = wmap && wmap[parentValue] ? wmap[parentValue] : null;
+          row[colName] = (weights && weights.length === pool.length)
+            ? weightedRandom(pool, weights, rng)
+            : pool[Math.floor(rng() * pool.length)];
+          continue;
+        }
+
+        // dependent_email — derived from a sibling name column (no name-prefix contradiction)
+        if (def?.strategy === 'dependent_email') {
+          if (activeLifecycleNulls.includes(colName)) { row[colName] = null; continue; }
+          const nameValue = row[def.options?.derivesFrom] ?? '';
+          const parts = nameValue.toString().toLowerCase().split(' ');
+          const prefix = (parts[0] ?? 'user').replace(/[^a-z]/g, '') || 'user';
+          const num = Math.floor(rng() * 9000) + 1000;
+          const domains = def.options?.domains ?? ['gmail.com', 'yahoo.com', 'hotmail.com', 'proton.me', 'outlook.com'];
+          const domain = domains[Math.floor(rng() * domains.length)];
+          row[colName] = `${prefix}${num}@${domain}`;
+          continue;
+        }
+
         if (def?.options?.dependsOn && def?.options?.dependencyRule === 'after') {
           if (activeLifecycleNulls.includes(colName)) {
             row[colName] = null;
@@ -282,10 +318,10 @@ export function generateData(
             const depTime = new Date(depValue).getTime();
             const offsetDays = (def?.options?.offsetMin || 1);
             const maxDays = (def?.options?.offsetMax || 30);
-            const offset = (offsetDays + Math.floor(Math.random() * (maxDays - offsetDays))) * 24 * 60 * 60 * 1000;
+            const offset = (offsetDays + Math.floor(rng() * (maxDays - offsetDays))) * 24 * 60 * 60 * 1000;
             row[colName] = new Date(depTime + offset).toISOString();
           } else {
-            row[colName] = def?.nullable ? null : generateMockValue(def, colName, table.name);
+            row[colName] = def?.nullable ? null : generateMockValue(def, colName, table.name, rng, baseEpoch);
           }
         }
       }
