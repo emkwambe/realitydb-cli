@@ -722,18 +722,23 @@ fix: H7v2 chunk-parse assessor + CRLF boundary fix
 
 ## 9. Known Issues and Open Work
 
-### Pending Engine Work
+### Engine — Shipped (2026-07-10)
 
-**PENDING ENGINE SPRINT — `dependent_enum` strategy**
-- Requirement: ADR-002 Option A
-- Scope: `packages/engine/` — new strategy types:
-  - `dependent_enum` (column value maps to sibling column value)
-  - `dependent_email` (email derives from `full_name` column)
-- Guardrail: Eddy direct verification required
-- Blocks:
-  - PR-024 semantic inspection gate (full implementation)
-  - PR-025 monetary constraints (partial — floor fixed, shape pending)
-  - merchant name↔category in `fintech`, `eu-banking`, `universal` packs
+**SEED DETERMINISM — commit `38c8947` (2026-07-10)**
+- `run --seed N` is now genuinely deterministic.
+- mulberry32 PRNG inlined into generators.ts (zero new dependencies).
+- generateData now accepts seed param; all ~34 Math.random() sites in the generation path replaced with rng().
+- UUID, FK picks, timestamps, amounts all deterministic given seed.
+- Unseeded runs unchanged (fall back to Math.random()/Date.now()).
+- Compliance impact: DORA reports and attest sign certs now reproducible.
+- ADR: ADR-003
+
+**DEPENDENT COLUMN GENERATION — commit `370e837` (2026-07-10)**
+- ADR-002 Option A implemented.
+- New strategies: dependent_enum, dependent_email (pass-3 deferred).
+- fintech pack: merchants.name keyed on category, email derived from name.
+- Verified: 9/9 name-category matches, 9/9 email-name derivations.
+- Pending: apply to eu-banking, eu-healthcare, eu-telecom, universal packs.
 
 ### Engine (databox)
 
@@ -778,13 +783,20 @@ fix: H7v2 chunk-parse assessor + CRLF boundary fix
 ### Architecture Decision Records (ADRs)
 
 **ADR-002 — Dependent Column Generation (2026-07-10)**
-- Status: Open
+- Status: Resolved — Option A implemented (commits `38c8947` + `370e837`)
 - File: `docs/architecture/ADR-002-dependent-column-generation.md`
-- Problem: Engine generates each column independently — no column can reference a sibling column value in the same row during generation.
+- Problem: Engine generated each column independently — no column could reference a sibling column value in the same row during generation.
 - Affects: merchant name↔category, email↔name derivation, city↔country
 - Mitigations shipped: city enum (`7c32eb1`), email anon + merchant pool (`0d1c4f0`)
-- Resolution: `dependent_enum` + `dependent_email` engine strategies (future sprint)
-- Blocked: `packages/engine/` — requires dedicated engine sprint under Eddy's verification
+- Resolution: `dependent_enum` + `dependent_email` strategies shipped in `38c8947` (engine) + `370e837` (fintech pack)
+- Pending: apply dependent_enum to eu-banking, eu-healthcare, eu-telecom, universal, supply-chain packs
+
+**ADR-003 — Seed Determinism (2026-07-10)**
+- Status: Resolved — commit `38c8947`
+- File: `docs/architecture/ADR-003-seed-determinism.md`
+- Problem: `run --seed N` was cosmetic; all generation used unseeded `Math.random()`, so reproducibility claims in DORA/attest certs were false.
+- Resolution: mulberry32 inlined into `generators.ts` (zero new deps); `createRng(seed)` threaded through the full generation path; seeded base epoch for timestamps.
+- Verified: two `--seed 42` runs byte-identical; seed 42 vs 99 differ; 215/215 smoke.
 
 ### July 10, 2026 — SimLab Phase 1 shipped (honest UI + dynamic templates)
 

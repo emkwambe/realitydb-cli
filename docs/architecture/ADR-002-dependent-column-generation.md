@@ -1,7 +1,7 @@
 # ADR-002: Dependent Column Generation — Problem Statement and Resolution Path
 
 **Date:** 2026-07-10  
-**Status:** Open  
+**Status:** Resolved — Option A implemented  
 **Author:** Eddy Mkwambe  
 **Related:** ADR-001 (SimLab execution), PR-024 (semantic inspection gate), PR-025 (monetary constraints)
 
@@ -139,6 +139,36 @@ Option B is rejected as it misrepresents real data structure.
 The engine sprint for dependent_enum and dependent_email strategies
 is logged as a future roadmap item. It will be executed as a
 dedicated engine sprint under Eddy's direct verification.
+
+---
+
+## Resolution (2026-07-10)
+
+Option A implemented in commits 38c8947 (engine) and 370e837 (fintech pack).
+
+Changes shipped:
+- packages/engine/src/generators.ts — createRng(seed), dependent_enum,
+  dependent_email strategy handlers, rng threaded through all generation
+- packages/engine/src/engine.ts — generateData accepts seed param,
+  pass-2 skip for dependent strategies, pass-3 generalized for
+  dependent_enum and dependent_email
+- apps/cli/src/packs/fintech.json — merchants.name uses dependent_enum
+  keyed on category, customers.email uses dependent_email derived from
+  full_name
+
+Verified:
+- 215/215 smoke tests
+- merchant name matches category 9/9 (grocery→Daily Basket,
+  online→NetPay, travel→Wanderlust Tours)
+- email derives from first name 9/9 (Omar Johnson→omar3206@proton.me)
+- determinism holds with dependent strategies (seed 7 ×2 identical)
+- assess 99/100
+
+Remaining open items from ADR-002:
+- dependent_enum not yet applied to eu-banking, eu-healthcare,
+  eu-telecom, universal, supply-chain packs — future sprint
+- dependent_email pattern limited to first name prefix — surname
+  and middle initial patterns deferred
 
 ---
 
