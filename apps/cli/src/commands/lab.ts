@@ -1,11 +1,19 @@
 import { loadLicense } from '../auth/license';
 
 const LAB_API = 'https://realitydb-lab-api.eddy-078.workers.dev';
-const LAB_API_KEY = 'rdb_lab_mpingo_2026';
 
 function getApiKey(): string {
+  if (process.env.REALITYDB_API_KEY) {
+    return process.env.REALITYDB_API_KEY;
+  }
   const license = loadLicense();
-  return license?.apiKey || LAB_API_KEY;
+  if (!license?.apiKey) {
+    throw new Error(
+      'No API key found. Run: realitydb auth login\n' +
+      'Or set REALITYDB_API_KEY environment variable.'
+    );
+  }
+  return license.apiKey;
 }
 
 function headers(): Record<string, string> {
