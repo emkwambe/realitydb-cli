@@ -722,6 +722,19 @@ fix: H7v2 chunk-parse assessor + CRLF boundary fix
 
 ## 9. Known Issues and Open Work
 
+### Pending Engine Work
+
+**PENDING ENGINE SPRINT — `dependent_enum` strategy**
+- Requirement: ADR-002 Option A
+- Scope: `packages/engine/` — new strategy types:
+  - `dependent_enum` (column value maps to sibling column value)
+  - `dependent_email` (email derives from `full_name` column)
+- Guardrail: Eddy direct verification required
+- Blocks:
+  - PR-024 semantic inspection gate (full implementation)
+  - PR-025 monetary constraints (partial — floor fixed, shape pending)
+  - merchant name↔category in `fintech`, `eu-banking`, `universal` packs
+
 ### Engine (databox)
 
 | ID | Issue | Priority | Estimate |
@@ -761,6 +774,17 @@ fix: H7v2 chunk-parse assessor + CRLF boundary fix
 ---
 
 ## 10. Session History and Decision Log
+
+### Architecture Decision Records (ADRs)
+
+**ADR-002 — Dependent Column Generation (2026-07-10)**
+- Status: Open
+- File: `docs/architecture/ADR-002-dependent-column-generation.md`
+- Problem: Engine generates each column independently — no column can reference a sibling column value in the same row during generation.
+- Affects: merchant name↔category, email↔name derivation, city↔country
+- Mitigations shipped: city enum (`7c32eb1`), email anon + merchant pool (`0d1c4f0`)
+- Resolution: `dependent_enum` + `dependent_email` engine strategies (future sprint)
+- Blocked: `packages/engine/` — requires dedicated engine sprint under Eddy's verification
 
 ### July 10, 2026 — SimLab Phase 1 shipped (honest UI + dynamic templates)
 
@@ -946,6 +970,14 @@ Enterprise:   score = 100, confidence = VERY_HIGH, named human sign-off
   - `pipelinekit-orders.json` (customers, addresses)
 - **Result:** non-Western impossibilities eliminated. Within-Western mismatches (US/Berlin, DE/Houston) accepted as international account holders. Per-row correlation deferred to Phase 5 `dependent_enum` strategy.
 - **Verified:** 215/215 smoke tests. fintech `examine assess` 99/100 at 10K rows.
+
+**FINTECH PACK — Semantic fixes (2026-07-10, commit `0d1c4f0`)**
+- ✅ Email: anonymous enum replaces name-prefix strategy
+- ✅ Amount floor: $5.00 minimum (was $0.50)
+- ✅ Merchant names: 42-value merchant-specific enum (was `company_name`)
+- ⚠️  Merchant name↔category: correlation pending ADR-002 Option A
+- ⚠️  Email↔name derivation: pending ADR-002 Option A
+- Assess score: 99/100 @10K rows (Fidelity 97, Structure 100)
 
 ## Appendix C — File Locations (Windows)
 
