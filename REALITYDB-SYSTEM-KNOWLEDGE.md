@@ -743,7 +743,7 @@ fix: H7v2 chunk-parse assessor + CRLF boundary fix
 
 | ID | Issue | Priority | Estimate |
 |---|---|---|---|
-| — | SimLab page shows 4 built-in templates, should show all 7 R2 templates | Medium | 1h |
+| — | ~~SimLab page shows hardcoded templates~~ — ✅ resolved in SimLab Phase 1: dynamic `/v1/store` fetch, 11 templates incl. EU trilogy (commit `62cbe5b`, 2026-07-10) | Done | — |
 | — | Data Store preview API returns [] | Medium | 2h |
 | — | EUR pricing not in Stripe | Low | 30m |
 | — | realityDB Packs repo not pushed to GitHub (private) | Medium | 30m |
@@ -760,6 +760,22 @@ fix: H7v2 chunk-parse assessor + CRLF boundary fix
 ---
 
 ## 10. Session History and Decision Log
+
+### July 10, 2026 — SimLab Phase 1 shipped (honest UI + dynamic templates)
+
+**Sandbox commit:** `62cbe5b` (`github.com/emkwambe/realitydb-sandbox`, `main`) — file `src/components/SimLabV3.jsx` (+144 / −33).
+
+**What shipped:**
+- `TEMPLATE_API_ID` hardcoded map removed; templates now fetched dynamically from `GET /v1/store` on mount (`availableTemplates` state + `formatTemplateLabel()` helper).
+- **11 templates** now display, including the EU trilogy (`eu-banking`, `eu-healthcare`, `eu-telecom`); stats tile is driven by the live template count (no more hardcoded "8 templates / 6 domains").
+- "Coming soon" error buttons on the Scenario, ML split, and Anomaly tabs replaced with **CLI command display boxes** — each shows the exact `realitydb simulate|split|anomaly` command reflecting current UI state, a copy-to-clipboard button, and an Install-CLI link.
+- What-if tab: coming-soon error toast neutralized; added a Phase 6 roadmap note (create two labs and compare manually for now).
+
+**Architecture decision:** ADR-001 (SimLab execution architecture) committed at `a635079` in `databox` (`docs/architecture/ADR-001-simlab-execution.md`) — shared infrastructure-neutral simulation engine; CLI and hosted SimLab as adapters; async jobs; Neon for interactive state; R2 for artifacts; six-phase implementation plan.
+
+**Live:** `sandbox.realitydb.dev` deployed with Phase 1 changes (bundle `index-CfyC74Nv.js`; Cloudflare Pages). Verified: 11 templates incl. EU trilogy, dynamic stats, CLI command boxes on all three tabs, copy buttons.
+
+**Next:** Phase 2 — extract the simulation engine into `packages/simulation-core/` (define the `SimulationOperation` interface; no React, CLI, or HTTP code inside).
 
 ### July 10, 2026 — CLI v2.40.2 security release
 
