@@ -184,3 +184,5 @@ output/
 *-10k.sql
 *-100k.sql
 inspect_*.py
+
+docs/internal/
