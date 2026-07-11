@@ -24,24 +24,17 @@
           }
         },
         "city": {
-          "strategy": "enum",
+          "strategy": "dependent_enum",
           "options": {
-            "values": [
-              "New York", "Houston", "Chicago", "Phoenix", "Los Angeles", "Dallas",
-              "London", "Manchester", "Birmingham",
-              "Toronto", "Vancouver", "Calgary",
-              "Sydney", "Melbourne", "Brisbane",
-              "Berlin", "Munich", "Hamburg", "Frankfurt",
-              "Paris", "Lyon", "Marseille"
-            ],
-            "weights": [10, 6, 6, 4, 5, 4, 5, 2, 2, 5, 2, 2, 3, 2, 1, 3, 2, 2, 2, 3, 2, 1]
-          }
-        },
-        "status": {
-          "strategy": "enum",
-          "options": {
-            "values": ["active", "suspended", "closed"],
-            "weights": [85, 10, 5]
+            "dependsOn": "country",
+            "map": {
+              "US": ["New York", "Houston", "Chicago", "Phoenix", "Los Angeles", "Dallas", "San Francisco", "Seattle", "Boston", "Miami"],
+              "GB": ["London", "Manchester", "Birmingham", "Leeds", "Glasgow", "Edinburgh", "Bristol", "Liverpool"],
+              "CA": ["Toronto", "Vancouver", "Calgary", "Montreal", "Ottawa", "Edmonton"],
+              "AU": ["Sydney", "Melbourne", "Brisbane", "Perth", "Adelaide", "Canberra"],
+              "DE": ["Berlin", "Munich", "Hamburg", "Frankfurt", "Cologne", "Stuttgart", "Dusseldorf"],
+              "FR": ["Paris", "Lyon", "Marseille", "Toulouse", "Nice", "Nantes", "Bordeaux"]
+            }
           }
         },
         "kyc_verified": {
