@@ -1561,11 +1561,18 @@ const DODO_PRODUCTS: Record<string, string> = {
   professional_annual:    'pdt_0NirfGvvtkR7JFAS2XPyF',  // $490/yr
   enterprise_eu_monthly:  'pdt_0NirfeJV05qMdKB2WSu2g',  // €499/mo
   enterprise_eu_annual:   'pdt_0NirfeOfJwXzZupRtDrua',  // €4,990/yr
+  team_monthly:           'pdt_0NiwqEQox4EwJqXvnhSph',  // $99/mo
+  team_annual:            'pdt_0NiwqERFLzbPmSaBTiEbT',  // $990/yr
   // Credits (one-time)
   credits_starter:        'pdt_0NirfeTLQMc7V6kgvfjMB',  // $9  — 5 runs, 50K rows
   credits_standard:       'pdt_0Nirfs73dKQndnUGJgPh7',  // $29 — 20 runs, 100K rows
   credits_research:       'pdt_0Nirfs8ke53HBG9iWKDvq',  // $79 — 30 days, 500K rows
   credits_eu_compliance:  'pdt_0Nirfs9a1QlZ5AIDEBM7T',  // €299 — 10 EU runs + comply
+  // Dataset one-time purchases
+  dataset_50k:            'pdt_0NiwqELSVr8obmFb7RAEO',  // $49
+  dataset_100k:           'pdt_0NiwqEPggv7srrLKeOkLj',  // $79
+  dataset_500k:           'pdt_0NiwqEQ5ceoWGiP9vWivF',  // $299
+  dataset_1m:             'pdt_0NiwqEQT1zHgxVTA6Nf5B',  // $499
 };
 
 // Reverse lookup: product_id → product key
@@ -1588,6 +1595,8 @@ const DODO_SUBSCRIPTION_TIERS: Record<string, DodoTierLimits> = {
   data_annual:           { tier: 'data',          maxRows: 500000,    maxActiveLabs: 3,   downloadsPerMonth: 50,  labsDaily: 3 },
   professional_monthly:  { tier: 'professional',  maxRows: 2000000,   maxActiveLabs: 5,   downloadsPerMonth: 200, labsDaily: 10 },
   professional_annual:   { tier: 'professional',  maxRows: 2000000,   maxActiveLabs: 5,   downloadsPerMonth: 200, labsDaily: 10 },
+  team_monthly:          { tier: 'team',          maxRows: 2000000,   maxActiveLabs: 30,  downloadsPerMonth: 300, labsDaily: 20 },
+  team_annual:           { tier: 'team',          maxRows: 2000000,   maxActiveLabs: 30,  downloadsPerMonth: 300, labsDaily: 20 },
   enterprise_eu_monthly: { tier: 'enterprise_eu', maxRows: 999999999, maxActiveLabs: 999, downloadsPerMonth: 999, labsDaily: 999 },
   enterprise_eu_annual:  { tier: 'enterprise_eu', maxRows: 999999999, maxActiveLabs: 999, downloadsPerMonth: 999, labsDaily: 999 },
 };
@@ -1947,6 +1956,22 @@ app.post('/v1/checkout', async (c) => {
     return c.json({ error: `Unknown product_id: ${body.product_id}` }, 400);
   }
 
+  // For dataset purchases, the client encodes ?template=X&rows=Y in success_url
+  // (the query string lives inside the hash fragment, e.g. .../#data-store?template=...).
+  // Pull them out server-side and carry them in Dodo metadata so the webhook can
+  // build a download_tokens row without depending on Dodo echoing back the return_url.
+  let datasetTemplate: string | undefined;
+  let datasetRows: string | undefined;
+  const productKeyForCheckout = dodoProductKey(body.product_id);
+  if (productKeyForCheckout?.startsWith('dataset_')) {
+    const qIndex = body.success_url.indexOf('?');
+    if (qIndex !== -1) {
+      const params = new URLSearchParams(body.success_url.slice(qIndex + 1));
+      datasetTemplate = params.get('template') || undefined;
+      datasetRows = params.get('rows') || undefined;
+    }
+  }
+
   // Dodo checkout API: POST /checkouts with a `customer` object and `return_url`.
   // (The sprint spec's `/checkout/sessions` + top-level `customer_email`/`success_url`
   //  do not match Dodo's current API — corrected here per docs.dodopayments.com.
@@ -1959,6 +1984,8 @@ app.post('/v1/checkout', async (c) => {
     metadata: {
       user_email: body.user_email,
       product_id: body.product_id,
+      ...(datasetTemplate ? { template: datasetTemplate } : {}),
+      ...(datasetRows ? { rows: datasetRows } : {}),
     },
   });
 
@@ -1971,6 +1998,55 @@ app.post('/v1/checkout', async (c) => {
   }
 
   return c.json({ checkout_url: checkoutUrl, session_id: sessionId });
+});
+
+// Look up a download token by the checkout session_id returned from POST /v1/checkout.
+// The webhook that creates the download_tokens row runs async, so this can 404 briefly
+// right after redirect — the caller should retry a few times before giving up.
+app.get('/v1/download-by-session/:sessionId', async (c) => {
+  const env = c.env;
+  const row = await env.DB.prepare(
+    'SELECT token FROM download_tokens WHERE session_id = ? ORDER BY created_at DESC LIMIT 1'
+  ).bind(c.req.param('sessionId')).first();
+
+  if (!row) return c.json({ status: 'pending' }, 404);
+  return c.json({ token: row.token, downloadUrl: `/v1/download/${row.token}` });
+});
+
+// Serve a purchased dataset file by download token (one-time use).
+app.get('/v1/download/:token', async (c) => {
+  const env = c.env;
+  const token = c.req.param('token');
+
+  const row = await env.DB.prepare(
+    `SELECT * FROM download_tokens WHERE token = ? AND downloaded = 0 AND expires_at > datetime('now')`
+  ).bind(token).first();
+
+  if (!row) return c.json({ error: 'invalid_or_expired_token' }, 404);
+
+  const rows = row.rows as number;
+  const rowLabel = rows >= 1000 ? `${rows / 1000}k` : String(rows);
+  const r2Key = `templates/${row.template}-${rowLabel}.sql`;
+  const file = await env.TEMPLATES.get(r2Key);
+
+  if (!file) {
+    return c.json({
+      status: 'generating',
+      message: 'Your dataset is being generated. Check back in 60 seconds.',
+      poll_url: `/v1/download/${token}/status`,
+    }, 202);
+  }
+
+  await env.DB.prepare(
+    `UPDATE download_tokens SET downloaded = 1, downloaded_at = datetime('now') WHERE token = ?`
+  ).bind(token).run();
+
+  return new Response(file.body, {
+    headers: {
+      'Content-Type': 'application/octet-stream',
+      'Content-Disposition': `attachment; filename="realitydb-${row.template}-${rowLabel}.sql"`,
+    },
+  });
 });
 
 // Dodo webhook handler — verify signature, ack immediately (200), then process async
@@ -2095,6 +2171,34 @@ async function processDodoEvent(env: Env, event: any): Promise<void> {
   try {
     switch (type) {
       case 'payment.succeeded': {
+        // Dataset one-time purchases — issue a download token.
+        if (email && productKey?.startsWith('dataset_')) {
+          const template: string | undefined = data.metadata?.template;
+          const rowsLabel: string | undefined = data.metadata?.rows;
+          // Best-effort session correlation: field name for the originating checkout
+          // session isn't confirmed against a live Dodo payment.succeeded payload,
+          // so multiple candidate keys are checked. Verify with a real test purchase.
+          const sessionId: string | undefined =
+            data.checkout_session_id || data.session_id || data.checkout_id ||
+            data.checkout?.session_id || data.subscription_id || undefined;
+
+          if (template && rowsLabel) {
+            const rows = rowsLabel.toLowerCase().endsWith('k')
+              ? parseInt(rowsLabel) * 1000
+              : parseInt(rowsLabel);
+            const token = crypto.randomUUID();
+            const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+            await env.DB.prepare(
+              `INSERT INTO download_tokens (token, template, rows, format, customer_email, product_id, session_id, expires_at)
+               VALUES (?, ?, ?, 'sql', ?, ?, ?, ?)`
+            ).bind(token, template, rows, email, productId, sessionId || null, expiresAt).run();
+            console.log(`Dodo dataset purchase: ${email} → ${template} (${rows} rows), token issued`);
+          } else {
+            console.error(`Dodo dataset purchase missing template/rows metadata for ${email} (product ${productId})`);
+          }
+          break;
+        }
+
         // One-time credit purchases (subscription first-payments arrive via subscription.active)
         if (!email || !productKey) break;
         const credit = DODO_CREDIT_PRODUCTS[productKey];
