@@ -1573,6 +1573,7 @@ const DODO_PRODUCTS: Record<string, string> = {
   dataset_100k:           'pdt_0NiwqEPggv7srrLKeOkLj',  // $79
   dataset_500k:           'pdt_0NiwqEQ5ceoWGiP9vWivF',  // $299
   dataset_1m:             'pdt_0NiwqEQT1zHgxVTA6Nf5B',  // $499
+  dataset_50k_test:       'pdt_0NiwzkIObz6WkzYXnLgsD',  // Dodo test-mode product used for the first live webhook verification
 };
 
 // Reverse lookup: product_id → product key
@@ -1945,6 +1946,9 @@ app.post('/v1/checkout', async (c) => {
     user_email: string;
     success_url: string;
     cancel_url: string;
+    template?: string;
+    rows?: number;
+    productKey?: string;
   }>().catch(() => null);
 
   if (!body || !body.product_id || !body.user_email || !body.success_url || !body.cancel_url) {
@@ -1956,26 +1960,15 @@ app.post('/v1/checkout', async (c) => {
     return c.json({ error: `Unknown product_id: ${body.product_id}` }, 400);
   }
 
-  // For dataset purchases, the client encodes ?template=X&rows=Y in success_url
-  // (the query string lives inside the hash fragment, e.g. .../#data-store?template=...).
-  // Pull them out server-side and carry them in Dodo metadata so the webhook can
-  // build a download_tokens row without depending on Dodo echoing back the return_url.
-  let datasetTemplate: string | undefined;
-  let datasetRows: string | undefined;
-  const productKeyForCheckout = dodoProductKey(body.product_id);
-  if (productKeyForCheckout?.startsWith('dataset_')) {
-    const qIndex = body.success_url.indexOf('?');
-    if (qIndex !== -1) {
-      const params = new URLSearchParams(body.success_url.slice(qIndex + 1));
-      datasetTemplate = params.get('template') || undefined;
-      datasetRows = params.get('rows') || undefined;
-    }
-  }
-
   // Dodo checkout API: POST /checkouts with a `customer` object and `return_url`.
   // (The sprint spec's `/checkout/sessions` + top-level `customer_email`/`success_url`
   //  do not match Dodo's current API — corrected here per docs.dodopayments.com.
   //  Client-facing request/response contract is kept exactly as the sprint defined.)
+  // NOTE: a live test purchase confirmed Dodo's payment.succeeded webhook always
+  // carries an empty metadata object regardless of what's sent at checkout creation —
+  // so metadata cannot be used to recover template/rows. Instead, the download_tokens
+  // row is pre-created here (status='pending') keyed by session_id, and the webhook
+  // just flips it to 'paid' once payment succeeds.
   const session = await dodoAPI(env.DODO_API_KEY, 'checkouts', {
     product_cart: [{ product_id: body.product_id, quantity: 1 }],
     customer: { email: body.user_email },
@@ -1984,8 +1977,9 @@ app.post('/v1/checkout', async (c) => {
     metadata: {
       user_email: body.user_email,
       product_id: body.product_id,
-      ...(datasetTemplate ? { template: datasetTemplate } : {}),
-      ...(datasetRows ? { rows: datasetRows } : {}),
+      ...(body.template ? { template: body.template } : {}),
+      ...(body.rows != null ? { rows: String(body.rows) } : {}),
+      ...(body.productKey ? { product_key: body.productKey } : {}),
     },
   });
 
@@ -1997,19 +1991,31 @@ app.post('/v1/checkout', async (c) => {
     return c.json({ error: 'Dodo checkout session failed', details: session }, 400);
   }
 
+  // Pre-create the download token for dataset purchases (session_id is the lookup key —
+  // metadata doesn't survive to the webhook, see note above).
+  if (body.template && body.rows != null) {
+    const token = crypto.randomUUID();
+    await env.DB.prepare(
+      `INSERT INTO download_tokens (token, template, rows, format, customer_email, product_id, session_id, expires_at, downloaded, status)
+       VALUES (?, ?, ?, 'sql', ?, ?, ?, datetime('now', '+7 days'), 0, 'pending')`
+    ).bind(token, body.template, body.rows, body.user_email, body.product_id, sessionId).run();
+  }
+
   return c.json({ checkout_url: checkoutUrl, session_id: sessionId });
 });
 
 // Look up a download token by the checkout session_id returned from POST /v1/checkout.
-// The webhook that creates the download_tokens row runs async, so this can 404 briefly
-// right after redirect — the caller should retry a few times before giving up.
+// The row is pre-created (status='pending') at checkout time and flipped to 'paid'
+// by the webhook, so this can report 'pending' briefly right after redirect —
+// the caller should retry a few times before giving up.
 app.get('/v1/download-by-session/:sessionId', async (c) => {
   const env = c.env;
   const row = await env.DB.prepare(
-    'SELECT token FROM download_tokens WHERE session_id = ? ORDER BY created_at DESC LIMIT 1'
+    'SELECT token, status FROM download_tokens WHERE session_id = ? ORDER BY created_at DESC LIMIT 1'
   ).bind(c.req.param('sessionId')).first();
 
-  if (!row) return c.json({ status: 'pending' }, 404);
+  if (!row) return c.json({ status: 'not_found' }, 404);
+  if (row.status !== 'paid') return c.json({ status: 'pending' }, 404);
   return c.json({ token: row.token, downloadUrl: `/v1/download/${row.token}` });
 });
 
@@ -2019,7 +2025,7 @@ app.get('/v1/download/:token', async (c) => {
   const token = c.req.param('token');
 
   const row = await env.DB.prepare(
-    `SELECT * FROM download_tokens WHERE token = ? AND downloaded = 0 AND expires_at > datetime('now')`
+    `SELECT * FROM download_tokens WHERE token = ? AND status = 'paid' AND downloaded = 0 AND expires_at > datetime('now')`
   ).bind(token).first();
 
   if (!row) return c.json({ error: 'invalid_or_expired_token' }, 404);
@@ -2171,30 +2177,30 @@ async function processDodoEvent(env: Env, event: any): Promise<void> {
   try {
     switch (type) {
       case 'payment.succeeded': {
-        // Dataset one-time purchases — issue a download token.
-        if (email && productKey?.startsWith('dataset_')) {
-          const template: string | undefined = data.metadata?.template;
-          const rowsLabel: string | undefined = data.metadata?.rows;
+        // Dataset one-time purchases — the download_tokens row was pre-created
+        // (status='pending') at checkout time in /v1/checkout, keyed by session_id.
+        // Dodo's payment.succeeded payload carries an empty metadata object, so
+        // session_id is the only reliable correlation key here — this just flips
+        // the pre-created row to 'paid'.
+        if (productKey?.startsWith('dataset_')) {
           // Best-effort session correlation: field name for the originating checkout
           // session isn't confirmed against a live Dodo payment.succeeded payload,
-          // so multiple candidate keys are checked. Verify with a real test purchase.
+          // so multiple candidate keys are checked.
           const sessionId: string | undefined =
             data.checkout_session_id || data.session_id || data.checkout_id ||
             data.checkout?.session_id || data.subscription_id || undefined;
 
-          if (template && rowsLabel) {
-            const rows = rowsLabel.toLowerCase().endsWith('k')
-              ? parseInt(rowsLabel) * 1000
-              : parseInt(rowsLabel);
-            const token = crypto.randomUUID();
-            const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-            await env.DB.prepare(
-              `INSERT INTO download_tokens (token, template, rows, format, customer_email, product_id, session_id, expires_at)
-               VALUES (?, ?, ?, 'sql', ?, ?, ?, ?)`
-            ).bind(token, template, rows, email, productId, sessionId || null, expiresAt).run();
-            console.log(`Dodo dataset purchase: ${email} → ${template} (${rows} rows), token issued`);
+          if (sessionId) {
+            const result = await env.DB.prepare(
+              `UPDATE download_tokens SET status = 'paid' WHERE session_id = ? AND status = 'pending'`
+            ).bind(sessionId).run();
+            if ((result.meta?.changes ?? 0) > 0) {
+              console.log(`Dodo dataset purchase paid: session ${sessionId}`);
+            } else {
+              console.error(`Dodo dataset purchase: no pending download_tokens row for session ${sessionId}`);
+            }
           } else {
-            console.error(`Dodo dataset purchase missing template/rows metadata for ${email} (product ${productId})`);
+            console.error(`Dodo dataset purchase: no session_id in webhook payload (product ${productId})`);
           }
           break;
         }
