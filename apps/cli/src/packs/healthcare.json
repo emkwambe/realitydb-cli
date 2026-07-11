@@ -318,8 +318,8 @@
           "options": {
             "distribution": "normal",
             "mean": 45,
-            "stddev": 80,
-            "min": 0.50,
+            "stddev": 40,
+            "min": 1.00,
             "max": 800
           }
         },
