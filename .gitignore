@@ -186,3 +186,34 @@ output/
 inspect_*.py
 
 docs/internal/
+
+# Old product artifacts — not part of RealityDB CLI
+educore-export/
+edunode-enriched/
+edunode-export/
+masked-test/
+output/
+supabase/
+gen_ai_events.py
+gen_cybersecurity.py
+gen_ecommerce.py
+gen_healthcare.py
+gen_logistics.py
+stripe-hooks.json
+mysql.config.json
+my-analysis.json
+my-test-scenario.scenario.json
+events.json
+educore.config.json
+edunode-template.json
+edunode.config.json
+enrich-edunode-template.js
+educore.config.json
+realitydb.config.example.json
+realitydb.template.json
+
+# Internal Claude instructions
+CLAUDE.md
+CLAUDE-CODE-STARTER.md
+REALITYDB-SYSTEM-KNOWLEDGE.md
+DATA-GENERATION-GUIDE.md

@@ -1,108 +1,166 @@
 # RealityDB CLI
 
-Schema-aware synthetic data generation, quality assessment, and compliance tooling.
-
-> Generate production-quality synthetic datasets from any database schema — with lifecycle rules, temporal ordering, FK integrity, and cryptographic certification. No real data needed.
+Generate production-realistic synthetic databases with verified FK integrity,
+deterministic seeds, temporal ordering, and EU regulatory compliance documentation.
 
 ```bash
 npm install -g @realitydb/cli
 ```
 
-## Quick start (5 commands, 2 minutes)
-
-```bash
-# 1. Scan your schema → auto-generate a pack template
-realitydb scan:infer schema.sql
-
-# 2. Validate the pack
-realitydb doctor --pack my-pack.json --fix
-
-# 3. Generate synthetic data
-realitydb run --pack my-pack.json --rows 5000 --format sql -o data.sql
-
-# 4. Assess quality (fidelity, structure, privacy)
-realitydb assess data.sql
-
-# 5. Generate a compliance report
-realitydb comply report --file data.sql --framework hipaa -o report.html
-```
-
 ## What it does
 
-RealityDB generates synthetic data that respects your schema's relational intelligence — foreign key chains, lifecycle rules (status + closed_at), temporal ordering (settled_at after created_at), weighted enum distributions, and realistic cardinality ratios.
+RealityDB generates synthetic data that behaves like real data — not just looks like it.
+Every foreign key points to a real parent row. Cancelled orders have `NULL shipped_at`.
+`--seed 42` produces byte-identical output every time, on any machine.
 
-The `scan:infer` command reads your DDL (CREATE TABLE statements, Supabase migrations, or any SQL schema) and auto-generates a ready-to-run pack JSON with three tiers of inference:
+Built for data engineers, ML teams, and EU compliance workflows.
 
-- **Tier 1 (auto-applied):** PKs, FKs, topological sort, strategy from column names/types
-- **Tier 2 (heuristic):** Lifecycle rules, temporal pairs, enum defaults, cardinality ratios
-- **Tier 3 (review):** Domain-specific enums, distribution weights, correlation rules
+---
 
-Proven on real production schemas: 109 tables, 1,402 columns, 225 foreign keys scanned in 49ms.
+## Built-in Packs
 
-## Commands (~52 total)
+| Pack | Tables | Score | Domain |
+|---|---|---|---|
+| `eu-banking` | 11 | 99/100 | SEPA · PSD2 · MiFID II · KYC · AML — DORA compliant |
+| `eu-healthcare` | 14 | 99/100 | ICD-10 · WHO ATC · EHDS · GDPR Article 9 |
+| `eu-telecom` | 12 | 100/100 | BEREC · EECC · GDPR consent modeling |
+| `fintech` | 9 | 99/100 | Customers · merchants · transactions · fraud alerts · KYC |
+| `healthcare` | 14 | 100/100 | Hospital operations · billing · lab tests · insurance |
+| `oncology` | 20 | 100/100 | Patients · diagnoses · treatments · clinical trials |
+| `supply-chain` | 24 | 100/100 | Suppliers · inventory · shipments · demand forecasting |
+| `telecom` | 21 | 99/100 | Subscribers · towers · usage · billing · churn |
+| `universal` | 6 | 98/100 | Users · transactions · audit logs · API requests |
 
-### Schema & generation
+Quality scores verified by `realitydb examine assess` at 10K rows.
 
-| Command | What it does |
-|---------|-------------|
-| `scan:infer <schema.sql>` | Infer a pack JSON from DDL — lifecycle, temporal, FK detection |
-| `run --pack <file>` | Generate synthetic data (SQL, CSV, JSON) |
-| `doctor --pack <file>` | Diagnose + auto-fix pack issues |
-| `validate --pack <file>` | Validate pack against engine requirements |
-| `explain --pack <file>` | Explain what the engine will generate |
-| `tune --pack <file>` | List tunable parameters |
+---
 
-### Quality assessment
-
-| Command | What it does |
-|---------|-------------|
-| `assess <file>` | Quality score — fidelity, structure, privacy (3 pillars, 12 metrics) |
-| `profile <file>` | Statistical profiling — types, nulls, distributions, numerics |
-| `diff <left> <right>` | Compare two datasets — schema, row counts, distributions |
-| `pii-scan <file>` | Detect PII patterns (46 patterns, HIPAA 18 identifier check) |
-
-### Compliance & certification
-
-| Command | What it does |
-|---------|-------------|
-| `comply report` | HTML compliance report (HIPAA, GDPR, PCI DSS, SOC 2) |
-| `certify <file>` | Ed25519 cryptographic dataset certification |
-| `verify <file>` | Verify certificate + tamper detection |
-
-### SimLab (disposable databases)
-
-14 commands for creating, connecting, querying, snapshotting, and sharing Neon PostgreSQL sandboxes.
-
-## Assessment output
-
-```
-🧪 RealityDB Assessment Report
-════════════════════════════════════════════════
-   🟢 OVERALL SCORE: 92/100
-
-   ✅ Fidelity: 88/100
-   ✅ Structure: 94/100
-   ⚠️  Privacy: 89/100
-
-   Methodology: SQR v1.0
-════════════════════════════════════════════════
-```
-
-## Compliance reports
+## Usage
 
 ```bash
-realitydb comply report --file data.sql --framework hipaa -o report.html
+# Generate to SQL
+realitydb run --pack eu-banking --rows 50000 --format sql --seed 42 -o banking.sql
+
+# Generate to JSON
+realitydb run --pack fintech --rows 5000 --seed 42
+
+# Generate to CSV (one file per table)
+realitydb run --pack supply-chain --rows 10000 --format csv --seed 42
+
+# Seed directly into PostgreSQL
+realitydb seed --pack healthcare --rows 5000 \
+  --connection postgresql://user:pass@localhost:5432/mydb \
+  --create-tables
+
+# Assess output quality
+realitydb examine assess output.sql --pack eu-banking
+
+# Assess for EU AI Act Article 10 bias
+realitydb examine bias output.sql --pack eu-banking
+
+# Sign and certify a dataset
+realitydb attest sign output.sql --pack eu-banking --seed 42
 ```
 
-Generates self-contained HTML reports for HIPAA Safe Harbor, GDPR, PCI DSS, and SOC 2. Open in browser, print to PDF.
+---
 
-## Cryptographic certification
+## Commands
 
-Every SQL output includes a content hash watermark. With a signing key, datasets get Ed25519 signatures with full tamper detection.
+| Command | Description |
+|---|---|
+| `run` | Generate data to JSON, SQL, or CSV |
+| `seed` | Generate and insert directly into PostgreSQL |
+| `examine assess` | Quality assessment — FK integrity, distributions, structure |
+| `examine bias` | EU AI Act Article 10(f) bias and coverage check |
+| `attest sign` | Ed25519 certificate — provenance and reproducibility |
+| `attest verify` | Verify a signed dataset certificate |
+| `comply report` | Generate DORA / EU AI Act compliance documentation |
+| `login` | Authenticate with your RealityDB account |
+| `status` | Show current plan and usage |
+| `logout` | Clear stored credentials |
+
+---
+
+## Deterministic Seeds
+
+```bash
+# These two runs produce byte-identical output
+realitydb run --pack eu-banking --rows 10000 --seed 42 -o run1.sql
+realitydb run --pack eu-banking --rows 10000 --seed 42 -o run2.sql
+diff run1.sql run2.sql  # no differences
+```
+
+Same seed on any machine, any OS, any Node.js version — guaranteed identical output.
+Required for DORA Article 9 audit trails and EU AI Act Article 10 provenance documentation.
+
+---
+
+## Dependent Column Strategies
+
+Pack authors can define columns that derive their values from sibling columns:
+
+```json
+"name": {
+  "strategy": "dependent_enum",
+  "options": {
+    "dependsOn": "category",
+    "map": {
+      "grocery": ["Metro Mart", "FreshGrove", "Daily Basket"],
+      "healthcare": ["MedPlus Pharmacy", "HealthFirst Clinic"],
+      "restaurant": ["Spice Garden", "Noodle Bar", "La Trattoria"]
+    }
+  }
+}
+```
+
+```json
+"email": {
+  "strategy": "dependent_email",
+  "options": {
+    "derivesFrom": "full_name",
+    "domains": ["gmail.com", "yahoo.com", "proton.me"]
+  }
+}
+```
+
+---
+
+## Performance
+
+| Pack | Tables | Rows | Speed |
+|---|---|---|---|
+| `fintech` | 9 | 1M | 50K rows/sec |
+| `supply-chain` | 24 | 1M | 48K rows/sec |
+| `oncology` | 20 | 1M | 50K rows/sec |
+
+---
+
+## EU Compliance
+
+RealityDB generates compliance documentation alongside your synthetic data:
+
+```bash
+# DORA compliance report (Articles 6, 9, 10, 11, 12, 16)
+realitydb comply report --pack eu-banking --standard dora -o dora-report.md
+
+# EU AI Act Article 10 documentation
+realitydb comply report --pack eu-banking --standard eu-ai-act -o ai-act-report.md
+```
+
+Reports include provenance chain, distribution citations, bias assessment,
+and Ed25519 dataset certificate. Reproducible given the same seed.
+
+---
 
 ## Links
 
-- [realitydb.dev](https://realitydb.dev) | [studio.realitydb.dev](https://studio.realitydb.dev) | [sandbox.realitydb.dev](https://sandbox.realitydb.dev)
-- [GitHub](https://github.com/emkwambe/realitydb-cli) | [npm](https://www.npmjs.com/package/@realitydb/cli)
+- [SimLab](https://sandbox.realitydb.dev) — Spin up live PostgreSQL labs with RealityDB data
+- [Data Store](https://sandbox.realitydb.dev/#data-store) — Download verified datasets
+- [realitydb.dev](https://realitydb.dev) — Pricing, CLI docs, EU enterprise
+- [GitHub](https://github.com/emkwambe/realitydb-cli) — Source code
 
-*Mpingo Systems LLC — Precision Tools. African Roots.*
+---
+
+## License
+
+BSL-1.1 — Mpingo Systems LLC
