@@ -91,7 +91,7 @@ RealityDB is a synthetic data platform that generates causally-correct, producti
 
 | Repo | GitHub | Purpose |
 |------|--------|---------|
-| `databox` | [github.com/emkwambe/databox](https://github.com/emkwambe/databox) | Monorepo: CLI, Engine, Sandbox, Studio source |
+| `databox` | [github.com/emkwambe/realitydb-cli](https://github.com/emkwambe/realitydb-cli) | Monorepo: CLI, Engine, Sandbox, Studio source |
 | `realityDB-sutudio` | [github.com/emkwambe/realityDB-sutudio](https://github.com/emkwambe/realityDB-sutudio) | Studio deployment repo (separate from monorepo) |
 
 ### Monorepo Layout (`databox`)
@@ -320,7 +320,7 @@ Turbo handles this via the `build` pipeline in `turbo.json`.
 | Metric | Source | Alert Threshold |
 |--------|--------|----------------|
 | npm weekly downloads | npmjs.com/package/@realitydb/cli | Track trend (currently ~1,164/week) |
-| GitHub stars | github.com/emkwambe/databox | Track trend |
+| GitHub stars | github.com/emkwambe/realitydb-cli | Track trend |
 | Cloudflare Pages uptime | Cloudflare Dashboard | Any deploy failure |
 | Studio AI generator errors | Browser console (manual check) | API timeout > 150s |
 | Supabase edge function health | Supabase Dashboard → Logs | Any 5xx errors |
@@ -480,7 +480,7 @@ Same as Studio — Cloudflare Pages retains all deployments.
 
 ```bash
 # 1. Clone the monorepo
-git clone https://github.com/emkwambe/databox.git
+git clone https://github.com/emkwambe/realitydb-cli.git
 cd databox
 
 # 2. Install dependencies
@@ -608,7 +608,7 @@ The "Eddy Protocol" — conventions used throughout the project:
 | npm | @mpingo | npmjs.com/~mpingo |
 
 **Repositories owned:**
-- github.com/emkwambe/databox (primary monorepo)
+- github.com/emkwambe/realitydb-cli (primary monorepo)
 - github.com/emkwambe/realityDB-sutudio (Studio deployment)
 - github.com/emkwambe/realitydb-sandbox (Sandbox — if separate)
 

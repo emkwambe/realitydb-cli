@@ -834,7 +834,7 @@ All benchmarks include FK resolution, lifecycle rules, and weighted distribution
 | Product | URL | Description |
 |---------|-----|-------------|
 | **CLI** | [npm](https://www.npmjs.com/package/@realitydb/cli) | Command-line tool for data generation |
-| **Engine** | [GitHub](https://github.com/emkwambe/databox/tree/main/packages/engine) | Standalone generation engine (zero Node.js deps, runs in Workers/browser) |
+| **Engine** | [GitHub](https://github.com/emkwambe/realitydb-cli/tree/main/packages/engine) | Standalone generation engine (zero Node.js deps, runs in Workers/browser) |
 | **Sandbox** | [sandbox.realitydb.dev](https://sandbox.realitydb.dev) | Browser-based SQL learning with 19 industry templates |
 | **Studio** | [studio.realitydb.dev](https://studio.realitydb.dev) | Visual schema designer with AI generation (internal preview) |
 
@@ -864,4 +864,4 @@ Run from the CLI's installation directory or ensure `@realitydb/cli` is installe
 
 *RealityDB CLI v2.19.0 · BSL-1.1 License · © 2026 Mpingo Systems LLC*
 
-*GitHub: [github.com/emkwambe/databox](https://github.com/emkwambe/databox) · NPM: [@realitydb/cli](https://www.npmjs.com/package/@realitydb/cli)*
+*GitHub: [github.com/emkwambe/realitydb-cli](https://github.com/emkwambe/realitydb-cli) · NPM: [@realitydb/cli](https://www.npmjs.com/package/@realitydb/cli)*

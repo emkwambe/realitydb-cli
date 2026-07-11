@@ -51,7 +51,7 @@
 
 ## PART 3: REPOSITORY MAP
 
-### 3.1 Main Repo: `github.com/emkwambe/databox` (PRIVATE)
+### 3.1 Main Repo: `github.com/emkwambe/realitydb-cli` (PRIVATE)
 
 ```
 C:\Users\HP\Documents\databox\

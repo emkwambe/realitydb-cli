@@ -6,7 +6,7 @@
   "keywords": ["database", "seed", "testing", "synthetic-data", "developer-tools"],
   "repository": {
     "type": "git",
-    "url": "https://github.com/emkwambe/databox.git"
+    "url": "https://github.com/emkwambe/realitydb-cli.git"
   },
   "author": "Eddy Mkwambe",
   "license": "BSL-1.1",

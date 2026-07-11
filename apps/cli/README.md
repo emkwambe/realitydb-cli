@@ -157,7 +157,7 @@ and Ed25519 dataset certificate. Reproducible given the same seed.
 - [SimLab](https://sandbox.realitydb.dev) — Spin up live PostgreSQL labs with RealityDB data
 - [Data Store](https://sandbox.realitydb.dev/#data-store) — Download verified datasets
 - [realitydb.dev](https://realitydb.dev) — Pricing, CLI docs, EU enterprise
-- [GitHub](https://github.com/emkwambe/databox) — Source code
+- [GitHub](https://github.com/emkwambe/realitydb-cli) — Source code
 
 ---
 

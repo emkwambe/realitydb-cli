@@ -18,12 +18,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/emkwambe/databox.git"
+    "url": "git+https://github.com/emkwambe/realitydb-cli.git"
   },
   "author": "Eddy Mkwambe",
-  "homepage": "https://github.com/emkwambe/databox",
+  "homepage": "https://github.com/emkwambe/realitydb-cli",
   "bugs": {
-    "url": "https://github.com/emkwambe/databox/issues"
+    "url": "https://github.com/emkwambe/realitydb-cli/issues"
   },
   "bin": {
     "realitydb": "dist/index.js"

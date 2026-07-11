@@ -9,9 +9,9 @@ You are helping me build production-quality synthetic database templates for Rea
 
 BEFORE DOING ANYTHING, read these three documents from our GitHub repo:
 
-1. https://raw.githubusercontent.com/emkwambe/databox/main/docs/NEW-CHAT-GENERATION-GUIDE.md
-2. https://raw.githubusercontent.com/emkwambe/databox/main/docs/QUALITY-STANDARDS.md
-3. https://raw.githubusercontent.com/emkwambe/databox/main/docs/DATASET-GENERATION-PROTOCOL.md
+1. https://raw.githubusercontent.com/emkwambe/realitydb-cli/main/docs/NEW-CHAT-GENERATION-GUIDE.md
+2. https://raw.githubusercontent.com/emkwambe/realitydb-cli/main/docs/QUALITY-STANDARDS.md
+3. https://raw.githubusercontent.com/emkwambe/realitydb-cli/main/docs/DATASET-GENERATION-PROTOCOL.md
 
 These documents contain:
 - The 6 moats every dataset MUST meet (FK integrity, temporal ordering, lifecycle states, cardinality, provenance, quality score ≥95)
@@ -68,7 +68,7 @@ Windows PowerShell only. All file paths are Windows. The databox repo is at C:\U
 You are helping me fix bugs in the RealityDB CLI, a synthetic data generation tool.
 
 BEFORE DOING ANYTHING, read this document:
-https://raw.githubusercontent.com/emkwambe/databox/main/docs/NEW-CHAT-GENERATION-GUIDE.md
+https://raw.githubusercontent.com/emkwambe/realitydb-cli/main/docs/NEW-CHAT-GENERATION-GUIDE.md
 
 CRITICAL CONTEXT:
 - The ACTUAL `run` command handler is in `apps/cli/src/index.ts` (~line 155), NOT `apps/cli/src/commands/run.ts`
@@ -85,7 +85,7 @@ CRITICAL CONTEXT:
 - Use `[System.IO.File]::WriteAllText()` for all file writes (BOM-free UTF-8)
 - Use absolute paths in PowerShell, never `cd`
 
-GitHub: https://github.com/emkwambe/databox
+GitHub: https://github.com/emkwambe/realitydb-cli
 CLI: @realitydb/cli@2.37.7 on npm
 Windows PowerShell only.
 ```
@@ -98,7 +98,7 @@ Windows PowerShell only.
 You are helping me update the RealityDB product pages (landing page, store, simlab, enterprise).
 
 BEFORE DOING ANYTHING, read these documents:
-1. https://raw.githubusercontent.com/emkwambe/databox/main/docs/NEW-CHAT-GENERATION-GUIDE.md (infrastructure section)
+1. https://raw.githubusercontent.com/emkwambe/realitydb-cli/main/docs/NEW-CHAT-GENERATION-GUIDE.md (infrastructure section)
 2. C:\Users\HP\Documents\realitydb-internal\PRODUCT-CLARITY-MATRIX.md (product definitions)
 3. C:\Users\HP\Documents\realitydb-internal\USE-CASE-PRICING-GUIDE.md (pricing)
 
@@ -135,8 +135,8 @@ Product checks go BEFORE the showLanding guard.
 You are helping me build oncology dataset variants for RealityDB.
 
 BEFORE DOING ANYTHING, read:
-1. https://raw.githubusercontent.com/emkwambe/databox/main/docs/NEW-CHAT-GENERATION-GUIDE.md
-2. https://raw.githubusercontent.com/emkwambe/databox/main/docs/QUALITY-STANDARDS.md
+1. https://raw.githubusercontent.com/emkwambe/realitydb-cli/main/docs/NEW-CHAT-GENERATION-GUIDE.md
+2. https://raw.githubusercontent.com/emkwambe/realitydb-cli/main/docs/QUALITY-STANDARDS.md
 3. C:\Users\HP\Documents\realitydb-internal\ONCOLOGY-VARIANTS-RESEARCH.md
 
 COMPLETED VARIANTS (all in R2, all 99-100/100):
@@ -165,8 +165,8 @@ Follow the 7-gate protocol for any new variant.
 ```
 ESSENTIAL CONTEXT FOR REALITYDB WORK:
 
-GitHub: https://github.com/emkwambe/databox
-Docs: https://raw.githubusercontent.com/emkwambe/databox/main/docs/NEW-CHAT-GENERATION-GUIDE.md
+GitHub: https://github.com/emkwambe/realitydb-cli
+Docs: https://raw.githubusercontent.com/emkwambe/realitydb-cli/main/docs/NEW-CHAT-GENERATION-GUIDE.md
 
 Key locations:
 - CLI entry point: apps/cli/src/index.ts (the ACTUAL run handler)

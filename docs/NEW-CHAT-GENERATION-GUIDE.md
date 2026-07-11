@@ -4,7 +4,7 @@
 > **Version:** 2.0
 > **Date:** April 25, 2026
 > **Purpose:** ANY new chat session that touches CLI, engine, templates, or data generation MUST read this guide FIRST.
-> **GitHub:** https://github.com/emkwambe/databox (CLI + engine)
+> **GitHub:** https://github.com/emkwambe/realitydb-cli (CLI + engine)
 > **Save to:** `C:\Users\HP\Documents\realitydb-internal\NEW-CHAT-GENERATION-GUIDE.md`
 
 ---
@@ -396,7 +396,7 @@ npx wrangler pages deploy dist --project-name realitydb-sandbox --commit-dirty=t
 ```
 
 ### GitHub Repos
-- **CLI + Engine:** https://github.com/emkwambe/databox
+- **CLI + Engine:** https://github.com/emkwambe/realitydb-cli
 - **Sandbox:** https://github.com/emkwambe/realitydb-sandbox (if separate)
 - **Studio:** https://github.com/emkwambe/realityDB-sutudio
 

@@ -1938,5 +1938,5 @@ realitydb upgrade
 *Mpingo Systems LLC — Charlotte, NC*
 *65 commands — Free and Core tiers*
 *EU enterprise: compliance@realitydb.dev*
-*GitHub: github.com/emkwambe/databox*
+*GitHub: github.com/emkwambe/realitydb-cli*
 *npm: @realitydb/cli*

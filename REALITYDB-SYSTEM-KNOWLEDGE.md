@@ -51,7 +51,7 @@ RealityDB is a synthetic data generation and SQL learning ecosystem built by Mpi
 
 ## 2. Repository Map
 
-### `github.com/emkwambe/databox` — CLI + Engine monorepo
+### `github.com/emkwambe/realitydb-cli` — CLI + Engine monorepo
 
 ```
 databox/

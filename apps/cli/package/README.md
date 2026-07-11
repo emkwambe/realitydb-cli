@@ -133,7 +133,7 @@ Create `realitydb.config.json`:
 - Node.js 20+
 - PostgreSQL
 
-Full documentation: [github.com/emkwambe/databox](https://github.com/emkwambe/databox)
+Full documentation: [github.com/emkwambe/realitydb-cli](https://github.com/emkwambe/realitydb-cli)
 
 ## License
 

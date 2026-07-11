@@ -102,7 +102,7 @@ All saved in C:\Users\HP\Documents\realitydb-internal\:
 
 | Repo | Location | Remote |
 |------|----------|--------|
-| CLI/Engine (databox) | C:\Users\HP\Documents\databox | github.com/emkwambe/databox |
+| CLI/Engine (databox) | C:\Users\HP\Documents\databox | github.com/emkwambe/realitydb-cli |
 | Studio | C:\Users\HP\Documents\realityDB-sutudio | github.com/emkwambe/realityDB-sutudio |
 | Sandbox (standalone) | C:\Users\HP\Documents\realitydb-sandbox | Not initialized (deploy from databox) |
 | Landing | C:\Users\HP\Documents\realitydb-landing | Cloudflare Pages direct |

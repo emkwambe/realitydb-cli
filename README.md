@@ -103,6 +103,6 @@ Every SQL output includes a content hash watermark. With a signing key, datasets
 ## Links
 
 - [realitydb.dev](https://realitydb.dev) | [studio.realitydb.dev](https://studio.realitydb.dev) | [sandbox.realitydb.dev](https://sandbox.realitydb.dev)
-- [GitHub](https://github.com/emkwambe/databox) | [npm](https://www.npmjs.com/package/@realitydb/cli)
+- [GitHub](https://github.com/emkwambe/realitydb-cli) | [npm](https://www.npmjs.com/package/@realitydb/cli)
 
 *Mpingo Systems LLC — Precision Tools. African Roots.*
