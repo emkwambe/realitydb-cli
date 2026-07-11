@@ -23,6 +23,7 @@ interface CreateLabRequest {
   name?: string;
   apiKey?: string;
   userId?: string;
+  seed?: number;
 }
 
 // ── Tier Definitions ────────────────────────────────────────
@@ -252,6 +253,7 @@ app.post('/v1/labs', async (c) => {
   const ttl = body.ttl || '4h';
   const name = body.name || `lab-${Date.now().toString(36)}`;
   const userId = body.userId || 'api-user';
+  const seed = body.seed ?? null;
   const id = `lab-${crypto.randomUUID().split('-')[0]}`;
 
   // Check entitlements (skip for api-user default to maintain backward compat)
@@ -357,10 +359,10 @@ app.post('/v1/labs', async (c) => {
 
     // Store in D1
     await env.DB.prepare(
-      `INSERT INTO labs (id, user_id, name, template, rows, neon_branch_id, neon_endpoint_id, connection_string, status, created_at, expires_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)`
+      `INSERT INTO labs (id, user_id, name, template, rows, seed, neon_branch_id, neon_endpoint_id, connection_string, status, created_at, expires_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)`
     ).bind(
-      id, userId, name, template, rows,
+      id, userId, name, template, rows, seed,
       branch.branchId, branch.endpointId,
       connectionString,
       now.toISOString(), expiresAt.toISOString()
@@ -575,7 +577,7 @@ app.post('/v1/labs/:id/snapshot', async (c) => {
     'INSERT INTO snapshots (id, lab_id, user_id, name, description, template, seed, rows, tables_count, schema_hash, r2_key, size_bytes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
   ).bind(
     snapshotId, lab.id, lab.user_id, body.name, body.description || '',
-    lab.template, null, totalRows, tableNames.length,
+    lab.template, lab.seed ?? null, totalRows, tableNames.length,
     '', r2Key, sqlDump.length, now
   ).run();
 
@@ -585,6 +587,7 @@ app.post('/v1/labs/:id/snapshot', async (c) => {
     description: body.description || '',
     labId: lab.id,
     template: lab.template,
+    seed: lab.seed ?? null,
     tableCount: tableNames.length,
     tables: tableNames,
     totalRows,
@@ -616,42 +619,53 @@ app.post('/v1/publish', async (c) => {
   const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
   if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
 
-  const body = await c.req.json<{
-    snapshotId: string;
-    title: string;
-    authors: string;
-    description?: string;
-    tags?: string;
-    license?: string;
-  }>();
+  try {
+    const body = await c.req.json<{
+      snapshotId: string;
+      title: string;
+      authors: string;
+      description?: string;
+      tags?: string | string[];
+      license?: string;
+    }>();
 
-  const snapshot = await env.DB.prepare('SELECT * FROM snapshots WHERE id = ?').bind(body.snapshotId).first();
-  if (!snapshot) return c.json({ error: 'Snapshot not found' }, 404);
+    // Normalize tags: the SimLabV3 client sends an array, but D1 .bind() only
+    // accepts scalar values — passing an array here threw and produced a bare 500.
+    const tagsValue = Array.isArray(body.tags) ? body.tags.join(',') : (body.tags ?? '');
 
-  const pubId = 'pub-' + crypto.randomUUID().split('-')[0];
-  const slug = body.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 60);
+    const snapshot = await env.DB.prepare('SELECT * FROM snapshots WHERE id = ?').bind(body.snapshotId).first();
+    if (!snapshot) return c.json({ error: 'Snapshot not found' }, 404);
 
-  // Check slug uniqueness
-  const existing = await env.DB.prepare('SELECT id FROM published_labs WHERE slug = ?').bind(slug).first();
-  const finalSlug = existing ? slug + '-' + pubId.split('-')[1] : slug;
+    const pubId = 'pub-' + crypto.randomUUID().split('-')[0];
+    const slug = body.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 60);
 
-  await env.DB.prepare(
-    'INSERT INTO published_labs (id, snapshot_id, user_id, slug, title, authors, description, tags, license, template, seed, rows, tables_count, status, published_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-  ).bind(
-    pubId, snapshot.id, snapshot.user_id, finalSlug,
-    body.title, body.authors, body.description || '',
-    body.tags || '', body.license || 'CC-BY-4.0',
-    snapshot.template, snapshot.seed || null, snapshot.rows, snapshot.tables_count,
-    'active', new Date().toISOString()
-  ).run();
+    // Check slug uniqueness
+    const existing = await env.DB.prepare('SELECT id FROM published_labs WHERE slug = ?').bind(slug).first();
+    const finalSlug = existing ? slug + '-' + pubId.split('-')[1] : slug;
 
-  return c.json({
-    id: pubId,
-    slug: finalSlug,
-    title: body.title,
-    url: 'https://gallery.realitydb.dev/labs/' + finalSlug,
-    publishedAt: new Date().toISOString(),
-  }, 201);
+    await env.DB.prepare(
+      'INSERT INTO published_labs (id, snapshot_id, user_id, slug, title, authors, description, tags, license, template, seed, rows, tables_count, status, published_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    ).bind(
+      pubId, snapshot.id, snapshot.user_id, finalSlug,
+      body.title, body.authors, body.description || '',
+      tagsValue, body.license || 'CC-BY-4.0',
+      snapshot.template, snapshot.seed ?? null, snapshot.rows, snapshot.tables_count,
+      'active', new Date().toISOString()
+    ).run();
+
+    return c.json({
+      id: pubId,
+      slug: finalSlug,
+      title: body.title,
+      url: 'https://gallery.realitydb.dev/labs/' + finalSlug,
+      publishedAt: new Date().toISOString(),
+    }, 201);
+  } catch (err: any) {
+    return new Response(
+      JSON.stringify({ error: 'publish_failed', detail: err?.message || String(err) }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
 });
 
 // Browse the gallery
