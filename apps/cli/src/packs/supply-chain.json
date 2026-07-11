@@ -53,7 +53,18 @@
       "match": "suppliers",
       "columns": {
         "id": { "strategy": "uuid" },
-        "name": { "strategy": "company_name" },
+        "name": {
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "Apex Industrial Supply", "GlobalTech Components", "Pacific Rim Logistics",
+              "Nordic Materials Group", "Meridian Manufacturing", "Atlas Distribution Co",
+              "Summit Parts & Supply", "Cornerstone Industrial", "Vanguard Components",
+              "Sterling Supply Chain", "Pinnacle Materials", "Horizon Logistics Group",
+              "TerraSource Industries", "Nexus Supply Partners", "Zenith Manufacturing Co"
+            ]
+          }
+        },
         "country": {
           "strategy": "enum",
           "options": {
@@ -193,7 +204,10 @@
             "_citation": "Fortune 500 industrial customer naming patterns, Gartner Supply Chain Top 25 2024"
           }
         },
-        "email": { "strategy": "email" },
+        "email": {
+          "strategy": "dependent_email",
+          "options": { "derivesFrom": "name", "domains": ["company.com", "corp.com", "enterprise.io", "group.com"] }
+        },
         "segment": {
           "strategy": "enum",
           "options": {
@@ -536,7 +550,10 @@
             "weights": [30, 25, 15, 20, 10]
           }
         },
-        "email": { "strategy": "email" },
+        "email": {
+          "strategy": "dependent_email",
+          "options": { "derivesFrom": "contact_name", "domains": ["gmail.com", "yahoo.com", "company.com", "outlook.com"] }
+        },
         "is_primary": {
           "strategy": "enum",
           "options": { "values": ["true", "false"], "weights": [30, 70] }
