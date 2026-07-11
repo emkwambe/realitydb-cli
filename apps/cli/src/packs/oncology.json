@@ -32,7 +32,21 @@
       "match": "sites",
       "columns": {
         "id": { "strategy": "uuid" },
-        "site_name": { "strategy": "company_name" },
+        "site_name": {
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "Memorial Cancer Center", "University Hospital Oncology",
+              "Regional Cancer Institute", "Metropolitan Medical Center",
+              "Northwest Oncology Clinic", "Comprehensive Cancer Center",
+              "Advanced Cancer Treatment Center", "National Cancer Institute Site",
+              "Community Oncology Network", "Academic Medical Center Oncology",
+              "Harbor View Cancer Center", "Lakeside Oncology Associates",
+              "Midtown Cancer Institute", "Riverside Medical Oncology",
+              "Eastside Comprehensive Cancer Center"
+            ]
+          }
+        },
         "created_at": { "strategy": "timestamp" }
       }
     },
@@ -40,7 +54,19 @@
       "match": "clinical_trials",
       "columns": {
         "id": { "strategy": "uuid" },
-        "trial_name": { "strategy": "company_name" },
+        "trial_name": {
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "BEACON-CRC2", "KEYNOTE-590", "CHECKMATE-816", "FLAURA2",
+              "MONARCH-3", "POLO Trial", "ARIEL4", "EMBRACE-2",
+              "DESTINY-Breast06", "MARIPOSA-2", "PAPILLON Trial",
+              "LAURA Trial", "ADAURA Extension", "KRYSTAL-12",
+              "LOXO-305-21001", "CHRYSALIS-2", "TROPION-Lung08",
+              "MAESTRA Trial", "VERITAC-2", "BREAKWATER Trial"
+            ]
+          }
+        },
         "phase": {
           "strategy": "enum",
           "options": {
@@ -352,7 +378,21 @@
           "strategy": "uuid",
           "foreignKey": { "table": "patients", "column": "id" }
         },
-        "med_name": { "strategy": "company_name" },
+        "med_name": {
+          "strategy": "enum",
+          "options": {
+            "values": [
+              "Pembrolizumab", "Nivolumab", "Atezolizumab", "Durvalumab",
+              "Osimertinib", "Alectinib", "Lorlatinib", "Crizotinib",
+              "Trastuzumab", "Pertuzumab", "Sacituzumab govitecan",
+              "Fam-trastuzumab deruxtecan", "Capecitabine", "Oxaliplatin",
+              "Bevacizumab", "Cetuximab", "Panitumumab", "Ramucirumab",
+              "Palbociclib", "Ribociclib", "Abemaciclib", "Olaparib",
+              "Niraparib", "Rucaparib", "Veliparib", "Selpercatinib",
+              "Pralsetinib", "Tepotinib", "Capmatinib", "Entrectinib"
+            ]
+          }
+        },
         "indication": {
           "strategy": "enum",
           "options": {
