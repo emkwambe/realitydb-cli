@@ -773,6 +773,23 @@ app.post('/v1/gallery/:slug/fork', async (c) => {
   }, 201);
 });
 
+// Soft-unpublish a gallery post by slug (X-API-Key auth required).
+// Avoids needing direct D1 access to remove/hide a published lab.
+app.delete('/v1/gallery/:slug', async (c) => {
+  const env = c.env;
+  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  if (!authenticate(apiKey, env)) return c.json({ error: 'unauthorized' }, 401);
+
+  const slug = c.req.param('slug');
+  const result = await env.DB.prepare(
+    "UPDATE published_labs SET status = 'deleted' WHERE slug = ?"
+  ).bind(slug).run();
+
+  const changes = result.meta?.changes ?? 0;
+  if (changes === 0) return c.json({ error: 'Published lab not found' }, 404);
+  return c.json({ deleted: true, slug, changes });
+});
+
 // Save a query during a lab session
 app.post('/v1/labs/:id/queries', async (c) => {
   const env = c.env;
