@@ -243,7 +243,16 @@
           }
         },
         "initiated_at": { "strategy": "timestamp" },
-        "settled_at": { "strategy": "timestamp" }
+        "settled_at": {
+          "strategy": "timestamp",
+          "options": {
+            "dependsOn": "initiated_at",
+            "dependencyRule": "after",
+            "offsetMin": 1,
+            "offsetMax": 3,
+            "_note": "SCT settles 1-3 days after initiation. Math.floor limits to whole days. Architecture 5b: sub-day granularity on roadmap."
+          }
+        }
       }
     },
 
