@@ -54,7 +54,7 @@
       "columns": {
         "id": { "strategy": "uuid" },
         "full_name": { "strategy": "full_name" },
-        "email": { "strategy": "email" },
+        "email": { "strategy": "dependent_email", "options": { "derivesFrom": "full_name", "domains": ["gmail.com", "yahoo.com", "hotmail.com", "outlook.com"] } },
         "status": {
           "strategy": "enum",
           "options": {
@@ -124,7 +124,20 @@
       "match": "device_inventory",
       "columns": {
         "id": { "strategy": "uuid" },
-        "model_name": { "strategy": "company_name" },
+        "model_name": {
+          "strategy": "dependent_enum",
+          "options": {
+            "dependsOn": "manufacturer",
+            "map": {
+              "Apple":    ["iPhone 15 Pro", "iPhone 14", "iPhone 13", "iPhone SE", "iPhone 15"],
+              "Samsung":  ["Galaxy S24", "Galaxy A54", "Galaxy S23", "Galaxy A34", "Galaxy S22"],
+              "Google":   ["Pixel 8 Pro", "Pixel 8", "Pixel 7a", "Pixel 7", "Pixel 6a"],
+              "Motorola": ["Moto G84", "Moto G54", "Edge 40", "Moto G73", "Edge 30"],
+              "OnePlus":  ["OnePlus 12", "OnePlus 11", "Nord CE 3", "OnePlus 10T", "Nord 3"],
+              "Nokia":    ["Nokia G42", "Nokia G22", "Nokia XR21", "Nokia C32", "Nokia G60"]
+            }
+          }
+        },
         "manufacturer": {
           "strategy": "enum",
           "options": {
@@ -225,7 +238,17 @@
           "foreignKey": { "table": "accounts", "column": "id" }
         },
         "imei": { "strategy": "random_string" },
-        "model": { "strategy": "company_name" },
+        "model": {
+          "strategy": "dependent_enum",
+          "options": {
+            "dependsOn": "os",
+            "map": {
+              "iOS":     ["iPhone 15 Pro", "iPhone 14", "iPhone 13", "iPhone SE", "iPhone 15 Plus"],
+              "Android": ["Galaxy S24", "Pixel 8", "Galaxy A54", "Moto G84", "OnePlus 12"],
+              "Other":   ["Nokia G42", "KaiOS Phone", "Feature Phone"]
+            }
+          }
+        },
         "os": {
           "strategy": "enum",
           "options": {
@@ -293,7 +316,7 @@
         },
         "mb_consumed": {
           "strategy": "float",
-          "options": { "distribution": "normal", "mean": 850, "stddev": 1200, "min": 0.1, "max": 15000 }
+          "options": { "distribution": "normal", "mean": 850, "stddev": 600, "min": 1.0, "max": 15000 }
         },
         "session_type": {
           "strategy": "enum",
