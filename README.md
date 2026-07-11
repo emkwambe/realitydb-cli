@@ -1,7 +1,7 @@
 # RealityDB CLI
 
 Generate production-realistic synthetic databases with verified FK integrity,
-deterministic seeds, temporal ordering, and EU regulatory compliance documentation.
+deterministic seeds, FK integrity, lifecycle-aware generation, and EU regulatory compliance documentation.
 
 ```bash
 npm install -g @realitydb/cli

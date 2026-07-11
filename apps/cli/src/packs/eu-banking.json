@@ -1,7 +1,7 @@
 {
   "name": "eu-banking",
   "version": "1.0.0",
-  "description": "EU Banking and Financial Services — mid-sized European commercial bank under SEPA/PSD2/MiFID II/DORA/GDPR/AMLD6. Covers customers, currencies, accounts (IBAN), SEPA credit transfers and direct debits, PSD2 open-banking consents, MiFID II investment orders, KYC/CDD records, UBO register, fraud alerts, and SAR filings. EU enterprise pack: research-backed distributions with primary-source citations, temporal ordering 100%, target assess score 98+.",
+  "description": "EU Banking and Financial Services — mid-sized European commercial bank under SEPA/PSD2/MiFID II/DORA/GDPR/AMLD6. Covers customers, currencies, accounts (IBAN), SEPA credit transfers and direct debits, PSD2 open-banking consents, MiFID II investment orders, KYC/CDD records, UBO register, fraud alerts, and SAR filings. EU enterprise pack: research-backed distributions with primary-source citations, lifecycle rules enforced, target assess score 98+.",
 
   "_meta": {
     "version": "1.0.0",
