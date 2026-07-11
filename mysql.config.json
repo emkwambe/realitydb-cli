@@ -1,1 +1,0 @@
-{"database":{"client":"mysql","connectionString":"mysql://root:password@localhost:3306/databox_dev"},"seed":{"defaultRecords":50,"batchSize":500}}
