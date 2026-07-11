@@ -69,7 +69,7 @@
           }
         },
         "full_name": { "strategy": "full_name" },
-        "email": { "strategy": "email" },
+        "email": { "strategy": "dependent_email", "options": { "derivesFrom": "full_name", "domains": ["gmail.com", "yahoo.com", "hotmail.com", "proton.me", "outlook.com"] } },
         "country_of_residence": {
           "strategy": "enum",
           "options": {
@@ -119,11 +119,16 @@
           }
         },
         "name": {
-          "strategy": "enum",
+          "strategy": "dependent_enum",
           "options": {
-            "values": ["Euro","British Pound","Swiss Franc","Polish Zloty","Czech Koruna"],
-            "weights": [60, 15, 10, 8, 7],
-            "_citation": "Mirrors currencies.code distribution — BIS Triennial Central Bank Survey 2022"
+            "dependsOn": "code",
+            "map": {
+              "EUR": ["Euro"],
+              "GBP": ["British Pound"],
+              "CHF": ["Swiss Franc"],
+              "PLN": ["Polish Zloty"],
+              "CZK": ["Czech Koruna"]
+            }
           }
         },
         "is_sepa_currency": {
@@ -207,14 +212,18 @@
         },
         "amount_eur": {
           "strategy": "float",
-          "options": { "distribution": "normal", "mean": 1250, "stddev": 3800, "min": 0.01, "max": 500000 }
+          "options": { "distribution": "normal", "mean": 1250, "stddev": 1200, "min": 10.00, "max": 50000 }
         },
         "status": {
           "strategy": "enum",
           "options": {
             "values": ["settled","pending","rejected","returned"],
             "weights": [88, 8, 3, 1],
-            "_citation": "EPC SEPA Scheme Statistics 2024 — SCT rejection/return rates"
+            "_citation": "EPC SEPA Scheme Statistics 2024 — SCT rejection/return rates",
+            "lifecycleRules": [
+              { "value": "settled", "nullFields": ["rejection_reason"] },
+              { "value": "pending", "nullFields": ["rejection_reason"] }
+            ]
           }
         },
         "rejection_reason": {
@@ -259,7 +268,11 @@
           "options": {
             "values": ["collected","rejected","returned","cancelled"],
             "weights": [78, 10, 8, 4],
-            "_citation": "EPC SDD Reject and Return Rate Statistics 2024"
+            "_citation": "EPC SDD Reject and Return Rate Statistics 2024",
+            "lifecycleRules": [
+              { "value": "collected", "nullFields": ["rejection_reason"] },
+              { "value": "cancelled", "nullFields": ["rejection_reason"] }
+            ]
           }
         },
         "rejection_reason": {
