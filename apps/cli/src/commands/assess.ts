@@ -386,7 +386,7 @@ function computeUniqueness(tables: ParsedTable[]): MetricResult {
   };
 }
 
-function computeTemporalLogic(tables: ParsedTable[]): MetricResult {
+function computeTemporalLogic(tables: ParsedTable[], packDef?: any): MetricResult {
   let temporalChecks = 0;
   let validChecks = 0;
   const violations: string[] = [];
@@ -422,6 +422,39 @@ function computeTemporalLogic(tables: ParsedTable[]): MetricResult {
         } else {
           if (violations.length < 5) {
             violations.push(`${table.name}: ${otherCol} (${otherVal}) < created_at (${createdVal})`);
+          }
+        }
+      }
+    }
+  }
+
+  // Pack-declared temporal pairs (dependsOn + dependencyRule: after) — real
+  // declarations from the pack schema, not a hardcoded column-name guess.
+  if (packDef?.tables) {
+    for (const [tableName, tableDef] of Object.entries(packDef.tables as any)) {
+      const parsedTable = tables.find(t => t.name === tableName);
+      if (!parsedTable) continue;
+
+      for (const [colName, colDef] of Object.entries((tableDef as any).columns ?? {})) {
+        const def = colDef as any;
+        if (def?.options?.dependsOn && def?.options?.dependencyRule === 'after') {
+          const sourceCol = def.options.dependsOn;
+          for (const row of parsedTable.rows) {
+            const sourceVal = row[sourceCol];
+            const targetVal = row[colName];
+            if (!sourceVal || !targetVal || sourceVal === 'NULL' || targetVal === 'NULL') continue;
+            const sourceDate = new Date(sourceVal);
+            const targetDate = new Date(targetVal);
+            if (isNaN(sourceDate.getTime()) || isNaN(targetDate.getTime())) continue;
+
+            temporalChecks++;
+            if (targetDate >= sourceDate) {
+              validChecks++;
+            } else {
+              if (violations.length < 5) {
+                violations.push(`${tableName}: ${colName} (${targetVal}) < ${sourceCol} (${sourceVal})`);
+              }
+            }
           }
         }
       }
@@ -867,6 +900,7 @@ export async function assessCommand(file: string, options: {
 
   // H3: load declared cardinality from --pack option (optional)
   let declaredCardinality: Map<string, number> | undefined;
+  let packDef: any;
   if (options.pack) {
     const packPath = path.resolve(options.pack);
     if (!fs.existsSync(packPath)) {
@@ -876,6 +910,7 @@ export async function assessCommand(file: string, options: {
     try {
       const packContent = fs.readFileSync(packPath, 'utf-8');
       const pack = JSON.parse(packContent);
+      packDef = pack;
       declaredCardinality = new Map();
       for (const rel of pack.relationships || []) {
         if (rel.targetTable && rel.cardinality?.mean !== undefined) {
@@ -904,7 +939,7 @@ export async function assessCommand(file: string, options: {
   const structureMetrics: MetricResult[] = [
     computeFkIntegrity(tables),
     computeUniqueness(tables),
-    computeTemporalLogic(tables),
+    computeTemporalLogic(tables, packDef),
     computeEnumValidity(tables),
     computeCardinalityRatios(tables, declaredCardinality),
   ];
