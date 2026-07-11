@@ -219,3 +219,6 @@ REALITYDB-SYSTEM-KNOWLEDGE.md
 DATA-GENERATION-GUIDE.md
 
 .claude/
+
+.realitydb-auto-template.json
+test-template.json
