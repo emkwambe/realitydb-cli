@@ -710,14 +710,25 @@ app.get('/v1/gallery/experiments', async (c) => {
   // Only public, published experiments are ever listed. Unlisted experiments
   // are reachable by slug (below) but deliberately never appear here —
   // that's the whole point of "anyone with the link."
-  let query = "SELECT id, slug, title, question, authors, tags, template, seed, rows, view_count, fork_count, published_at FROM experiments WHERE status = 'published' AND visibility = 'public'";
+  // Credibility aggregates (reproductions/validations/reviews) are computed
+  // here via correlated subqueries so gallery cards can show a real
+  // reproducibility badge without an N+1 fetch per card.
+  let query = `SELECT e.id, e.slug, e.title, e.question, e.authors, e.tags, e.template, e.seed, e.rows, e.view_count, e.fork_count, e.published_at,
+      (SELECT COUNT(*) FROM experiment_reproductions r WHERE r.experiment_id = e.id) as reproduction_count,
+      (SELECT COUNT(*) FROM experiment_reproductions r WHERE r.experiment_id = e.id AND r.matched = 1) as reproduction_matched_count,
+      (SELECT COUNT(*) FROM experiment_validations v WHERE v.experiment_id = e.id AND v.superseded_at IS NULL) as validation_count,
+      (SELECT COUNT(*) FROM experiment_validations v WHERE v.experiment_id = e.id AND v.superseded_at IS NULL AND v.verdict = 'confirms') as validation_confirms_count,
+      (SELECT COUNT(*) FROM experiment_validations v WHERE v.experiment_id = e.id AND v.superseded_at IS NULL AND v.verdict = 'disputes') as validation_disputes_count,
+      (SELECT COUNT(*) FROM experiment_reviews rv WHERE rv.experiment_id = e.id) as review_count,
+      (SELECT COUNT(*) FROM experiment_reviews rv WHERE rv.experiment_id = e.id AND rv.status = 'open') as review_open_count
+    FROM experiments e WHERE e.status = 'published' AND e.visibility = 'public'`;
   const params: string[] = [];
 
-  if (tag) { query += ' AND tags LIKE ?'; params.push('%' + tag + '%'); }
-  if (template) { query += ' AND template = ?'; params.push(template); }
-  if (search) { query += ' AND (title LIKE ? OR question LIKE ?)'; params.push('%' + search + '%', '%' + search + '%'); }
+  if (tag) { query += ' AND e.tags LIKE ?'; params.push('%' + tag + '%'); }
+  if (template) { query += ' AND e.template = ?'; params.push(template); }
+  if (search) { query += ' AND (e.title LIKE ? OR e.question LIKE ?)'; params.push('%' + search + '%', '%' + search + '%'); }
 
-  query += ' ORDER BY published_at DESC LIMIT 50';
+  query += ' ORDER BY e.published_at DESC LIMIT 50';
 
   const result = params.length > 0
     ? await env.DB.prepare(query).bind(...params).all()
@@ -751,7 +762,9 @@ app.get('/v1/gallery/experiments/:slug', async (c) => {
     bookmarked = !!bm;
   }
 
-  return c.json({ ...exp, view_count: (exp.view_count as number) + 1, viewerAccess: access, bookmarked, evidence: parsedEvidence });
+  const credibility = await getCredibilitySummary(env, exp.id as string);
+
+  return c.json({ ...exp, view_count: (exp.view_count as number) + 1, viewerAccess: access, bookmarked, ...credibility, evidence: parsedEvidence });
 });
 
 // Fork a published experiment — provisions a fresh lab from the same
@@ -1122,6 +1135,23 @@ async function logExperimentEvent(env: Env, experimentId: string, eventType: str
   ).bind('evt-' + crypto.randomUUID().split('-')[0], experimentId, eventType, actorUserId, JSON.stringify(metadata), new Date().toISOString()).run();
 }
 
+// Credibility aggregates for a single experiment's detail view — same
+// shape as the correlated subqueries in the gallery list, kept as one
+// combined query since detail endpoints already do `SELECT *`.
+async function getCredibilitySummary(env: Env, experimentId: string) {
+  const row = await env.DB.prepare(`
+    SELECT
+      (SELECT COUNT(*) FROM experiment_reproductions r WHERE r.experiment_id = ?) as reproduction_count,
+      (SELECT COUNT(*) FROM experiment_reproductions r WHERE r.experiment_id = ? AND r.matched = 1) as reproduction_matched_count,
+      (SELECT COUNT(*) FROM experiment_validations v WHERE v.experiment_id = ? AND v.superseded_at IS NULL) as validation_count,
+      (SELECT COUNT(*) FROM experiment_validations v WHERE v.experiment_id = ? AND v.superseded_at IS NULL AND v.verdict = 'confirms') as validation_confirms_count,
+      (SELECT COUNT(*) FROM experiment_validations v WHERE v.experiment_id = ? AND v.superseded_at IS NULL AND v.verdict = 'disputes') as validation_disputes_count,
+      (SELECT COUNT(*) FROM experiment_reviews rv WHERE rv.experiment_id = ?) as review_count,
+      (SELECT COUNT(*) FROM experiment_reviews rv WHERE rv.experiment_id = ? AND rv.status = 'open') as review_open_count
+  `).bind(experimentId, experimentId, experimentId, experimentId, experimentId, experimentId, experimentId).first();
+  return row;
+}
+
 async function nextEvidencePosition(db: D1Database, experimentId: string): Promise<number> {
   const row = await db.prepare(
     'SELECT COALESCE(MAX(position), -1) as maxPos FROM experiment_evidence WHERE experiment_id = ?'
@@ -1207,10 +1237,14 @@ app.get('/v1/experiments/:id', async (c) => {
     bookmarked = !!bm;
   }
 
-  return c.json({ ...exp, viewerAccess: access, bookmarked, evidence: parsedEvidence });
+  const credibility = await getCredibilitySummary(env, exp.id as string);
+
+  return c.json({ ...exp, viewerAccess: access, bookmarked, ...credibility, evidence: parsedEvidence });
 });
 
-// List the signed-in user's own experiments (drafts + published).
+// List the signed-in user's own experiments (drafts + published) — the
+// backbone of the Profile page. Includes credibility aggregates so
+// Published cards can show the same badges as the public Gallery.
 app.get('/v1/experiments', async (c) => {
   const env = c.env;
   const apiKey = c.req.header('X-API-Key');
@@ -1219,10 +1253,62 @@ app.get('/v1/experiments', async (c) => {
   const userId = await verifySupabaseJWT(c.req.header('Authorization'));
   if (!userId) return c.json({ error: 'Sign in required' }, 401);
 
-  const result = await env.DB.prepare(
-    'SELECT * FROM experiments WHERE user_id = ? ORDER BY created_at DESC'
-  ).bind(userId).all();
+  const result = await env.DB.prepare(`
+    SELECT e.*,
+      (SELECT COUNT(*) FROM experiment_reproductions r WHERE r.experiment_id = e.id) as reproduction_count,
+      (SELECT COUNT(*) FROM experiment_reproductions r WHERE r.experiment_id = e.id AND r.matched = 1) as reproduction_matched_count,
+      (SELECT COUNT(*) FROM experiment_validations v WHERE v.experiment_id = e.id AND v.superseded_at IS NULL) as validation_count,
+      (SELECT COUNT(*) FROM experiment_validations v WHERE v.experiment_id = e.id AND v.superseded_at IS NULL AND v.verdict = 'confirms') as validation_confirms_count,
+      (SELECT COUNT(*) FROM experiment_reviews rv WHERE rv.experiment_id = e.id) as review_count
+    FROM experiments e WHERE e.user_id = ? ORDER BY e.created_at DESC
+  `).bind(userId).all();
   return c.json({ experiments: result.results });
+});
+
+// ── Profile aggregates: what a user has DONE across all experiments ────
+// (as opposed to /v1/experiments, which is what they OWN). These three
+// plus /v1/experiments/bookmarks/mine (defined earlier) are the backbone
+// of the Professional Profile page — designed to extend cleanly to a
+// public researcher/org profile later without a route redesign, since
+// they're already scoped per-user rather than per-workspace.
+
+app.get('/v1/experiments/reproductions/mine', async (c) => {
+  const env = c.env;
+  const userId = await verifySupabaseJWT(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Sign in required' }, 401);
+
+  const result = await env.DB.prepare(`
+    SELECT r.id, r.matched, r.notes, r.created_at, e.id as experiment_id, e.slug, e.title, e.status
+    FROM experiment_reproductions r JOIN experiments e ON e.id = r.experiment_id
+    WHERE r.user_id = ? ORDER BY r.created_at DESC
+  `).bind(userId).all();
+  return c.json({ reproductions: result.results });
+});
+
+app.get('/v1/experiments/reviews/mine', async (c) => {
+  const env = c.env;
+  const userId = await verifySupabaseJWT(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Sign in required' }, 401);
+
+  const result = await env.DB.prepare(`
+    SELECT rv.id, rv.review_type, rv.content, rv.status, rv.evidence_id, rv.created_at, e.id as experiment_id, e.slug, e.title
+    FROM experiment_reviews rv JOIN experiments e ON e.id = rv.experiment_id
+    WHERE rv.reviewer_user_id = ? ORDER BY rv.created_at DESC
+  `).bind(userId).all();
+  return c.json({ reviews: result.results });
+});
+
+app.get('/v1/experiments/validations/mine', async (c) => {
+  const env = c.env;
+  const userId = await verifySupabaseJWT(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Sign in required' }, 401);
+
+  const result = await env.DB.prepare(`
+    SELECT v.id, v.verdict, v.note, v.created_at, e.id as experiment_id, e.slug, e.title
+    FROM experiment_validations v JOIN experiments e ON e.id = v.experiment_id
+    WHERE v.validator_user_id = ? AND v.superseded_at IS NULL ORDER BY v.created_at DESC
+  `).bind(userId).all();
+  return c.json({ validations: result.results });
 });
 
 // Update an experiment's narrative fields. Requires editor access,
