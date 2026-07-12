@@ -726,15 +726,15 @@ app.get('/v1/gallery/experiments', async (c) => {
   return c.json({ experiments: result.results });
 });
 
-// Get a single published experiment by slug. Public/unlisted need no
-// userId. Workspace/specific_people/private require ?userId= with
-// sufficient access — otherwise 404 (existence is not revealed).
+// Get a single published experiment by slug. Public read — no token
+// required. Pass a verified Bearer token to view experiments the caller
+// has non-public access to; without one, only public/unlisted resolve.
 app.get('/v1/gallery/experiments/:slug', async (c) => {
   const env = c.env;
   const exp = await env.DB.prepare("SELECT * FROM experiments WHERE slug = ?").bind(c.req.param('slug')).first();
   if (!exp) return c.json({ error: 'Experiment not found' }, 404);
 
-  const userId = c.req.query('userId');
+  const userId = await verifySupabaseJWT(c.req.header('Authorization'));
   const access = await resolveAccess(env, exp, userId);
   if (!hasAccess(access, 'viewer')) return c.json({ error: 'Experiment not found' }, 404);
 
@@ -759,14 +759,14 @@ app.get('/v1/gallery/experiments/:slug', async (c) => {
 // evidence blocks into a new draft the forker can re-run and extend.
 app.post('/v1/gallery/experiments/:slug/fork', async (c) => {
   const env = c.env;
-  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  const apiKey = c.req.header('X-API-Key');
   if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
 
   const source = await env.DB.prepare("SELECT * FROM experiments WHERE slug = ?").bind(c.req.param('slug')).first();
   if (!source) return c.json({ error: 'Experiment not found' }, 404);
 
-  const body = await c.req.json<{ userId?: string }>().catch(() => ({}));
-  const userId = (body as any).userId || 'api-user';
+  const userId = await verifySupabaseJWT(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Sign in required to fork an experiment' }, 401);
 
   const sourceAccess = await resolveAccess(env, source, userId);
   if (!hasAccess(sourceAccess, 'viewer')) return c.json({ error: 'Experiment not found' }, 404);
@@ -963,24 +963,90 @@ app.get('/v1/labs/:id/queries', async (c) => {
 const ENGINE_VERSION = '@realitydb/engine (see packages/engine)';
 const LAB_API_VERSION = 'lab-api-experiments-v1';
 
+// ── Supabase JWT verification ───────────────────────────────────────────
+// This project's Supabase instance signs access tokens with ES256 using an
+// asymmetric key pair — the public verification key is served at a public
+// JWKS endpoint, so no secret is required on this end to verify signatures.
+// (If the Supabase project is ever migrated to legacy HS256 shared-secret
+// signing, this verifier must change to HMAC verification against a
+// SUPABASE_JWT_SECRET binding instead — it would silently stop matching.)
+const SUPABASE_PROJECT_URL = 'https://roruzpilgspfzhvclwhb.supabase.co';
+const SUPABASE_JWKS_URL = `${SUPABASE_PROJECT_URL}/auth/v1/.well-known/jwks.json`;
+const SUPABASE_ISSUER = `${SUPABASE_PROJECT_URL}/auth/v1`;
+
+let jwksCache: { keys: any[]; fetchedAt: number } | null = null;
+const JWKS_CACHE_TTL_MS = 10 * 60 * 1000;
+
+async function getSupabaseJwks(): Promise<any[]> {
+  if (jwksCache && Date.now() - jwksCache.fetchedAt < JWKS_CACHE_TTL_MS) return jwksCache.keys;
+  const res = await fetch(SUPABASE_JWKS_URL, { cf: { cacheTtl: 600, cacheEverything: true } } as any);
+  const data: any = await res.json().catch(() => ({ keys: [] }));
+  jwksCache = { keys: data.keys || [], fetchedAt: Date.now() };
+  return jwksCache.keys;
+}
+
+function base64UrlToBytes(b64url: string): Uint8Array {
+  const b64 = b64url.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(b64url.length / 4) * 4, '=');
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+function base64UrlDecodeJson(b64url: string): any {
+  return JSON.parse(new TextDecoder().decode(base64UrlToBytes(b64url)));
+}
+
+// The ONLY trustworthy source of actor identity in this Worker. Verifies
+// the ES256 signature against Supabase's live public key, and checks
+// expiry + issuer. Returns the verified `sub` (Supabase user id), or null
+// on ANY failure — missing header, malformed token, wrong/unknown key,
+// expired, wrong issuer, or bad signature. Callers must treat null as
+// "not authenticated," never fall back to a client-supplied userId for
+// authorization-sensitive actions.
+async function verifySupabaseJWT(authHeader: string | undefined | null): Promise<string | null> {
+  if (!authHeader?.startsWith('Bearer ')) return null;
+  const token = authHeader.slice('Bearer '.length).trim();
+  const parts = token.split('.');
+  if (parts.length !== 3) return null;
+
+  let header: any, payload: any;
+  try {
+    header = base64UrlDecodeJson(parts[0]);
+    payload = base64UrlDecodeJson(parts[1]);
+  } catch {
+    return null;
+  }
+
+  if (header.alg !== 'ES256') return null;
+  if (!payload.exp || Date.now() / 1000 >= payload.exp) return null;
+  if (payload.iss !== SUPABASE_ISSUER) return null;
+  if (!payload.sub) return null;
+
+  const keys = await getSupabaseJwks();
+  const jwk = keys.find((k: any) => k.kid === header.kid);
+  if (!jwk) return null;
+
+  try {
+    const cryptoKey = await crypto.subtle.importKey('jwk', jwk, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify']);
+    const signedData = new TextEncoder().encode(`${parts[0]}.${parts[1]}`);
+    const signature = base64UrlToBytes(parts[2]);
+    const valid = await crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, cryptoKey, signature, signedData);
+    return valid ? payload.sub : null;
+  } catch {
+    return null;
+  }
+}
+
 // ── Access control ──────────────────────────────────────────────────────
 // visibility: private | workspace | specific_people | unlisted | public
 // permission tiers (least to most): viewer < reviewer < editor; owner is
 // implicit and always maximal.
 //
-// IMPORTANT SECURITY NOTE: resolveAccess() answers "what does our data
-// model say this userId is allowed to do" — it does NOT verify that the
-// caller actually IS that userId. Nothing in lab-api verifies identity
-// (no session/JWT check anywhere in this Worker); every endpoint trusts
-// a client-supplied userId, same as /v1/labs and the rest of the API
-// predating this feature. That was an acceptable gap when the only
-// consequence was misattributed authorship. It is a materially bigger
-// gap now that userId also gates access to PRIVATE data — a malicious
-// client can pass any userId it wants and be treated as that person.
-// Closing this requires verified identity (e.g. checking a Supabase JWT
-// on the Worker) which does not exist yet anywhere in this codebase and
-// is out of scope for this pass. Treat this authorization layer as
-// correct-by-construction but not yet a real security boundary.
+// resolveAccess() answers "what does our data model say this userId is
+// allowed to do" — the userId it's given MUST be a verifySupabaseJWT()
+// result for authorization-sensitive endpoints, never a client-supplied
+// body/query value. Public/anonymous reads may pass null.
 type AccessLevel = 'owner' | 'editor' | 'reviewer' | 'viewer' | 'none';
 const ACCESS_RANK: Record<AccessLevel, number> = { none: 0, viewer: 1, reviewer: 2, editor: 3, owner: 4 };
 
@@ -1012,11 +1078,14 @@ async function resolveAccess(env: Env, exp: any, userId: string | null | undefin
   }
 
   if (userId) {
-    const grant = await env.DB.prepare(
+    // Defense in depth: DB-level unique indexes prevent duplicate grant
+    // rows per (experiment, user), but take the max across any matches
+    // rather than trusting a single .first() row order guarantee.
+    const grants = await env.DB.prepare(
       'SELECT permission FROM experiment_access_grants WHERE experiment_id = ? AND user_id = ?'
-    ).bind(exp.id, userId).first();
-    if (grant) {
-      const grantLevel = (grant as any).permission as AccessLevel;
+    ).bind(exp.id, userId).all();
+    for (const g of (grants.results || []) as any[]) {
+      const grantLevel = g.permission as AccessLevel;
       if (grantLevel in ACCESS_RANK && ACCESS_RANK[grantLevel] > ACCESS_RANK[level]) level = grantLevel;
     }
   }
@@ -1064,17 +1133,19 @@ async function nextEvidencePosition(db: D1Database, experimentId: string): Promi
 // manifest (template/seed/rows) is captured from that lab automatically.
 app.post('/v1/experiments', async (c) => {
   const env = c.env;
-  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  const apiKey = c.req.header('X-API-Key');
   if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
+
+  const userId = await verifySupabaseJWT(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Sign in required to create an experiment' }, 401);
 
   const body = await c.req.json<{
     title: string; question?: string; labId?: string;
-    template?: string; seed?: number; rows?: number; userId?: string;
+    template?: string; seed?: number; rows?: number;
     workspaceId?: string;
   }>();
   if (!body.title) return c.json({ error: 'title is required' }, 400);
 
-  const userId = body.userId || 'api-user';
   let template = body.template ?? null;
   let seed = body.seed ?? null;
   let rows = body.rows ?? null;
@@ -1113,14 +1184,14 @@ app.post('/v1/experiments', async (c) => {
 });
 
 // Get a single experiment with its ordered evidence blocks. Gated by
-// resolveAccess — pass ?userId= to view anything beyond public/unlisted
-// published experiments.
+// resolveAccess — pass a verified Bearer token to view anything beyond
+// public/unlisted published experiments.
 app.get('/v1/experiments/:id', async (c) => {
   const env = c.env;
   const exp = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
   if (!exp) return c.json({ error: 'Experiment not found' }, 404);
 
-  const userId = c.req.query('userId');
+  const userId = await verifySupabaseJWT(c.req.header('Authorization'));
   const access = await resolveAccess(env, exp, userId);
   if (!hasAccess(access, 'viewer')) return c.json({ error: 'Experiment not found' }, 404);
 
@@ -1139,37 +1210,38 @@ app.get('/v1/experiments/:id', async (c) => {
   return c.json({ ...exp, viewerAccess: access, bookmarked, evidence: parsedEvidence });
 });
 
-// List a user's experiments (drafts + published).
+// List the signed-in user's own experiments (drafts + published).
 app.get('/v1/experiments', async (c) => {
   const env = c.env;
-  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  const apiKey = c.req.header('X-API-Key');
   if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
 
-  const userId = c.req.query('userId') || 'api-user';
+  const userId = await verifySupabaseJWT(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Sign in required' }, 401);
+
   const result = await env.DB.prepare(
     'SELECT * FROM experiments WHERE user_id = ? ORDER BY created_at DESC'
   ).bind(userId).all();
   return c.json({ experiments: result.results });
 });
 
-// Update an experiment's narrative fields. Requires editor access.
-// BACKWARD COMPAT: userId is optional — omitting it (as the currently
-// shipped SimLab Experiment tab does) is treated as the owner, matching
-// this endpoint's pre-existing behavior. Pass userId for real per-user
-// enforcement once the frontend is updated to send it.
+// Update an experiment's narrative fields. Requires editor access,
+// derived from the verified Supabase JWT subject — never a client-
+// supplied userId.
 app.patch('/v1/experiments/:id', async (c) => {
   const env = c.env;
-  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  const apiKey = c.req.header('X-API-Key');
   if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
 
   const exp = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
   if (!exp) return c.json({ error: 'Experiment not found' }, 404);
 
-  const body = await c.req.json<{ title?: string; question?: string; findings?: string; tags?: string; authors?: string; license?: string; userId?: string }>();
-  const requesterId = body.userId || (exp.user_id as string);
-  const access = await resolveAccess(env, exp, requesterId);
+  const userId = await verifySupabaseJWT(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Sign in required' }, 401);
+  const access = await resolveAccess(env, exp, userId);
   if (!hasAccess(access, 'editor')) return c.json({ error: 'Insufficient permission' }, 403);
 
+  const body = await c.req.json<{ title?: string; question?: string; findings?: string; tags?: string; authors?: string; license?: string }>();
   await env.DB.prepare(
     `UPDATE experiments SET
        title = COALESCE(?, title), question = COALESCE(?, question),
@@ -1193,11 +1265,16 @@ app.patch('/v1/experiments/:id', async (c) => {
 // the originating lab (and its Neon branch) has expired.
 app.post('/v1/experiments/:id/evidence', async (c) => {
   const env = c.env;
-  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  const apiKey = c.req.header('X-API-Key');
   if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
 
   const exp = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
   if (!exp) return c.json({ error: 'Experiment not found' }, 404);
+
+  const userId = await verifySupabaseJWT(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Sign in required' }, 401);
+  const access = await resolveAccess(env, exp, userId);
+  if (!hasAccess(access, 'editor')) return c.json({ error: 'Insufficient permission' }, 403);
 
   const body = await c.req.json<{
     type: 'sql_query' | 'result_table' | 'chart' | 'markdown';
@@ -1205,13 +1282,7 @@ app.post('/v1/experiments/:id/evidence', async (c) => {
     sql?: string;
     execute?: boolean;
     data?: any;
-    userId?: string;
   }>();
-
-  // BACKWARD COMPAT: see PATCH /v1/experiments/:id note above.
-  const requesterId = body.userId || (exp.user_id as string);
-  const access = await resolveAccess(env, exp, requesterId);
-  if (!hasAccess(access, 'editor')) return c.json({ error: 'Insufficient permission' }, 403);
 
   if (!body.type) return c.json({ error: 'type is required' }, 400);
   const now = new Date().toISOString();
@@ -1291,15 +1362,17 @@ const VISIBILITY_VALUES = new Set(['private', 'workspace', 'specific_people', 'u
 // set pre-publish via PATCH /visibility, in which case that is kept.
 app.post('/v1/experiments/:id/publish', async (c) => {
   const env = c.env;
-  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  const apiKey = c.req.header('X-API-Key');
   if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
 
   const exp = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
   if (!exp) return c.json({ error: 'Experiment not found' }, 404);
 
-  const body = await c.req.json<{ visibility?: string; userId?: string }>().catch(() => ({} as any));
-  const requesterId = body.userId || (exp.user_id as string);
-  if (!(await isOwnerOrWorkspaceAdmin(env, exp, requesterId))) return c.json({ error: 'Insufficient permission — owner or workspace admin required' }, 403);
+  const userId = await verifySupabaseJWT(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Sign in required' }, 401);
+  if (!(await isOwnerOrWorkspaceAdmin(env, exp, userId))) return c.json({ error: 'Insufficient permission — owner or workspace admin required' }, 403);
+
+  const body = await c.req.json<{ visibility?: string }>().catch(() => ({} as any));
 
   if (!exp.findings) return c.json({ error: 'Findings are required before publishing' }, 400);
 
@@ -1325,7 +1398,7 @@ app.post('/v1/experiments/:id/publish', async (c) => {
     `UPDATE experiments SET status = 'published', slug = ?, visibility = ?, published_at = ? WHERE id = ?`
   ).bind(slug, visibility, now, exp.id).run();
 
-  await logExperimentEvent(env, exp.id as string, 'published', requesterId, { visibility });
+  await logExperimentEvent(env, exp.id as string, 'published', userId, { visibility });
 
   return c.json({ id: exp.id, slug, visibility, url: 'https://sandbox.realitydb.dev/#gallery/' + slug, publishedAt: now });
 });
@@ -1340,17 +1413,19 @@ app.post('/v1/experiments/:id/publish', async (c) => {
 // 'published'; drafts may only be private, workspace, or specific_people.
 app.patch('/v1/experiments/:id/visibility', async (c) => {
   const env = c.env;
-  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  const apiKey = c.req.header('X-API-Key');
   if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
 
   const exp = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
   if (!exp) return c.json({ error: 'Experiment not found' }, 404);
 
-  const body = await c.req.json<{ visibility: string; workspaceId?: string; userId: string }>();
-  if (!body.userId) return c.json({ error: 'userId is required' }, 400);
+  const userId = await verifySupabaseJWT(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Sign in required' }, 401);
+
+  const body = await c.req.json<{ visibility: string; workspaceId?: string }>();
   if (!body.visibility || !VISIBILITY_VALUES.has(body.visibility)) return c.json({ error: 'Valid visibility is required' }, 400);
 
-  if (!(await isOwnerOrWorkspaceAdmin(env, exp, body.userId))) return c.json({ error: 'Insufficient permission — owner or workspace admin required' }, 403);
+  if (!(await isOwnerOrWorkspaceAdmin(env, exp, userId))) return c.json({ error: 'Insufficient permission — owner or workspace admin required' }, 403);
 
   if ((body.visibility === 'public' || body.visibility === 'unlisted') && exp.status !== 'published') {
     return c.json({ error: 'Publish this experiment before setting public or unlisted visibility' }, 400);
@@ -1362,7 +1437,7 @@ app.patch('/v1/experiments/:id/visibility', async (c) => {
     if (!workspaceId) return c.json({ error: 'workspaceId is required to set workspace visibility' }, 400);
     const member = await env.DB.prepare(
       'SELECT 1 FROM workspace_members WHERE workspace_id = ? AND user_id = ?'
-    ).bind(workspaceId, body.userId).first();
+    ).bind(workspaceId, userId).first();
     if (!member) return c.json({ error: 'You are not a member of that workspace' }, 403);
   }
 
@@ -1381,7 +1456,7 @@ app.get('/v1/experiments/:id/access', async (c) => {
   const exp = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
   if (!exp) return c.json({ error: 'Experiment not found' }, 404);
 
-  const userId = c.req.query('userId');
+  const userId = await verifySupabaseJWT(c.req.header('Authorization'));
   const access = await resolveAccess(env, exp, userId);
   if (!hasAccess(access, 'reviewer')) return c.json({ error: 'Insufficient permission' }, 403);
 
@@ -1404,43 +1479,61 @@ app.get('/v1/experiments/:id/access', async (c) => {
 // — requires owner or workspace owner/admin, not a plain editor grant.
 app.post('/v1/experiments/:id/access', async (c) => {
   const env = c.env;
-  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  const apiKey = c.req.header('X-API-Key');
   if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
 
   const exp = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
   if (!exp) return c.json({ error: 'Experiment not found' }, 404);
 
-  const body = await c.req.json<{ userId: string; granteeUserId?: string; inviteEmail?: string; permission: string }>();
-  if (!body.userId) return c.json({ error: 'userId is required' }, 400);
-  if (!(await isOwnerOrWorkspaceAdmin(env, exp, body.userId))) return c.json({ error: 'Insufficient permission — owner or workspace admin required' }, 403);
+  const userId = await verifySupabaseJWT(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Sign in required' }, 401);
+  if (!(await isOwnerOrWorkspaceAdmin(env, exp, userId))) return c.json({ error: 'Insufficient permission — owner or workspace admin required' }, 403);
 
+  const body = await c.req.json<{ granteeUserId?: string; inviteEmail?: string; permission: string }>();
   if (!['viewer', 'reviewer', 'editor'].includes(body.permission)) return c.json({ error: 'permission must be viewer, reviewer, or editor' }, 400);
   const hasGrantee = !!body.granteeUserId;
   const hasEmail = !!body.inviteEmail;
   if (hasGrantee === hasEmail) return c.json({ error: 'Provide exactly one of granteeUserId or inviteEmail' }, 400);
 
-  const id = 'grant-' + crypto.randomUUID().split('-')[0];
+  // Re-granting an existing collaborator updates their permission in place
+  // rather than stacking a second row — resolveAccess() only ever reads
+  // one row per (experiment, user), so a stale duplicate would silently
+  // under- or over-grant depending on row order. Enforced at the DB level
+  // too via partial unique indexes on (experiment_id, user_id) and
+  // (experiment_id, invite_email).
   const now = new Date().toISOString();
-  await env.DB.prepare(
-    `INSERT INTO experiment_access_grants (id, experiment_id, user_id, invite_email, permission, invited_by, invited_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
-  ).bind(id, exp.id, body.granteeUserId || null, body.inviteEmail || null, body.permission, body.userId, now).run();
+  const existing = body.granteeUserId
+    ? await env.DB.prepare('SELECT id FROM experiment_access_grants WHERE experiment_id = ? AND user_id = ?').bind(exp.id, body.granteeUserId).first()
+    : await env.DB.prepare('SELECT id FROM experiment_access_grants WHERE experiment_id = ? AND invite_email = ?').bind(exp.id, body.inviteEmail).first();
 
-  return c.json({ id, experimentId: exp.id, userId: body.granteeUserId || null, inviteEmail: body.inviteEmail || null, permission: body.permission, invitedAt: now }, 201);
+  let id: string;
+  if (existing) {
+    id = (existing as any).id;
+    await env.DB.prepare('UPDATE experiment_access_grants SET permission = ?, invited_by = ?, invited_at = ? WHERE id = ?')
+      .bind(body.permission, userId, now, id).run();
+  } else {
+    id = 'grant-' + crypto.randomUUID().split('-')[0];
+    await env.DB.prepare(
+      `INSERT INTO experiment_access_grants (id, experiment_id, user_id, invite_email, permission, invited_by, invited_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
+    ).bind(id, exp.id, body.granteeUserId || null, body.inviteEmail || null, body.permission, userId, now).run();
+  }
+
+  return c.json({ id, experimentId: exp.id, userId: body.granteeUserId || null, inviteEmail: body.inviteEmail || null, permission: body.permission, invitedAt: now }, existing ? 200 : 201);
 });
 
 // Revoke an access grant. Ownership-sensitive — owner or workspace
 // owner/admin only.
 app.delete('/v1/experiments/:id/access/:grantId', async (c) => {
   const env = c.env;
-  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  const apiKey = c.req.header('X-API-Key');
   if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
 
   const exp = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
   if (!exp) return c.json({ error: 'Experiment not found' }, 404);
 
-  const userId = c.req.query('userId');
-  if (!userId) return c.json({ error: 'userId is required' }, 400);
+  const userId = await verifySupabaseJWT(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Sign in required' }, 401);
   if (!(await isOwnerOrWorkspaceAdmin(env, exp, userId))) return c.json({ error: 'Insufficient permission — owner or workspace admin required' }, 403);
 
   const result = await env.DB.prepare('DELETE FROM experiment_access_grants WHERE id = ? AND experiment_id = ?').bind(c.req.param('grantId'), exp.id).run();
@@ -1457,23 +1550,23 @@ app.delete('/v1/experiments/:id/access/:grantId', async (c) => {
 // viewer access (must be able to see the experiment to bookmark it).
 app.post('/v1/experiments/:id/bookmark', async (c) => {
   const env = c.env;
-  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  const apiKey = c.req.header('X-API-Key');
   if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
 
   const exp = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
   if (!exp) return c.json({ error: 'Experiment not found' }, 404);
 
-  const body = await c.req.json<{ userId: string }>();
-  if (!body.userId) return c.json({ error: 'userId is required' }, 400);
-  const access = await resolveAccess(env, exp, body.userId);
+  const userId = await verifySupabaseJWT(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Sign in required' }, 401);
+  const access = await resolveAccess(env, exp, userId);
   if (!hasAccess(access, 'viewer')) return c.json({ error: 'Experiment not found' }, 404);
 
   const result = await env.DB.prepare(
     'INSERT OR IGNORE INTO experiment_bookmarks (experiment_id, user_id, created_at) VALUES (?, ?, ?)'
-  ).bind(exp.id, body.userId, new Date().toISOString()).run();
+  ).bind(exp.id, userId, new Date().toISOString()).run();
 
   if ((result.meta?.changes ?? 0) > 0) {
-    await logExperimentEvent(env, exp.id as string, 'bookmarked', body.userId, {});
+    await logExperimentEvent(env, exp.id as string, 'bookmarked', userId, {});
   }
 
   return c.json({ bookmarked: true });
@@ -1483,21 +1576,21 @@ app.post('/v1/experiments/:id/bookmark', async (c) => {
 // records meaningful engagement, not its reversal.
 app.delete('/v1/experiments/:id/bookmark', async (c) => {
   const env = c.env;
-  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  const apiKey = c.req.header('X-API-Key');
   if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
 
-  const userId = c.req.query('userId');
-  if (!userId) return c.json({ error: 'userId is required' }, 400);
+  const userId = await verifySupabaseJWT(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Sign in required' }, 401);
 
   await env.DB.prepare('DELETE FROM experiment_bookmarks WHERE experiment_id = ? AND user_id = ?').bind(c.req.param('id'), userId).run();
   return c.json({ bookmarked: false });
 });
 
-// List a user's bookmarked experiments.
+// List the signed-in user's bookmarked experiments.
 app.get('/v1/experiments/bookmarks/mine', async (c) => {
   const env = c.env;
-  const userId = c.req.query('userId');
-  if (!userId) return c.json({ error: 'userId is required' }, 400);
+  const userId = await verifySupabaseJWT(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Sign in required' }, 401);
 
   const result = await env.DB.prepare(
     `SELECT e.id, e.slug, e.title, e.question, e.status, e.visibility, b.created_at as bookmarked_at
@@ -1516,16 +1609,18 @@ app.get('/v1/experiments/bookmarks/mine', async (c) => {
 // non-matching) result" — not just an event. Requires viewer access.
 app.post('/v1/experiments/:id/reproductions', async (c) => {
   const env = c.env;
-  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  const apiKey = c.req.header('X-API-Key');
   if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
 
   const exp = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
   if (!exp) return c.json({ error: 'Experiment not found' }, 404);
 
-  const body = await c.req.json<{ userId: string; matched: boolean; notes?: string; newExperimentId?: string }>();
-  if (!body.userId) return c.json({ error: 'userId is required' }, 400);
+  const userId = await verifySupabaseJWT(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Sign in required' }, 401);
+
+  const body = await c.req.json<{ matched: boolean; notes?: string; newExperimentId?: string }>();
   if (typeof body.matched !== 'boolean') return c.json({ error: 'matched (boolean) is required' }, 400);
-  const access = await resolveAccess(env, exp, body.userId);
+  const access = await resolveAccess(env, exp, userId);
   if (!hasAccess(access, 'viewer')) return c.json({ error: 'Experiment not found' }, 404);
 
   const id = 'repro-' + crypto.randomUUID().split('-')[0];
@@ -1533,9 +1628,9 @@ app.post('/v1/experiments/:id/reproductions', async (c) => {
   await env.DB.prepare(
     `INSERT INTO experiment_reproductions (id, experiment_id, user_id, matched, notes, new_experiment_id, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?)`
-  ).bind(id, exp.id, body.userId, body.matched ? 1 : 0, body.notes || null, body.newExperimentId || null, now).run();
+  ).bind(id, exp.id, userId, body.matched ? 1 : 0, body.notes || null, body.newExperimentId || null, now).run();
 
-  await logExperimentEvent(env, exp.id as string, 'reproduced', body.userId, { reproductionId: id, matched: body.matched });
+  await logExperimentEvent(env, exp.id as string, 'reproduced', userId, { reproductionId: id, matched: body.matched });
 
   return c.json({ id, experimentId: exp.id, matched: body.matched, notes: body.notes || null, createdAt: now }, 201);
 });
@@ -1545,7 +1640,7 @@ app.get('/v1/experiments/:id/reproductions', async (c) => {
   const exp = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
   if (!exp) return c.json({ error: 'Experiment not found' }, 404);
 
-  const userId = c.req.query('userId');
+  const userId = await verifySupabaseJWT(c.req.header('Authorization'));
   const access = await resolveAccess(env, exp, userId);
   if (!hasAccess(access, 'viewer')) return c.json({ error: 'Experiment not found' }, 404);
 
@@ -1564,19 +1659,21 @@ app.get('/v1/experiments/:id/reproductions', async (c) => {
 // above plain viewing, matching "reviewer" as a real permission concept.
 app.post('/v1/experiments/:id/reviews', async (c) => {
   const env = c.env;
-  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  const apiKey = c.req.header('X-API-Key');
   if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
 
   const exp = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
   if (!exp) return c.json({ error: 'Experiment not found' }, 404);
 
-  const body = await c.req.json<{ userId: string; evidenceId?: string; reviewType: string; content: string }>();
-  if (!body.userId) return c.json({ error: 'userId is required' }, 400);
+  const userId = await verifySupabaseJWT(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Sign in required' }, 401);
+
+  const body = await c.req.json<{ evidenceId?: string; reviewType: string; content: string }>();
   if (!body.content?.trim()) return c.json({ error: 'content is required' }, 400);
   if (!['suggestion', 'question', 'concern', 'endorsement'].includes(body.reviewType)) {
     return c.json({ error: 'reviewType must be suggestion, question, concern, or endorsement' }, 400);
   }
-  const access = await resolveAccess(env, exp, body.userId);
+  const access = await resolveAccess(env, exp, userId);
   if (!hasAccess(access, 'reviewer')) return c.json({ error: 'Insufficient permission — reviewer access required' }, 403);
 
   if (body.evidenceId) {
@@ -1589,9 +1686,9 @@ app.post('/v1/experiments/:id/reviews', async (c) => {
   await env.DB.prepare(
     `INSERT INTO experiment_reviews (id, experiment_id, evidence_id, reviewer_user_id, review_type, content, status, created_at)
      VALUES (?, ?, ?, ?, ?, ?, 'open', ?)`
-  ).bind(id, exp.id, body.evidenceId || null, body.userId, body.reviewType, body.content.trim(), now).run();
+  ).bind(id, exp.id, body.evidenceId || null, userId, body.reviewType, body.content.trim(), now).run();
 
-  await logExperimentEvent(env, exp.id as string, 'reviewed', body.userId, { reviewId: id, evidenceId: body.evidenceId || null });
+  await logExperimentEvent(env, exp.id as string, 'reviewed', userId, { reviewId: id, evidenceId: body.evidenceId || null });
 
   return c.json({ id, experimentId: exp.id, evidenceId: body.evidenceId || null, reviewType: body.reviewType, content: body.content.trim(), status: 'open', createdAt: now }, 201);
 });
@@ -1601,7 +1698,7 @@ app.get('/v1/experiments/:id/reviews', async (c) => {
   const exp = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
   if (!exp) return c.json({ error: 'Experiment not found' }, 404);
 
-  const userId = c.req.query('userId');
+  const userId = await verifySupabaseJWT(c.req.header('Authorization'));
   const access = await resolveAccess(env, exp, userId);
   if (!hasAccess(access, 'viewer')) return c.json({ error: 'Experiment not found' }, 404);
 
@@ -1618,7 +1715,7 @@ app.get('/v1/experiments/:id/reviews', async (c) => {
 // the two endpoints below.
 app.patch('/v1/experiments/:id/reviews/:reviewId', async (c) => {
   const env = c.env;
-  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  const apiKey = c.req.header('X-API-Key');
   if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
 
   const exp = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
@@ -1627,19 +1724,21 @@ app.patch('/v1/experiments/:id/reviews/:reviewId', async (c) => {
   const review = await env.DB.prepare('SELECT * FROM experiment_reviews WHERE id = ? AND experiment_id = ?').bind(c.req.param('reviewId'), exp.id).first();
   if (!review) return c.json({ error: 'Review not found' }, 404);
 
-  const body = await c.req.json<{ userId: string; status: string }>();
-  if (!body.userId) return c.json({ error: 'userId is required' }, 400);
+  const userId = await verifySupabaseJWT(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Sign in required' }, 401);
+
+  const body = await c.req.json<{ status: string }>();
   if (!['addressed', 'dismissed'].includes(body.status)) return c.json({ error: 'status must be addressed or dismissed' }, 400);
 
-  const access = await resolveAccess(env, exp, body.userId);
+  const access = await resolveAccess(env, exp, userId);
   if (!hasAccess(access, 'editor')) return c.json({ error: 'Insufficient permission — experiment editor or owner required' }, 403);
 
   const now = new Date().toISOString();
   await env.DB.prepare(
     'UPDATE experiment_reviews SET status = ?, resolved_at = ?, resolved_by = ? WHERE id = ?'
-  ).bind(body.status, now, body.userId, review.id).run();
+  ).bind(body.status, now, userId, review.id).run();
 
-  return c.json({ id: review.id, status: body.status, resolvedAt: now, resolvedBy: body.userId });
+  return c.json({ id: review.id, status: body.status, resolvedAt: now, resolvedBy: userId });
 });
 
 // Edit the content of your own review. Author-only, and only while the
@@ -1647,14 +1746,16 @@ app.patch('/v1/experiments/:id/reviews/:reviewId', async (c) => {
 // record of what was said should stop changing.
 app.patch('/v1/experiments/:id/reviews/:reviewId/content', async (c) => {
   const env = c.env;
-  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  const apiKey = c.req.header('X-API-Key');
   if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
 
   const review = await env.DB.prepare('SELECT * FROM experiment_reviews WHERE id = ? AND experiment_id = ?').bind(c.req.param('reviewId'), c.req.param('id')).first();
   if (!review) return c.json({ error: 'Review not found' }, 404);
 
-  const body = await c.req.json<{ userId: string; content: string }>();
-  if (!body.userId || review.reviewer_user_id !== body.userId) return c.json({ error: 'Only the review author may edit it' }, 403);
+  const userId = await verifySupabaseJWT(c.req.header('Authorization'));
+  if (!userId || review.reviewer_user_id !== userId) return c.json({ error: 'Only the review author may edit it' }, 403);
+
+  const body = await c.req.json<{ content: string }>();
   if (review.status !== 'open') return c.json({ error: 'Only open reviews can be edited' }, 400);
   if (!body.content?.trim()) return c.json({ error: 'content is required' }, 400);
 
@@ -1668,13 +1769,13 @@ app.patch('/v1/experiments/:id/reviews/:reviewId/content', async (c) => {
 // current state of the review content.
 app.delete('/v1/experiments/:id/reviews/:reviewId', async (c) => {
   const env = c.env;
-  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  const apiKey = c.req.header('X-API-Key');
   if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
 
   const review = await env.DB.prepare('SELECT * FROM experiment_reviews WHERE id = ? AND experiment_id = ?').bind(c.req.param('reviewId'), c.req.param('id')).first();
   if (!review) return c.json({ error: 'Review not found' }, 404);
 
-  const userId = c.req.query('userId');
+  const userId = await verifySupabaseJWT(c.req.header('Authorization'));
   if (!userId || review.reviewer_user_id !== userId) return c.json({ error: 'Only the review author may withdraw it' }, 403);
 
   await env.DB.prepare('DELETE FROM experiment_reviews WHERE id = ?').bind(review.id).run();
@@ -1693,33 +1794,35 @@ app.delete('/v1/experiments/:id/reviews/:reviewId', async (c) => {
 // viewing).
 app.post('/v1/experiments/:id/validations', async (c) => {
   const env = c.env;
-  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  const apiKey = c.req.header('X-API-Key');
   if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
 
   const exp = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
   if (!exp) return c.json({ error: 'Experiment not found' }, 404);
 
-  const body = await c.req.json<{ userId: string; verdict: string; note?: string }>();
-  if (!body.userId) return c.json({ error: 'userId is required' }, 400);
+  const userId = await verifySupabaseJWT(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Sign in required' }, 401);
+
+  const body = await c.req.json<{ verdict: string; note?: string }>();
   if (!['confirms', 'disputes', 'needs_more_info'].includes(body.verdict)) {
     return c.json({ error: 'verdict must be confirms, disputes, or needs_more_info' }, 400);
   }
-  if (body.userId === exp.user_id) return c.json({ error: 'Owners cannot validate their own experiment' }, 400);
-  const access = await resolveAccess(env, exp, body.userId);
+  if (userId === exp.user_id) return c.json({ error: 'Owners cannot validate their own experiment' }, 400);
+  const access = await resolveAccess(env, exp, userId);
   if (!hasAccess(access, 'reviewer')) return c.json({ error: 'Insufficient permission — reviewer access required' }, 403);
 
   const now = new Date().toISOString();
   await env.DB.prepare(
     'UPDATE experiment_validations SET superseded_at = ? WHERE experiment_id = ? AND validator_user_id = ? AND superseded_at IS NULL'
-  ).bind(now, exp.id, body.userId).run();
+  ).bind(now, exp.id, userId).run();
 
   const id = 'val-' + crypto.randomUUID().split('-')[0];
   await env.DB.prepare(
     `INSERT INTO experiment_validations (id, experiment_id, validator_user_id, verdict, note, created_at)
      VALUES (?, ?, ?, ?, ?, ?)`
-  ).bind(id, exp.id, body.userId, body.verdict, body.note || null, now).run();
+  ).bind(id, exp.id, userId, body.verdict, body.note || null, now).run();
 
-  await logExperimentEvent(env, exp.id as string, 'validated', body.userId, { validationId: id, verdict: body.verdict });
+  await logExperimentEvent(env, exp.id as string, 'validated', userId, { validationId: id, verdict: body.verdict });
 
   return c.json({ id, experimentId: exp.id, verdict: body.verdict, note: body.note || null, createdAt: now }, 201);
 });
@@ -1729,7 +1832,7 @@ app.get('/v1/experiments/:id/validations', async (c) => {
   const exp = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
   if (!exp) return c.json({ error: 'Experiment not found' }, 404);
 
-  const userId = c.req.query('userId');
+  const userId = await verifySupabaseJWT(c.req.header('Authorization'));
   const access = await resolveAccess(env, exp, userId);
   if (!hasAccess(access, 'viewer')) return c.json({ error: 'Experiment not found' }, 404);
 
@@ -1746,16 +1849,18 @@ app.get('/v1/experiments/:id/validations', async (c) => {
 
 app.post('/v1/experiments/:id/references', async (c) => {
   const env = c.env;
-  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  const apiKey = c.req.header('X-API-Key');
   if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
 
   const target = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
   if (!target) return c.json({ error: 'Experiment not found' }, 404);
 
-  const body = await c.req.json<{ userId: string; sourceExperimentId?: string; note?: string }>();
-  if (!body.userId) return c.json({ error: 'userId is required' }, 400);
+  const userId = await verifySupabaseJWT(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Sign in required' }, 401);
 
-  const targetAccess = await resolveAccess(env, target, body.userId);
+  const body = await c.req.json<{ sourceExperimentId?: string; note?: string }>();
+
+  const targetAccess = await resolveAccess(env, target, userId);
   if (!hasAccess(targetAccess, 'viewer')) return c.json({ error: 'Experiment not found' }, 404);
   // Existence/visibility check passed (viewer) — but attaching a reference
   // is a credibility claim about the target, same tier as review/validate,
@@ -1766,7 +1871,7 @@ app.post('/v1/experiments/:id/references', async (c) => {
     if (body.sourceExperimentId === target.id) return c.json({ error: 'An experiment cannot reference itself' }, 400);
     const source = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(body.sourceExperimentId).first();
     if (!source) return c.json({ error: 'sourceExperimentId not found' }, 404);
-    const sourceAccess = await resolveAccess(env, source, body.userId);
+    const sourceAccess = await resolveAccess(env, source, userId);
     if (!hasAccess(sourceAccess, 'viewer')) return c.json({ error: 'sourceExperimentId not found' }, 404);
   }
 
@@ -1775,9 +1880,9 @@ app.post('/v1/experiments/:id/references', async (c) => {
   await env.DB.prepare(
     `INSERT INTO experiment_references (id, source_experiment_id, target_experiment_id, note, created_by, created_at)
      VALUES (?, ?, ?, ?, ?, ?)`
-  ).bind(id, body.sourceExperimentId || null, target.id, body.note || null, body.userId, now).run();
+  ).bind(id, body.sourceExperimentId || null, target.id, body.note || null, userId, now).run();
 
-  await logExperimentEvent(env, target.id as string, 'referenced', body.userId, { referenceId: id, sourceExperimentId: body.sourceExperimentId || null });
+  await logExperimentEvent(env, target.id as string, 'referenced', userId, { referenceId: id, sourceExperimentId: body.sourceExperimentId || null });
 
   return c.json({ id, sourceExperimentId: body.sourceExperimentId || null, targetExperimentId: target.id, note: body.note || null, createdAt: now }, 201);
 });
@@ -1787,7 +1892,7 @@ app.get('/v1/experiments/:id/references', async (c) => {
   const exp = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
   if (!exp) return c.json({ error: 'Experiment not found' }, 404);
 
-  const userId = c.req.query('userId');
+  const userId = await verifySupabaseJWT(c.req.header('Authorization'));
   const access = await resolveAccess(env, exp, userId);
   if (!hasAccess(access, 'viewer')) return c.json({ error: 'Experiment not found' }, 404);
 
@@ -1803,17 +1908,19 @@ app.get('/v1/experiments/:id/references', async (c) => {
 
 app.post('/v1/experiments/:id/share', async (c) => {
   const env = c.env;
-  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  const apiKey = c.req.header('X-API-Key');
   if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
 
   const exp = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
   if (!exp) return c.json({ error: 'Experiment not found' }, 404);
 
-  const body = await c.req.json<{ userId?: string; method?: string }>().catch(() => ({} as any));
-  const access = await resolveAccess(env, exp, body.userId);
+  const userId = await verifySupabaseJWT(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Sign in required' }, 401);
+  const access = await resolveAccess(env, exp, userId);
   if (!hasAccess(access, 'viewer')) return c.json({ error: 'Experiment not found' }, 404);
 
-  await logExperimentEvent(env, exp.id as string, 'shared', body.userId || null, { method: body.method || 'link' });
+  const body = await c.req.json<{ method?: string }>().catch(() => ({} as any));
+  await logExperimentEvent(env, exp.id as string, 'shared', userId, { method: body.method || 'link' });
   return c.json({ shared: true });
 });
 
@@ -1827,7 +1934,7 @@ app.get('/v1/experiments/:id/events', async (c) => {
   const exp = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
   if (!exp) return c.json({ error: 'Experiment not found' }, 404);
 
-  const userId = c.req.query('userId');
+  const userId = await verifySupabaseJWT(c.req.header('Authorization'));
   const access = await resolveAccess(env, exp, userId);
   if (!hasAccess(access, 'viewer')) return c.json({ error: 'Experiment not found' }, 404);
 
@@ -1844,11 +1951,14 @@ app.get('/v1/experiments/:id/events', async (c) => {
 
 app.post('/v1/workspaces', async (c) => {
   const env = c.env;
-  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  const apiKey = c.req.header('X-API-Key');
   if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
 
-  const body = await c.req.json<{ userId: string; name: string }>();
-  if (!body.userId || !body.name?.trim()) return c.json({ error: 'userId and name are required' }, 400);
+  const userId = await verifySupabaseJWT(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Sign in required' }, 401);
+
+  const body = await c.req.json<{ name: string }>();
+  if (!body.name?.trim()) return c.json({ error: 'name is required' }, 400);
 
   const id = 'ws-' + crypto.randomUUID().split('-')[0];
   const slugBase = body.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 60);
@@ -1857,17 +1967,17 @@ app.post('/v1/workspaces', async (c) => {
   const now = new Date().toISOString();
 
   await env.DB.prepare('INSERT INTO workspaces (id, name, slug, owner_user_id, created_at) VALUES (?, ?, ?, ?, ?)')
-    .bind(id, body.name.trim(), slug, body.userId, now).run();
+    .bind(id, body.name.trim(), slug, userId, now).run();
   await env.DB.prepare('INSERT INTO workspace_members (workspace_id, user_id, role, joined_at) VALUES (?, ?, ?, ?)')
-    .bind(id, body.userId, 'owner', now).run();
+    .bind(id, userId, 'owner', now).run();
 
-  return c.json({ id, name: body.name.trim(), slug, ownerUserId: body.userId, createdAt: now }, 201);
+  return c.json({ id, name: body.name.trim(), slug, ownerUserId: userId, createdAt: now }, 201);
 });
 
 app.get('/v1/workspaces/mine', async (c) => {
   const env = c.env;
-  const userId = c.req.query('userId');
-  if (!userId) return c.json({ error: 'userId is required' }, 400);
+  const userId = await verifySupabaseJWT(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Sign in required' }, 401);
 
   const result = await env.DB.prepare(
     `SELECT w.id, w.name, w.slug, w.owner_user_id, m.role, w.created_at
@@ -1880,8 +1990,8 @@ app.get('/v1/workspaces/mine', async (c) => {
 
 app.get('/v1/workspaces/:id/members', async (c) => {
   const env = c.env;
-  const userId = c.req.query('userId');
-  if (!userId) return c.json({ error: 'userId is required' }, 400);
+  const userId = await verifySupabaseJWT(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Sign in required' }, 401);
 
   const isMember = await env.DB.prepare('SELECT 1 FROM workspace_members WHERE workspace_id = ? AND user_id = ?').bind(c.req.param('id'), userId).first();
   if (!isMember) return c.json({ error: 'Workspace not found' }, 404);
@@ -1893,15 +2003,18 @@ app.get('/v1/workspaces/:id/members', async (c) => {
 // Requires the requester to be workspace owner/admin.
 app.post('/v1/workspaces/:id/members', async (c) => {
   const env = c.env;
-  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  const apiKey = c.req.header('X-API-Key');
   if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
 
-  const body = await c.req.json<{ userId: string; memberUserId: string; role?: string }>();
-  if (!body.userId || !body.memberUserId) return c.json({ error: 'userId and memberUserId are required' }, 400);
+  const userId = await verifySupabaseJWT(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Sign in required' }, 401);
+
+  const body = await c.req.json<{ memberUserId: string; role?: string }>();
+  if (!body.memberUserId) return c.json({ error: 'memberUserId is required' }, 400);
   const role = body.role || 'member';
   if (!['owner', 'admin', 'member'].includes(role)) return c.json({ error: 'role must be owner, admin, or member' }, 400);
 
-  const requester = await env.DB.prepare('SELECT role FROM workspace_members WHERE workspace_id = ? AND user_id = ?').bind(c.req.param('id'), body.userId).first();
+  const requester = await env.DB.prepare('SELECT role FROM workspace_members WHERE workspace_id = ? AND user_id = ?').bind(c.req.param('id'), userId).first();
   if (!requester || !['owner', 'admin'].includes((requester as any).role)) return c.json({ error: 'Insufficient permission' }, 403);
 
   const now = new Date().toISOString();
