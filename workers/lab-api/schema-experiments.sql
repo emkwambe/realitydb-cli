@@ -133,3 +133,35 @@ CREATE TABLE experiment_events (
   created_at      TEXT NOT NULL
 );
 CREATE INDEX idx_events_experiment ON experiment_events(experiment_id, created_at);
+
+-- Full-text search (Sub-Sprint 2C, Discovery Engine) — added 2026-07-12.
+-- Standalone FTS5 tables (not SQLite's external-content mode, which
+-- requires binding to an INTEGER rowid; experiments.id/experiment_evidence.id
+-- are TEXT primary keys). `id` is carried as an UNINDEXED column and joined
+-- back to the source table at query time. Kept in sync via AFTER
+-- INSERT/UPDATE/DELETE triggers on experiments / experiment_evidence — see
+-- experiments_fts_ai/au/ad and evidence_fts_ai/au/ad. Populated once via a
+-- one-time backfill INSERT at creation time; the triggers keep it current
+-- from then on.
+CREATE VIRTUAL TABLE experiments_fts USING fts5(
+  id UNINDEXED,
+  title,
+  question,
+  findings,
+  key_findings,
+  limitations,
+  future_work,
+  tags,
+  authors
+);
+
+CREATE VIRTUAL TABLE evidence_fts USING fts5(
+  id UNINDEXED,
+  title,
+  description,
+  tags,
+  sql_text
+);
+-- sql_text is populated from json_extract(data,'$.sql') for sql_query rows
+-- only (NULL for chart/result_table/markdown), so SQL evidence is
+-- full-text searchable by its actual query text, not just title/description.

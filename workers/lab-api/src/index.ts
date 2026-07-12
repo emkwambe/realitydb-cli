@@ -717,6 +717,108 @@ app.get('/v1/gallery/experiments', async (c) => {
 // same shared query-building path (runDiscoveryQuery). Every lens's rows
 // always carry their parent Experiment's slug/title/author — visualizations
 // and SQL are derived artifacts, never standalone content.
+// Distinct tag/template/author values (with counts) across a lens's
+// published population — the "faceted filtering" a dropdown needs.
+// Registered before /v1/discover/:lens below: both are 2-segment paths,
+// and this Hono version matches routes in registration order, not
+// static-before-dynamic priority, so /v1/discover/facets would otherwise
+// be swallowed as lens="facets" (same bug class as /v1/gallery/:slug vs
+// /v1/gallery/experiments, fixed the same way, earlier this project).
+// Tags are comma-separated TEXT, so counting happens in the Worker after
+// one query, not in SQL — fine at current scale, a scaling concern later.
+app.get('/v1/discover/facets', async (c) => {
+  const env = c.env;
+  const lens = c.req.query('lens') || 'experiments';
+  if (lens === 'profiles' || !DISCOVERY_LENSES.has(lens)) return c.json({ error: 'Facets not supported for this lens' }, 400);
+
+  let rows: any[];
+  if (lens === 'experiments') {
+    rows = (await env.DB.prepare("SELECT tags, template, authors FROM experiments WHERE status = 'published' AND visibility = 'public'").all()).results as any[];
+  } else {
+    const type = lens === 'visualizations' ? 'chart' : 'sql_query';
+    rows = (await env.DB.prepare(
+      `SELECT ev.tags as tags, e.template as template, e.authors as authors
+       FROM experiment_evidence ev JOIN experiments e ON e.id = ev.experiment_id
+       WHERE ev.type = ? AND e.status = 'published' AND e.visibility = 'public'`
+    ).bind(type).all()).results as any[];
+  }
+
+  const tagCounts = new Map<string, number>();
+  const templateCounts = new Map<string, number>();
+  const authorCounts = new Map<string, number>();
+  for (const r of rows) {
+    if (r.tags) for (const t of String(r.tags).split(',').map((s: string) => s.trim()).filter(Boolean)) tagCounts.set(t, (tagCounts.get(t) || 0) + 1);
+    if (r.template) templateCounts.set(r.template, (templateCounts.get(r.template) || 0) + 1);
+    if (r.authors) authorCounts.set(r.authors, (authorCounts.get(r.authors) || 0) + 1);
+  }
+  const toSorted = (m: Map<string, number>) => Array.from(m.entries()).map(([value, count]) => ({ value, count })).sort((a, b) => b.count - a.count);
+
+  return c.json({ lens, tags: toSorted(tagCounts), templates: toSorted(templateCounts), authors: toSorted(authorCounts) });
+});
+
+// Personalized recommendations — derived from a signed-in user's own
+// bookmark/reproduction tag-and-template affinity, the same overlap
+// heuristic as /related applied to a person's aggregate interests instead
+// of one Experiment's. No ML, no schema change. Falls back to the global
+// trending/relevance blend for anonymous callers or users with no signal
+// yet (no bookmarks/reproductions) — never errors either way. Also
+// registered before /v1/discover/:lens for the same route-depth reason as
+// /v1/discover/facets above.
+app.get('/v1/discover/recommended', async (c) => {
+  const env = c.env;
+  const userId = await verifySupabaseJWT(c.req.header('Authorization'));
+  const limit = Math.min(Math.max(parseInt(c.req.query('limit') || '10', 10) || 10, 1), 50);
+
+  const fallback = async () => {
+    const results = await runDiscoveryQuery(env, 'experiments', { limit, offset: 0, sort: 'trending' } as DiscoveryFilters);
+    return c.json({ personalized: false, results });
+  };
+
+  if (!userId) return fallback();
+
+  const [bookmarked, reproduced] = await Promise.all([
+    env.DB.prepare('SELECT e.id, e.tags, e.template FROM experiment_bookmarks b JOIN experiments e ON e.id = b.experiment_id WHERE b.user_id = ?').bind(userId).all(),
+    env.DB.prepare('SELECT e.id, e.tags, e.template FROM experiment_reproductions r JOIN experiments e ON e.id = r.experiment_id WHERE r.user_id = ?').bind(userId).all(),
+  ]);
+  const interestRows = [...(bookmarked.results as any[]), ...(reproduced.results as any[])];
+  if (interestRows.length === 0) return fallback();
+
+  const tagFreq = new Map<string, number>();
+  const templateFreq = new Map<string, number>();
+  const excludeIds = new Set<string>();
+  for (const r of interestRows) {
+    excludeIds.add(r.id);
+    if (r.tags) for (const t of String(r.tags).split(',').map((s: string) => s.trim()).filter(Boolean)) tagFreq.set(t, (tagFreq.get(t) || 0) + 1);
+    if (r.template) templateFreq.set(r.template, (templateFreq.get(r.template) || 0) + 1);
+  }
+  const topTags = Array.from(tagFreq.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([t]) => t);
+  const topTemplates = Array.from(templateFreq.entries()).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([t]) => t);
+  if (topTags.length === 0 && topTemplates.length === 0) return fallback();
+
+  const scoreTerms: string[] = [];
+  const whereTerms: string[] = [];
+  const scoreParams: string[] = [];
+  const whereParams: string[] = [];
+  for (const t of topTemplates) { scoreTerms.push('CASE WHEN e.template = ? THEN 1 ELSE 0 END'); scoreParams.push(t); whereTerms.push('e.template = ?'); whereParams.push(t); }
+  for (const t of topTags) { scoreTerms.push('CASE WHEN e.tags LIKE ? THEN 1 ELSE 0 END'); scoreParams.push('%' + t + '%'); whereTerms.push('e.tags LIKE ?'); whereParams.push('%' + t + '%'); }
+
+  const excludeIdList = Array.from(excludeIds);
+  const excludeClause = excludeIdList.length ? `AND e.id NOT IN (${excludeIdList.map(() => '?').join(',')})` : '';
+
+  const query = `SELECT e.id, e.slug, e.title, e.question, e.authors, e.tags, e.template, e.published_at,
+${DISCOVERY_SIGNAL_SUBQUERIES_E},
+      (${scoreTerms.join(' + ')}) as affinity_score
+    FROM experiments e
+    WHERE e.status = 'published' AND e.visibility = 'public' ${excludeClause}
+      AND (${whereTerms.join(' OR ')})
+    ORDER BY affinity_score DESC, (reproduction_count + validation_count + review_count + citation_count) DESC, published_at DESC
+    LIMIT ?`;
+
+  const params = [...scoreParams, ...excludeIdList, ...whereParams, limit];
+  const result = await env.DB.prepare(query).bind(...params).all();
+  return c.json({ personalized: true, results: result.results || [] });
+});
+
 app.get('/v1/discover/:lens', async (c) => {
   const lens = c.req.param('lens');
   if (!DISCOVERY_LENSES.has(lens)) return c.json({ error: 'Unknown discovery lens' }, 404);
@@ -801,22 +903,28 @@ app.get('/v1/gallery/experiments/:slug/related', async (c) => {
   const tags = ((source.tags as string) || '').split(',').map((t) => t.trim()).filter(Boolean).slice(0, 5);
   const tagScoreExpr = tags.map(() => `CASE WHEN e.tags LIKE ? THEN 1 ELSE 0 END`).join(' + ');
   const tagWhereExpr = tags.map(() => `e.tags LIKE ?`).join(' OR ');
+  // Citation-graph proximity — direct citation (either direction) is a
+  // much stronger relatedness signal than incidental tag/template overlap,
+  // so it's weighted higher (3) and also pulls a candidate into the
+  // result set on its own, even with zero tag/template/author overlap.
+  const citationExistsExpr = `EXISTS (SELECT 1 FROM experiment_references cr WHERE (cr.source_experiment_id = ? AND cr.target_experiment_id = e.id) OR (cr.source_experiment_id = e.id AND cr.target_experiment_id = ?))`;
 
   const query = `SELECT e.id, e.slug, e.title, e.question, e.authors, e.tags, e.template, e.published_at,
 ${CREDIBILITY_SUBQUERIES_E},
       (CASE WHEN e.template = ? THEN 1 ELSE 0 END
        + CASE WHEN e.authors = ? THEN 1 ELSE 0 END
+       + CASE WHEN ${citationExistsExpr} THEN 3 ELSE 0 END
        ${tags.length ? '+ ' + tagScoreExpr : ''}) as relevance
     FROM experiments e
     WHERE e.status = 'published' AND e.visibility = 'public' AND e.id != ?
-      AND (e.template = ? OR e.authors = ?${tags.length ? ' OR ' + tagWhereExpr : ''})
+      AND (e.template = ? OR e.authors = ? OR ${citationExistsExpr}${tags.length ? ' OR ' + tagWhereExpr : ''})
     ORDER BY relevance DESC, e.published_at DESC
     LIMIT 6`;
 
   const tagLikeParams = tags.map((t) => '%' + t + '%');
   const params = [
-    source.template, source.authors, ...tagLikeParams,
-    source.id, source.template, source.authors, ...tagLikeParams,
+    source.template, source.authors, source.id, source.id, ...tagLikeParams,
+    source.id, source.template, source.authors, source.id, source.id, ...tagLikeParams,
   ];
 
   const result = await env.DB.prepare(query).bind(...params).all();
@@ -1231,6 +1339,7 @@ interface DiscoveryFilters {
   q?: string;
   tag?: string;
   template?: string;
+  chartType?: string;
   sort?: string;
   limit: number;
   offset: number;
@@ -1243,6 +1352,7 @@ function parseDiscoveryFilters(c: any): DiscoveryFilters {
     q: c.req.query('q') || undefined,
     tag: c.req.query('tag') || undefined,
     template: c.req.query('template') || undefined,
+    chartType: c.req.query('chartType') || undefined,
     sort: c.req.query('sort') || undefined,
     limit,
     offset,
@@ -1262,90 +1372,145 @@ const CREDIBILITY_SUBQUERIES_E = `
       (SELECT COUNT(*) FROM experiment_reviews rv WHERE rv.experiment_id = e.id) as review_count,
       (SELECT COUNT(*) FROM experiment_reviews rv WHERE rv.experiment_id = e.id AND rv.status = 'open') as review_open_count`;
 
-function discoverySortColumn(sort: string | undefined): string {
+// Citation graph signal (2B's experiment_references, finally used for
+// ranking) and a rolling-window engagement signal for "trending" — both
+// keyed off the same `e.id` correlation as the credibility subqueries
+// above, so every lens gets them identically.
+const CITATION_SUBQUERY_E = `
+      (SELECT COUNT(*) FROM experiment_references ref WHERE ref.target_experiment_id = e.id) as citation_count`;
+const TRENDING_SUBQUERY_E = `
+      (SELECT COUNT(*) FROM experiment_events ev2 WHERE ev2.experiment_id = e.id AND ev2.created_at >= datetime('now', '-14 days')) as recent_engagement_count`;
+const DISCOVERY_SIGNAL_SUBQUERIES_E = `${CREDIBILITY_SUBQUERIES_E},\n${CITATION_SUBQUERY_E},\n${TRENDING_SUBQUERY_E}`;
+
+// Builds the FTS5 join/select fragment for a lens's query. Only joins the
+// FTS virtual table (and only calls bm25(), which SQLite requires be
+// evaluated against an actual MATCH constraint) when a `q` is present —
+// unconditionally joining would either break bm25() or force a full scan
+// for every browse-with-no-search request.
+function ftsJoinAndSelect(filters: DiscoveryFilters, ftsTable: string, idCol: string): { join: string; selectCol: string; whereClause: string; param: string | null } {
+  if (!filters.q) return { join: '', selectCol: '0 as text_relevance', whereClause: '', param: null };
+  return {
+    join: `JOIN ${ftsTable} ON ${ftsTable}.id = ${idCol}`,
+    selectCol: `bm25(${ftsTable}) as text_relevance`,
+    whereClause: ` AND ${ftsTable} MATCH ?`,
+    param: filters.q,
+  };
+}
+
+// Weighted-sum ranking, expressed as an ORDER BY expression over the named
+// signal columns every lens's query now selects (text_relevance,
+// reproduction_count, validation_count, review_count, citation_count,
+// recent_engagement_count, published_at). Each `sort` value is a strict
+// generalization of what existed before — single-signal sorts (recent,
+// most_reproduced, most_validated, most_reviewed) are unchanged; the new
+// values (most_cited, trending, relevance) are additive. `relevance` is
+// the implicit default when `q` is present and no explicit sort was
+// requested — previously an unset sort always meant "recent" regardless
+// of whether a search term was given, which ranked search results
+// arbitrarily rather than by match quality.
+function discoveryRankExpression(sort: string | undefined, hasQuery: boolean): string {
   switch (sort) {
-    case 'most_reproduced': return 'reproduction_count DESC';
-    case 'most_validated': return 'validation_count DESC';
-    case 'most_reviewed': return 'review_count DESC';
-    case 'recent':
-    default: return 'published_at DESC';
+    case 'most_reproduced': return 'reproduction_count DESC, published_at DESC';
+    case 'most_validated': return 'validation_count DESC, published_at DESC';
+    case 'most_reviewed': return 'review_count DESC, published_at DESC';
+    case 'most_cited': return 'citation_count DESC, published_at DESC';
+    case 'trending': return 'recent_engagement_count DESC, published_at DESC';
+    case 'relevance':
+      return hasQuery
+        ? 'text_relevance ASC, (reproduction_count + validation_count + review_count + citation_count) DESC, published_at DESC'
+        : '(reproduction_count + validation_count + review_count + citation_count) DESC, published_at DESC';
+    case 'recent': return 'published_at DESC';
+    default:
+      return hasQuery ? discoveryRankExpression('relevance', true) : 'published_at DESC';
   }
 }
 
-// Appends q/tag/template filters shared across lenses. `searchCols` is a
-// list of SQL expressions (column refs or json_extract calls) ORed together
-// for `q`; `tagCol`/`templateCol` are omitted (skipped) for lenses where
-// they don't apply (e.g. profiles has no tags).
+// Appends tag/template/chartType filters shared across lenses (`q` is
+// handled separately via ftsJoinAndSelect above, since it needs to affect
+// both the FROM clause and the SELECT list, not just WHERE). `tagCol`/
+// `templateCol`/`chartTypeCol` are omitted for lenses where they don't
+// apply (e.g. profiles has no tags; chartType only applies to visualizations).
 function applyDiscoveryFilters(
   query: string,
   params: (string | number)[],
   filters: DiscoveryFilters,
-  opts: { searchCols?: string[]; tagCol?: string; templateCol?: string }
+  opts: { tagCol?: string; templateCol?: string; chartTypeCol?: string }
 ): string {
-  if (filters.q && opts.searchCols?.length) {
-    query += ` AND (${opts.searchCols.map((c) => `${c} LIKE ?`).join(' OR ')})`;
-    for (const _ of opts.searchCols) params.push('%' + filters.q + '%');
-  }
   if (filters.tag && opts.tagCol) { query += ` AND ${opts.tagCol} LIKE ?`; params.push('%' + filters.tag + '%'); }
   if (filters.template && opts.templateCol) { query += ` AND ${opts.templateCol} = ?`; params.push(filters.template); }
+  if (filters.chartType && opts.chartTypeCol) { query += ` AND ${opts.chartTypeCol} = ?`; params.push(filters.chartType); }
   return query;
 }
 
 function buildExperimentsDiscoveryQuery(filters: DiscoveryFilters): { query: string; params: (string | number)[] } {
+  const fts = ftsJoinAndSelect(filters, 'experiments_fts', 'e.id');
   let query = `SELECT e.id, e.slug, e.title, e.question, e.authors, e.tags, e.template, e.seed, e.rows, e.view_count, e.fork_count, e.published_at,
-${CREDIBILITY_SUBQUERIES_E}
-    FROM experiments e WHERE e.status = 'published' AND e.visibility = 'public'`;
+      ${fts.selectCol},
+${DISCOVERY_SIGNAL_SUBQUERIES_E}
+    FROM experiments e ${fts.join}
+    WHERE e.status = 'published' AND e.visibility = 'public'${fts.whereClause}`;
   const params: (string | number)[] = [];
-  query = applyDiscoveryFilters(query, params, filters, { searchCols: ['e.title', 'e.question'], tagCol: 'e.tags', templateCol: 'e.template' });
-  query += ` ORDER BY ${discoverySortColumn(filters.sort)} LIMIT ? OFFSET ?`;
+  if (fts.param) params.push(fts.param);
+  query = applyDiscoveryFilters(query, params, filters, { tagCol: 'e.tags', templateCol: 'e.template' });
+  query += ` ORDER BY ${discoveryRankExpression(filters.sort, !!filters.q)} LIMIT ? OFFSET ?`;
   params.push(filters.limit, filters.offset);
   return { query, params };
 }
 
 function buildVisualizationsDiscoveryQuery(filters: DiscoveryFilters): { query: string; params: (string | number)[] } {
+  const fts = ftsJoinAndSelect(filters, 'evidence_fts', 'ev.id');
   let query = `SELECT ev.id, ev.title, ev.description, ev.tags, ev.data, ev.created_at,
       e.id as experiment_id, e.slug as experiment_slug, e.title as experiment_title, e.authors as experiment_authors, e.template, e.published_at,
-${CREDIBILITY_SUBQUERIES_E}
-    FROM experiment_evidence ev
+      ${fts.selectCol},
+${DISCOVERY_SIGNAL_SUBQUERIES_E}
+    FROM experiment_evidence ev ${fts.join}
     JOIN experiments e ON e.id = ev.experiment_id
-    WHERE ev.type = 'chart' AND e.status = 'published' AND e.visibility = 'public'`;
+    WHERE ev.type = 'chart' AND e.status = 'published' AND e.visibility = 'public'${fts.whereClause}`;
   const params: (string | number)[] = [];
-  query = applyDiscoveryFilters(query, params, filters, { searchCols: ['ev.title', 'ev.description', 'e.title'], tagCol: 'ev.tags', templateCol: 'e.template' });
-  query += ` ORDER BY ${discoverySortColumn(filters.sort)} LIMIT ? OFFSET ?`;
+  if (fts.param) params.push(fts.param);
+  query = applyDiscoveryFilters(query, params, filters, { tagCol: 'ev.tags', templateCol: 'e.template', chartTypeCol: "json_extract(ev.data, '$.chartType')" });
+  query += ` ORDER BY ${discoveryRankExpression(filters.sort, !!filters.q)} LIMIT ? OFFSET ?`;
   params.push(filters.limit, filters.offset);
   return { query, params };
 }
 
 function buildSqlDiscoveryQuery(filters: DiscoveryFilters): { query: string; params: (string | number)[] } {
+  const fts = ftsJoinAndSelect(filters, 'evidence_fts', 'ev.id');
   let query = `SELECT ev.id, ev.title, ev.description, ev.tags, ev.data, ev.created_at,
       e.id as experiment_id, e.slug as experiment_slug, e.title as experiment_title, e.authors as experiment_authors, e.template, e.published_at,
-${CREDIBILITY_SUBQUERIES_E}
-    FROM experiment_evidence ev
+      ${fts.selectCol},
+${DISCOVERY_SIGNAL_SUBQUERIES_E}
+    FROM experiment_evidence ev ${fts.join}
     JOIN experiments e ON e.id = ev.experiment_id
-    WHERE ev.type = 'sql_query' AND e.status = 'published' AND e.visibility = 'public'`;
+    WHERE ev.type = 'sql_query' AND e.status = 'published' AND e.visibility = 'public'${fts.whereClause}`;
   const params: (string | number)[] = [];
-  query = applyDiscoveryFilters(query, params, filters, { searchCols: ['ev.title', "json_extract(ev.data, '$.sql')", 'e.title'], tagCol: 'ev.tags', templateCol: 'e.template' });
-  query += ` ORDER BY ${discoverySortColumn(filters.sort)} LIMIT ? OFFSET ?`;
+  if (fts.param) params.push(fts.param);
+  query = applyDiscoveryFilters(query, params, filters, { tagCol: 'ev.tags', templateCol: 'e.template' });
+  query += ` ORDER BY ${discoveryRankExpression(filters.sort, !!filters.q)} LIMIT ? OFFSET ?`;
   params.push(filters.limit, filters.offset);
   return { query, params };
 }
 
+// Folded into the same filter/rank path as the other three lenses —
+// previously had its own bespoke inline sort mapping (and silently
+// ignored q/tag entirely). q/tag still don't apply here (no bio/tag field
+// exists on a profile yet — see 2D), but sort now means the same thing it
+// means everywhere else, using SUM()s of the same signal names instead of
+// per-row correlated subqueries.
 function buildProfilesDiscoveryQuery(filters: DiscoveryFilters): { query: string; params: (string | number)[] } {
-  const sortCol = filters.sort === 'most_reproduced' ? 'reproduction_count'
-    : filters.sort === 'most_validated' ? 'validation_confirms_count'
-    : filters.sort === 'most_reviewed' ? 'review_count'
-    : 'last_published_at';
   const query = `SELECT e.user_id,
       COUNT(*) as published_count,
-      MAX(e.published_at) as last_published_at,
+      MAX(e.published_at) as published_at,
       SUM((SELECT COUNT(*) FROM experiment_reproductions r WHERE r.experiment_id = e.id)) as reproduction_count,
       SUM((SELECT COUNT(*) FROM experiment_validations v WHERE v.experiment_id = e.id AND v.superseded_at IS NULL)) as validation_count,
       SUM((SELECT COUNT(*) FROM experiment_validations v WHERE v.experiment_id = e.id AND v.superseded_at IS NULL AND v.verdict = 'confirms')) as validation_confirms_count,
-      SUM((SELECT COUNT(*) FROM experiment_reviews rv WHERE rv.experiment_id = e.id)) as review_count
+      SUM((SELECT COUNT(*) FROM experiment_reviews rv WHERE rv.experiment_id = e.id)) as review_count,
+      SUM((SELECT COUNT(*) FROM experiment_references ref WHERE ref.target_experiment_id = e.id)) as citation_count,
+      SUM((SELECT COUNT(*) FROM experiment_events ev2 WHERE ev2.experiment_id = e.id AND ev2.created_at >= datetime('now', '-14 days'))) as recent_engagement_count
     FROM experiments e
     WHERE e.status = 'published' AND e.visibility = 'public'
     GROUP BY e.user_id
-    ORDER BY ${sortCol} DESC
+    ORDER BY ${discoveryRankExpression(filters.sort, false)}
     LIMIT ? OFFSET ?`;
   return { query, params: [filters.limit, filters.offset] };
 }
