@@ -707,7 +707,10 @@ app.get('/v1/gallery/experiments', async (c) => {
   const template = c.req.query('template');
   const search = c.req.query('q');
 
-  let query = "SELECT id, slug, title, question, authors, tags, template, seed, rows, view_count, fork_count, published_at FROM experiments WHERE status = 'published'";
+  // Only public, published experiments are ever listed. Unlisted experiments
+  // are reachable by slug (below) but deliberately never appear here —
+  // that's the whole point of "anyone with the link."
+  let query = "SELECT id, slug, title, question, authors, tags, template, seed, rows, view_count, fork_count, published_at FROM experiments WHERE status = 'published' AND visibility = 'public'";
   const params: string[] = [];
 
   if (tag) { query += ' AND tags LIKE ?'; params.push('%' + tag + '%'); }
@@ -723,11 +726,17 @@ app.get('/v1/gallery/experiments', async (c) => {
   return c.json({ experiments: result.results });
 });
 
-// Get a single published experiment with full evidence (public).
+// Get a single published experiment by slug. Public/unlisted need no
+// userId. Workspace/specific_people/private require ?userId= with
+// sufficient access — otherwise 404 (existence is not revealed).
 app.get('/v1/gallery/experiments/:slug', async (c) => {
   const env = c.env;
-  const exp = await env.DB.prepare("SELECT * FROM experiments WHERE slug = ? AND status = 'published'").bind(c.req.param('slug')).first();
+  const exp = await env.DB.prepare("SELECT * FROM experiments WHERE slug = ?").bind(c.req.param('slug')).first();
   if (!exp) return c.json({ error: 'Experiment not found' }, 404);
+
+  const userId = c.req.query('userId');
+  const access = await resolveAccess(env, exp, userId);
+  if (!hasAccess(access, 'viewer')) return c.json({ error: 'Experiment not found' }, 404);
 
   await env.DB.prepare('UPDATE experiments SET view_count = view_count + 1 WHERE id = ?').bind(exp.id).run();
 
@@ -736,7 +745,13 @@ app.get('/v1/gallery/experiments/:slug', async (c) => {
   ).bind(exp.id).all();
   const parsedEvidence = (evidence.results || []).map((e: any) => ({ ...e, data: JSON.parse(e.data) }));
 
-  return c.json({ ...exp, view_count: (exp.view_count as number) + 1, evidence: parsedEvidence });
+  let bookmarked = false;
+  if (userId) {
+    const bm = await env.DB.prepare('SELECT 1 FROM experiment_bookmarks WHERE experiment_id = ? AND user_id = ?').bind(exp.id, userId).first();
+    bookmarked = !!bm;
+  }
+
+  return c.json({ ...exp, view_count: (exp.view_count as number) + 1, viewerAccess: access, bookmarked, evidence: parsedEvidence });
 });
 
 // Fork a published experiment — provisions a fresh lab from the same
@@ -747,11 +762,14 @@ app.post('/v1/gallery/experiments/:slug/fork', async (c) => {
   const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
   if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
 
-  const source = await env.DB.prepare("SELECT * FROM experiments WHERE slug = ? AND status = 'published'").bind(c.req.param('slug')).first();
+  const source = await env.DB.prepare("SELECT * FROM experiments WHERE slug = ?").bind(c.req.param('slug')).first();
   if (!source) return c.json({ error: 'Experiment not found' }, 404);
 
   const body = await c.req.json<{ userId?: string }>().catch(() => ({}));
   const userId = (body as any).userId || 'api-user';
+
+  const sourceAccess = await resolveAccess(env, source, userId);
+  if (!hasAccess(sourceAccess, 'viewer')) return c.json({ error: 'Experiment not found' }, 404);
 
   if (!source.template) return c.json({ error: 'Source experiment has no template on record — cannot reproduce' }, 400);
 
@@ -798,6 +816,7 @@ app.post('/v1/gallery/experiments/:slug/fork', async (c) => {
   }
 
   await env.DB.prepare('UPDATE experiments SET fork_count = fork_count + 1 WHERE id = ?').bind(source.id).run();
+  await logExperimentEvent(env, source.id as string, 'forked', userId, { newExperimentId: newExpId });
 
   return c.json({
     id: newExpId,
@@ -944,6 +963,81 @@ app.get('/v1/labs/:id/queries', async (c) => {
 const ENGINE_VERSION = '@realitydb/engine (see packages/engine)';
 const LAB_API_VERSION = 'lab-api-experiments-v1';
 
+// ── Access control ──────────────────────────────────────────────────────
+// visibility: private | workspace | specific_people | unlisted | public
+// permission tiers (least to most): viewer < reviewer < editor; owner is
+// implicit and always maximal.
+//
+// IMPORTANT SECURITY NOTE: resolveAccess() answers "what does our data
+// model say this userId is allowed to do" — it does NOT verify that the
+// caller actually IS that userId. Nothing in lab-api verifies identity
+// (no session/JWT check anywhere in this Worker); every endpoint trusts
+// a client-supplied userId, same as /v1/labs and the rest of the API
+// predating this feature. That was an acceptable gap when the only
+// consequence was misattributed authorship. It is a materially bigger
+// gap now that userId also gates access to PRIVATE data — a malicious
+// client can pass any userId it wants and be treated as that person.
+// Closing this requires verified identity (e.g. checking a Supabase JWT
+// on the Worker) which does not exist yet anywhere in this codebase and
+// is out of scope for this pass. Treat this authorization layer as
+// correct-by-construction but not yet a real security boundary.
+type AccessLevel = 'owner' | 'editor' | 'reviewer' | 'viewer' | 'none';
+const ACCESS_RANK: Record<AccessLevel, number> = { none: 0, viewer: 1, reviewer: 2, editor: 3, owner: 4 };
+
+function hasAccess(level: AccessLevel, required: AccessLevel): boolean {
+  return ACCESS_RANK[level] >= ACCESS_RANK[required];
+}
+
+async function resolveAccess(env: Env, exp: any, userId: string | null | undefined): Promise<AccessLevel> {
+  if (!exp) return 'none';
+  if (userId && exp.user_id === userId) return 'owner';
+
+  let level: AccessLevel = 'none';
+
+  // unlisted/public only grant access once published — a draft is never
+  // reachable this way even if visibility was pre-set before publishing.
+  if ((exp.visibility === 'public' || exp.visibility === 'unlisted') && exp.status === 'published') {
+    level = 'viewer';
+  }
+
+  if (userId && exp.workspace_id) {
+    const member = await env.DB.prepare(
+      'SELECT role FROM workspace_members WHERE workspace_id = ? AND user_id = ?'
+    ).bind(exp.workspace_id, userId).first();
+    if (member) {
+      const role = (member as any).role as string;
+      const workspaceLevel: AccessLevel = (role === 'owner' || role === 'admin') ? 'editor' : 'viewer';
+      if (ACCESS_RANK[workspaceLevel] > ACCESS_RANK[level]) level = workspaceLevel;
+    }
+  }
+
+  if (userId) {
+    const grant = await env.DB.prepare(
+      'SELECT permission FROM experiment_access_grants WHERE experiment_id = ? AND user_id = ?'
+    ).bind(exp.id, userId).first();
+    if (grant) {
+      const grantLevel = (grant as any).permission as AccessLevel;
+      if (grantLevel in ACCESS_RANK && ACCESS_RANK[grantLevel] > ACCESS_RANK[level]) level = grantLevel;
+    }
+  }
+
+  return level;
+}
+
+// Immutable activity ledger — the durable source of truth for meaningful
+// engagement (publish/fork/reproduce/reference/validate/review/bookmark/
+// share). Denormalized counters (view_count, fork_count) stay as cheap
+// read-optimized projections for the UI; they are NOT authoritative and
+// must never be treated as an audit trail. metadata carries denormalized
+// references (e.g. reproductionId, reviewId) for cheap timeline rendering
+// only — the structured tables (experiment_reproductions, experiment_
+// reviews, etc.) are the authoritative record, not this JSON blob.
+async function logExperimentEvent(env: Env, experimentId: string, eventType: string, actorUserId: string | null, metadata: Record<string, any>): Promise<void> {
+  await env.DB.prepare(
+    'INSERT INTO experiment_events (id, experiment_id, event_type, actor_user_id, metadata, created_at) VALUES (?, ?, ?, ?, ?, ?)'
+  ).bind('evt-' + crypto.randomUUID().split('-')[0], experimentId, eventType, actorUserId, JSON.stringify(metadata), new Date().toISOString()).run();
+}
+
 async function nextEvidencePosition(db: D1Database, experimentId: string): Promise<number> {
   const row = await db.prepare(
     'SELECT COALESCE(MAX(position), -1) as maxPos FROM experiment_evidence WHERE experiment_id = ?'
@@ -961,9 +1055,11 @@ app.post('/v1/experiments', async (c) => {
   const body = await c.req.json<{
     title: string; question?: string; labId?: string;
     template?: string; seed?: number; rows?: number; userId?: string;
+    workspaceId?: string;
   }>();
   if (!body.title) return c.json({ error: 'title is required' }, 400);
 
+  const userId = body.userId || 'api-user';
   let template = body.template ?? null;
   let seed = body.seed ?? null;
   let rows = body.rows ?? null;
@@ -977,33 +1073,55 @@ app.post('/v1/experiments', async (c) => {
     }
   }
 
+  let workspaceId: string | null = null;
+  if (body.workspaceId) {
+    const member = await env.DB.prepare(
+      'SELECT 1 FROM workspace_members WHERE workspace_id = ? AND user_id = ?'
+    ).bind(body.workspaceId, userId).first();
+    if (!member) return c.json({ error: 'You are not a member of that workspace' }, 403);
+    workspaceId = body.workspaceId;
+  }
+
   const id = 'exp-' + crypto.randomUUID().split('-')[0];
   const now = new Date().toISOString();
 
   await env.DB.prepare(
-    `INSERT INTO experiments (id, user_id, lab_id, status, title, question, template, seed, rows, lab_version, engine_version, environment, created_at)
-     VALUES (?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO experiments (id, user_id, lab_id, status, title, question, template, seed, rows, lab_version, engine_version, environment, workspace_id, created_at)
+     VALUES (?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).bind(
-    id, body.userId || 'api-user', body.labId || null, body.title, body.question || null,
+    id, userId, body.labId || null, body.title, body.question || null,
     template, seed, rows, LAB_API_VERSION, ENGINE_VERSION,
-    JSON.stringify({ createdVia: 'api', platform: 'realitydb-simlab' }), now
+    JSON.stringify({ createdVia: 'api', platform: 'realitydb-simlab' }), workspaceId, now
   ).run();
 
-  return c.json({ id, title: body.title, status: 'draft', template, seed, rows, createdAt: now }, 201);
+  return c.json({ id, title: body.title, status: 'draft', visibility: 'private', template, seed, rows, workspaceId, createdAt: now }, 201);
 });
 
-// Get a single experiment with its ordered evidence blocks.
+// Get a single experiment with its ordered evidence blocks. Gated by
+// resolveAccess — pass ?userId= to view anything beyond public/unlisted
+// published experiments.
 app.get('/v1/experiments/:id', async (c) => {
   const env = c.env;
   const exp = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
   if (!exp) return c.json({ error: 'Experiment not found' }, 404);
+
+  const userId = c.req.query('userId');
+  const access = await resolveAccess(env, exp, userId);
+  if (!hasAccess(access, 'viewer')) return c.json({ error: 'Experiment not found' }, 404);
 
   const evidence = await env.DB.prepare(
     'SELECT id, type, position, title, data, created_at FROM experiment_evidence WHERE experiment_id = ? ORDER BY position ASC'
   ).bind(exp.id).all();
 
   const parsedEvidence = (evidence.results || []).map((e: any) => ({ ...e, data: JSON.parse(e.data) }));
-  return c.json({ ...exp, evidence: parsedEvidence });
+
+  let bookmarked = false;
+  if (userId) {
+    const bm = await env.DB.prepare('SELECT 1 FROM experiment_bookmarks WHERE experiment_id = ? AND user_id = ?').bind(exp.id, userId).first();
+    bookmarked = !!bm;
+  }
+
+  return c.json({ ...exp, viewerAccess: access, bookmarked, evidence: parsedEvidence });
 });
 
 // List a user's experiments (drafts + published).
@@ -1019,7 +1137,11 @@ app.get('/v1/experiments', async (c) => {
   return c.json({ experiments: result.results });
 });
 
-// Update an experiment's narrative fields.
+// Update an experiment's narrative fields. Requires editor access.
+// BACKWARD COMPAT: userId is optional — omitting it (as the currently
+// shipped SimLab Experiment tab does) is treated as the owner, matching
+// this endpoint's pre-existing behavior. Pass userId for real per-user
+// enforcement once the frontend is updated to send it.
 app.patch('/v1/experiments/:id', async (c) => {
   const env = c.env;
   const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
@@ -1028,7 +1150,11 @@ app.patch('/v1/experiments/:id', async (c) => {
   const exp = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
   if (!exp) return c.json({ error: 'Experiment not found' }, 404);
 
-  const body = await c.req.json<{ title?: string; question?: string; findings?: string; tags?: string; authors?: string; license?: string }>();
+  const body = await c.req.json<{ title?: string; question?: string; findings?: string; tags?: string; authors?: string; license?: string; userId?: string }>();
+  const requesterId = body.userId || (exp.user_id as string);
+  const access = await resolveAccess(env, exp, requesterId);
+  if (!hasAccess(access, 'editor')) return c.json({ error: 'Insufficient permission' }, 403);
+
   await env.DB.prepare(
     `UPDATE experiments SET
        title = COALESCE(?, title), question = COALESCE(?, question),
@@ -1064,7 +1190,13 @@ app.post('/v1/experiments/:id/evidence', async (c) => {
     sql?: string;
     execute?: boolean;
     data?: any;
+    userId?: string;
   }>();
+
+  // BACKWARD COMPAT: see PATCH /v1/experiments/:id note above.
+  const requesterId = body.userId || (exp.user_id as string);
+  const access = await resolveAccess(env, exp, requesterId);
+  if (!hasAccess(access, 'editor')) return c.json({ error: 'Insufficient permission' }, 403);
 
   if (!body.type) return c.json({ error: 'type is required' }, 400);
   const now = new Date().toISOString();
@@ -1131,7 +1263,14 @@ app.post('/v1/experiments/:id/evidence', async (c) => {
   return c.json({ evidence: created }, 201);
 });
 
-// Publish an experiment — requires findings + at least one evidence block.
+const VISIBILITY_VALUES = new Set(['private', 'workspace', 'specific_people', 'unlisted', 'public']);
+
+// Publish an experiment — requires findings + at least one evidence block,
+// and editor access. BACKWARD COMPAT: userId optional, see PATCH note above.
+// Accepts an optional target `visibility`; if omitted, defaults to
+// 'unlisted' (safe middle ground — shareable via link, not broadcast in
+// the public gallery listing) unless a non-default visibility was already
+// set pre-publish via PATCH /visibility, in which case that is kept.
 app.post('/v1/experiments/:id/publish', async (c) => {
   const env = c.env;
   const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
@@ -1139,6 +1278,12 @@ app.post('/v1/experiments/:id/publish', async (c) => {
 
   const exp = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
   if (!exp) return c.json({ error: 'Experiment not found' }, 404);
+
+  const body = await c.req.json<{ visibility?: string; userId?: string }>().catch(() => ({} as any));
+  const requesterId = body.userId || (exp.user_id as string);
+  const access = await resolveAccess(env, exp, requesterId);
+  if (!hasAccess(access, 'editor')) return c.json({ error: 'Insufficient permission' }, 403);
+
   if (!exp.findings) return c.json({ error: 'Findings are required before publishing' }, 400);
 
   const evidenceCount = await env.DB.prepare(
@@ -1146,16 +1291,563 @@ app.post('/v1/experiments/:id/publish', async (c) => {
   ).bind(exp.id).first();
   if (((evidenceCount as any)?.c || 0) === 0) return c.json({ error: 'At least one evidence block is required before publishing' }, 400);
 
+  let visibility = (exp.visibility as string) || 'private';
+  if (body.visibility) {
+    if (!VISIBILITY_VALUES.has(body.visibility)) return c.json({ error: `Invalid visibility: ${body.visibility}` }, 400);
+    visibility = body.visibility;
+  } else if (visibility === 'private') {
+    visibility = 'unlisted';
+  }
+
   const slugBase = (exp.title as string).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 60);
   const existing = await env.DB.prepare('SELECT id FROM experiments WHERE slug = ?').bind(slugBase).first();
   const slug = existing ? slugBase + '-' + (exp.id as string).split('-')[1] : slugBase;
 
   const now = new Date().toISOString();
   await env.DB.prepare(
-    `UPDATE experiments SET status = 'published', slug = ?, published_at = ? WHERE id = ?`
-  ).bind(slug, now, exp.id).run();
+    `UPDATE experiments SET status = 'published', slug = ?, visibility = ?, published_at = ? WHERE id = ?`
+  ).bind(slug, visibility, now, exp.id).run();
 
-  return c.json({ id: exp.id, slug, url: 'https://sandbox.realitydb.dev/#gallery/' + slug, publishedAt: now });
+  await logExperimentEvent(env, exp.id as string, 'published', requesterId, { visibility });
+
+  return c.json({ id: exp.id, slug, visibility, url: 'https://sandbox.realitydb.dev/#gallery/' + slug, publishedAt: now });
+});
+
+// ============================================================
+// EXPERIMENT ACCESS & VISIBILITY
+// ============================================================
+
+// Set/update visibility (and optionally attach a workspace). Requires
+// editor access. Enforces server-side: public/unlisted require status =
+// 'published'; drafts may only be private, workspace, or specific_people.
+app.patch('/v1/experiments/:id/visibility', async (c) => {
+  const env = c.env;
+  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
+
+  const exp = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
+  if (!exp) return c.json({ error: 'Experiment not found' }, 404);
+
+  const body = await c.req.json<{ visibility: string; workspaceId?: string; userId: string }>();
+  if (!body.userId) return c.json({ error: 'userId is required' }, 400);
+  if (!body.visibility || !VISIBILITY_VALUES.has(body.visibility)) return c.json({ error: 'Valid visibility is required' }, 400);
+
+  const access = await resolveAccess(env, exp, body.userId);
+  if (!hasAccess(access, 'editor')) return c.json({ error: 'Insufficient permission' }, 403);
+
+  if ((body.visibility === 'public' || body.visibility === 'unlisted') && exp.status !== 'published') {
+    return c.json({ error: 'Publish this experiment before setting public or unlisted visibility' }, 400);
+  }
+
+  let workspaceId = exp.workspace_id as string | null;
+  if (body.visibility === 'workspace') {
+    workspaceId = body.workspaceId || workspaceId;
+    if (!workspaceId) return c.json({ error: 'workspaceId is required to set workspace visibility' }, 400);
+    const member = await env.DB.prepare(
+      'SELECT 1 FROM workspace_members WHERE workspace_id = ? AND user_id = ?'
+    ).bind(workspaceId, body.userId).first();
+    if (!member) return c.json({ error: 'You are not a member of that workspace' }, 403);
+  }
+
+  await env.DB.prepare(
+    'UPDATE experiments SET visibility = ?, workspace_id = ?, updated_at = ? WHERE id = ?'
+  ).bind(body.visibility, workspaceId, new Date().toISOString(), exp.id).run();
+
+  return c.json({ id: exp.id, visibility: body.visibility, workspaceId });
+});
+
+// "Who has access" — workspace membership (if any) + explicit grants.
+// Requires reviewer access (collaborator identities are more sensitive
+// than the experiment content itself).
+app.get('/v1/experiments/:id/access', async (c) => {
+  const env = c.env;
+  const exp = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
+  if (!exp) return c.json({ error: 'Experiment not found' }, 404);
+
+  const userId = c.req.query('userId');
+  const access = await resolveAccess(env, exp, userId);
+  if (!hasAccess(access, 'reviewer')) return c.json({ error: 'Insufficient permission' }, 403);
+
+  let workspace: any = null;
+  let workspaceMembers: any[] = [];
+  if (exp.workspace_id) {
+    workspace = await env.DB.prepare('SELECT id, name, slug FROM workspaces WHERE id = ?').bind(exp.workspace_id).first();
+    const members = await env.DB.prepare('SELECT user_id, role, joined_at FROM workspace_members WHERE workspace_id = ?').bind(exp.workspace_id).all();
+    workspaceMembers = members.results || [];
+  }
+
+  const grants = await env.DB.prepare(
+    'SELECT id, user_id, invite_email, permission, invited_by, invited_at, accepted_at FROM experiment_access_grants WHERE experiment_id = ? ORDER BY invited_at DESC'
+  ).bind(exp.id).all();
+
+  return c.json({ visibility: exp.visibility, workspace, workspaceMembers, accessGrants: grants.results || [] });
+});
+
+// Grant explicit access to a user or an email invite. Requires editor access.
+app.post('/v1/experiments/:id/access', async (c) => {
+  const env = c.env;
+  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
+
+  const exp = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
+  if (!exp) return c.json({ error: 'Experiment not found' }, 404);
+
+  const body = await c.req.json<{ userId: string; granteeUserId?: string; inviteEmail?: string; permission: string }>();
+  if (!body.userId) return c.json({ error: 'userId is required' }, 400);
+  const access = await resolveAccess(env, exp, body.userId);
+  if (!hasAccess(access, 'editor')) return c.json({ error: 'Insufficient permission' }, 403);
+
+  if (!['viewer', 'reviewer', 'editor'].includes(body.permission)) return c.json({ error: 'permission must be viewer, reviewer, or editor' }, 400);
+  const hasGrantee = !!body.granteeUserId;
+  const hasEmail = !!body.inviteEmail;
+  if (hasGrantee === hasEmail) return c.json({ error: 'Provide exactly one of granteeUserId or inviteEmail' }, 400);
+
+  const id = 'grant-' + crypto.randomUUID().split('-')[0];
+  const now = new Date().toISOString();
+  await env.DB.prepare(
+    `INSERT INTO experiment_access_grants (id, experiment_id, user_id, invite_email, permission, invited_by, invited_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).bind(id, exp.id, body.granteeUserId || null, body.inviteEmail || null, body.permission, body.userId, now).run();
+
+  return c.json({ id, experimentId: exp.id, userId: body.granteeUserId || null, inviteEmail: body.inviteEmail || null, permission: body.permission, invitedAt: now }, 201);
+});
+
+// Revoke an access grant. Requires editor access.
+app.delete('/v1/experiments/:id/access/:grantId', async (c) => {
+  const env = c.env;
+  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
+
+  const exp = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
+  if (!exp) return c.json({ error: 'Experiment not found' }, 404);
+
+  const userId = c.req.query('userId');
+  if (!userId) return c.json({ error: 'userId is required' }, 400);
+  const access = await resolveAccess(env, exp, userId);
+  if (!hasAccess(access, 'editor')) return c.json({ error: 'Insufficient permission' }, 403);
+
+  const result = await env.DB.prepare('DELETE FROM experiment_access_grants WHERE id = ? AND experiment_id = ?').bind(c.req.param('grantId'), exp.id).run();
+  const changes = result.meta?.changes ?? 0;
+  if (changes === 0) return c.json({ error: 'Access grant not found' }, 404);
+  return c.json({ deleted: true });
+});
+
+// ============================================================
+// ENGAGEMENT: BOOKMARK
+// ============================================================
+
+// Idempotent — bookmarking twice is a no-op, no duplicate event. Requires
+// viewer access (must be able to see the experiment to bookmark it).
+app.post('/v1/experiments/:id/bookmark', async (c) => {
+  const env = c.env;
+  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
+
+  const exp = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
+  if (!exp) return c.json({ error: 'Experiment not found' }, 404);
+
+  const body = await c.req.json<{ userId: string }>();
+  if (!body.userId) return c.json({ error: 'userId is required' }, 400);
+  const access = await resolveAccess(env, exp, body.userId);
+  if (!hasAccess(access, 'viewer')) return c.json({ error: 'Experiment not found' }, 404);
+
+  const result = await env.DB.prepare(
+    'INSERT OR IGNORE INTO experiment_bookmarks (experiment_id, user_id, created_at) VALUES (?, ?, ?)'
+  ).bind(exp.id, body.userId, new Date().toISOString()).run();
+
+  if ((result.meta?.changes ?? 0) > 0) {
+    await logExperimentEvent(env, exp.id as string, 'bookmarked', body.userId, {});
+  }
+
+  return c.json({ bookmarked: true });
+});
+
+// Idempotent removal. Deliberately does not emit an event — the ledger
+// records meaningful engagement, not its reversal.
+app.delete('/v1/experiments/:id/bookmark', async (c) => {
+  const env = c.env;
+  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
+
+  const userId = c.req.query('userId');
+  if (!userId) return c.json({ error: 'userId is required' }, 400);
+
+  await env.DB.prepare('DELETE FROM experiment_bookmarks WHERE experiment_id = ? AND user_id = ?').bind(c.req.param('id'), userId).run();
+  return c.json({ bookmarked: false });
+});
+
+// List a user's bookmarked experiments.
+app.get('/v1/experiments/bookmarks/mine', async (c) => {
+  const env = c.env;
+  const userId = c.req.query('userId');
+  if (!userId) return c.json({ error: 'userId is required' }, 400);
+
+  const result = await env.DB.prepare(
+    `SELECT e.id, e.slug, e.title, e.question, e.status, e.visibility, b.created_at as bookmarked_at
+     FROM experiment_bookmarks b JOIN experiments e ON e.id = b.experiment_id
+     WHERE b.user_id = ? ORDER BY b.created_at DESC`
+  ).bind(userId).all();
+
+  return c.json({ bookmarks: result.results });
+});
+
+// ============================================================
+// ENGAGEMENT: REPRODUCE
+// ============================================================
+
+// A substantive, queryable claim — "I re-ran this and got a matching (or
+// non-matching) result" — not just an event. Requires viewer access.
+app.post('/v1/experiments/:id/reproductions', async (c) => {
+  const env = c.env;
+  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
+
+  const exp = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
+  if (!exp) return c.json({ error: 'Experiment not found' }, 404);
+
+  const body = await c.req.json<{ userId: string; matched: boolean; notes?: string; newExperimentId?: string }>();
+  if (!body.userId) return c.json({ error: 'userId is required' }, 400);
+  if (typeof body.matched !== 'boolean') return c.json({ error: 'matched (boolean) is required' }, 400);
+  const access = await resolveAccess(env, exp, body.userId);
+  if (!hasAccess(access, 'viewer')) return c.json({ error: 'Experiment not found' }, 404);
+
+  const id = 'repro-' + crypto.randomUUID().split('-')[0];
+  const now = new Date().toISOString();
+  await env.DB.prepare(
+    `INSERT INTO experiment_reproductions (id, experiment_id, user_id, matched, notes, new_experiment_id, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).bind(id, exp.id, body.userId, body.matched ? 1 : 0, body.notes || null, body.newExperimentId || null, now).run();
+
+  await logExperimentEvent(env, exp.id as string, 'reproduced', body.userId, { reproductionId: id, matched: body.matched });
+
+  return c.json({ id, experimentId: exp.id, matched: body.matched, notes: body.notes || null, createdAt: now }, 201);
+});
+
+app.get('/v1/experiments/:id/reproductions', async (c) => {
+  const env = c.env;
+  const exp = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
+  if (!exp) return c.json({ error: 'Experiment not found' }, 404);
+
+  const userId = c.req.query('userId');
+  const access = await resolveAccess(env, exp, userId);
+  if (!hasAccess(access, 'viewer')) return c.json({ error: 'Experiment not found' }, 404);
+
+  const result = await env.DB.prepare(
+    'SELECT * FROM experiment_reproductions WHERE experiment_id = ? ORDER BY created_at DESC'
+  ).bind(exp.id).all();
+  return c.json({ reproductions: result.results });
+});
+
+// ============================================================
+// ENGAGEMENT: PEER REVIEW (structured, evidence-anchored)
+// ============================================================
+
+// Reviews target either a specific evidence block or the experiment
+// generally (evidenceId omitted). Requires reviewer access — one tier
+// above plain viewing, matching "reviewer" as a real permission concept.
+app.post('/v1/experiments/:id/reviews', async (c) => {
+  const env = c.env;
+  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
+
+  const exp = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
+  if (!exp) return c.json({ error: 'Experiment not found' }, 404);
+
+  const body = await c.req.json<{ userId: string; evidenceId?: string; reviewType: string; content: string }>();
+  if (!body.userId) return c.json({ error: 'userId is required' }, 400);
+  if (!body.content?.trim()) return c.json({ error: 'content is required' }, 400);
+  if (!['suggestion', 'question', 'concern', 'endorsement'].includes(body.reviewType)) {
+    return c.json({ error: 'reviewType must be suggestion, question, concern, or endorsement' }, 400);
+  }
+  const access = await resolveAccess(env, exp, body.userId);
+  if (!hasAccess(access, 'reviewer')) return c.json({ error: 'Insufficient permission — reviewer access required' }, 403);
+
+  if (body.evidenceId) {
+    const ev = await env.DB.prepare('SELECT 1 FROM experiment_evidence WHERE id = ? AND experiment_id = ?').bind(body.evidenceId, exp.id).first();
+    if (!ev) return c.json({ error: 'evidenceId does not belong to this experiment' }, 400);
+  }
+
+  const id = 'rev-' + crypto.randomUUID().split('-')[0];
+  const now = new Date().toISOString();
+  await env.DB.prepare(
+    `INSERT INTO experiment_reviews (id, experiment_id, evidence_id, reviewer_user_id, review_type, content, status, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, 'open', ?)`
+  ).bind(id, exp.id, body.evidenceId || null, body.userId, body.reviewType, body.content.trim(), now).run();
+
+  await logExperimentEvent(env, exp.id as string, 'reviewed', body.userId, { reviewId: id, evidenceId: body.evidenceId || null });
+
+  return c.json({ id, experimentId: exp.id, evidenceId: body.evidenceId || null, reviewType: body.reviewType, content: body.content.trim(), status: 'open', createdAt: now }, 201);
+});
+
+app.get('/v1/experiments/:id/reviews', async (c) => {
+  const env = c.env;
+  const exp = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
+  if (!exp) return c.json({ error: 'Experiment not found' }, 404);
+
+  const userId = c.req.query('userId');
+  const access = await resolveAccess(env, exp, userId);
+  if (!hasAccess(access, 'viewer')) return c.json({ error: 'Experiment not found' }, 404);
+
+  const result = await env.DB.prepare(
+    'SELECT * FROM experiment_reviews WHERE experiment_id = ? ORDER BY created_at ASC'
+  ).bind(exp.id).all();
+  return c.json({ reviews: result.results });
+});
+
+// Resolve a review (mark addressed/dismissed). Allowed for the experiment
+// owner/editor, or the reviewer dismissing their own review.
+app.patch('/v1/experiments/:id/reviews/:reviewId', async (c) => {
+  const env = c.env;
+  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
+
+  const exp = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
+  if (!exp) return c.json({ error: 'Experiment not found' }, 404);
+
+  const review = await env.DB.prepare('SELECT * FROM experiment_reviews WHERE id = ? AND experiment_id = ?').bind(c.req.param('reviewId'), exp.id).first();
+  if (!review) return c.json({ error: 'Review not found' }, 404);
+
+  const body = await c.req.json<{ userId: string; status: string }>();
+  if (!body.userId) return c.json({ error: 'userId is required' }, 400);
+  if (!['addressed', 'dismissed'].includes(body.status)) return c.json({ error: 'status must be addressed or dismissed' }, 400);
+
+  const access = await resolveAccess(env, exp, body.userId);
+  const isOwnReview = review.reviewer_user_id === body.userId;
+  if (!hasAccess(access, 'editor') && !isOwnReview) return c.json({ error: 'Insufficient permission' }, 403);
+
+  const now = new Date().toISOString();
+  await env.DB.prepare(
+    'UPDATE experiment_reviews SET status = ?, resolved_at = ?, resolved_by = ? WHERE id = ?'
+  ).bind(body.status, now, body.userId, review.id).run();
+
+  return c.json({ id: review.id, status: body.status, resolvedAt: now, resolvedBy: body.userId });
+});
+
+// ============================================================
+// ENGAGEMENT: VALIDATE
+// ============================================================
+
+// A peer's judgment call on whether the evidence holds up. Enforces "one
+// current validation per user/experiment" via a partial unique index on
+// (experiment_id, validator_user_id) WHERE superseded_at IS NULL — a
+// re-validation supersedes the prior row rather than erasing history.
+// Requires reviewer access (a judgment call is a stronger claim than
+// viewing).
+app.post('/v1/experiments/:id/validations', async (c) => {
+  const env = c.env;
+  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
+
+  const exp = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
+  if (!exp) return c.json({ error: 'Experiment not found' }, 404);
+
+  const body = await c.req.json<{ userId: string; verdict: string; note?: string }>();
+  if (!body.userId) return c.json({ error: 'userId is required' }, 400);
+  if (!['confirms', 'disputes', 'needs_more_info'].includes(body.verdict)) {
+    return c.json({ error: 'verdict must be confirms, disputes, or needs_more_info' }, 400);
+  }
+  const access = await resolveAccess(env, exp, body.userId);
+  if (!hasAccess(access, 'reviewer')) return c.json({ error: 'Insufficient permission — reviewer access required' }, 403);
+
+  const now = new Date().toISOString();
+  await env.DB.prepare(
+    'UPDATE experiment_validations SET superseded_at = ? WHERE experiment_id = ? AND validator_user_id = ? AND superseded_at IS NULL'
+  ).bind(now, exp.id, body.userId).run();
+
+  const id = 'val-' + crypto.randomUUID().split('-')[0];
+  await env.DB.prepare(
+    `INSERT INTO experiment_validations (id, experiment_id, validator_user_id, verdict, note, created_at)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  ).bind(id, exp.id, body.userId, body.verdict, body.note || null, now).run();
+
+  await logExperimentEvent(env, exp.id as string, 'validated', body.userId, { validationId: id, verdict: body.verdict });
+
+  return c.json({ id, experimentId: exp.id, verdict: body.verdict, note: body.note || null, createdAt: now }, 201);
+});
+
+app.get('/v1/experiments/:id/validations', async (c) => {
+  const env = c.env;
+  const exp = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
+  if (!exp) return c.json({ error: 'Experiment not found' }, 404);
+
+  const userId = c.req.query('userId');
+  const access = await resolveAccess(env, exp, userId);
+  if (!hasAccess(access, 'viewer')) return c.json({ error: 'Experiment not found' }, 404);
+
+  const result = await env.DB.prepare(
+    'SELECT * FROM experiment_validations WHERE experiment_id = ? AND superseded_at IS NULL ORDER BY created_at DESC'
+  ).bind(exp.id).all();
+  return c.json({ validations: result.results });
+});
+
+// ============================================================
+// ENGAGEMENT: REFERENCE (citation graph — backend only this pass;
+// authoring UX/UI is deferred)
+// ============================================================
+
+app.post('/v1/experiments/:id/references', async (c) => {
+  const env = c.env;
+  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
+
+  const target = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
+  if (!target) return c.json({ error: 'Experiment not found' }, 404);
+
+  const body = await c.req.json<{ userId: string; sourceExperimentId?: string; note?: string }>();
+  if (!body.userId) return c.json({ error: 'userId is required' }, 400);
+
+  const targetAccess = await resolveAccess(env, target, body.userId);
+  if (!hasAccess(targetAccess, 'viewer')) return c.json({ error: 'Experiment not found' }, 404);
+
+  if (body.sourceExperimentId) {
+    if (body.sourceExperimentId === target.id) return c.json({ error: 'An experiment cannot reference itself' }, 400);
+    const source = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(body.sourceExperimentId).first();
+    if (!source) return c.json({ error: 'sourceExperimentId not found' }, 404);
+    const sourceAccess = await resolveAccess(env, source, body.userId);
+    if (!hasAccess(sourceAccess, 'viewer')) return c.json({ error: 'sourceExperimentId not found' }, 404);
+  }
+
+  const id = 'ref-' + crypto.randomUUID().split('-')[0];
+  const now = new Date().toISOString();
+  await env.DB.prepare(
+    `INSERT INTO experiment_references (id, source_experiment_id, target_experiment_id, note, created_by, created_at)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  ).bind(id, body.sourceExperimentId || null, target.id, body.note || null, body.userId, now).run();
+
+  await logExperimentEvent(env, target.id as string, 'referenced', body.userId, { referenceId: id, sourceExperimentId: body.sourceExperimentId || null });
+
+  return c.json({ id, sourceExperimentId: body.sourceExperimentId || null, targetExperimentId: target.id, note: body.note || null, createdAt: now }, 201);
+});
+
+app.get('/v1/experiments/:id/references', async (c) => {
+  const env = c.env;
+  const exp = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
+  if (!exp) return c.json({ error: 'Experiment not found' }, 404);
+
+  const userId = c.req.query('userId');
+  const access = await resolveAccess(env, exp, userId);
+  if (!hasAccess(access, 'viewer')) return c.json({ error: 'Experiment not found' }, 404);
+
+  const citedBy = await env.DB.prepare('SELECT * FROM experiment_references WHERE target_experiment_id = ? ORDER BY created_at DESC').bind(exp.id).all();
+  const cites = await env.DB.prepare('SELECT * FROM experiment_references WHERE source_experiment_id = ? ORDER BY created_at DESC').bind(exp.id).all();
+
+  return c.json({ citedBy: citedBy.results || [], cites: cites.results || [] });
+});
+
+// ============================================================
+// ENGAGEMENT: SHARE (event only — no structured table needed)
+// ============================================================
+
+app.post('/v1/experiments/:id/share', async (c) => {
+  const env = c.env;
+  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
+
+  const exp = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
+  if (!exp) return c.json({ error: 'Experiment not found' }, 404);
+
+  const body = await c.req.json<{ userId?: string; method?: string }>().catch(() => ({} as any));
+  const access = await resolveAccess(env, exp, body.userId);
+  if (!hasAccess(access, 'viewer')) return c.json({ error: 'Experiment not found' }, 404);
+
+  await logExperimentEvent(env, exp.id as string, 'shared', body.userId || null, { method: body.method || 'link' });
+  return c.json({ shared: true });
+});
+
+// ============================================================
+// EVENT LEDGER (read-only)
+// ============================================================
+
+// The experiment's full activity timeline. Requires viewer access.
+app.get('/v1/experiments/:id/events', async (c) => {
+  const env = c.env;
+  const exp = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
+  if (!exp) return c.json({ error: 'Experiment not found' }, 404);
+
+  const userId = c.req.query('userId');
+  const access = await resolveAccess(env, exp, userId);
+  if (!hasAccess(access, 'viewer')) return c.json({ error: 'Experiment not found' }, 404);
+
+  const result = await env.DB.prepare(
+    'SELECT id, event_type, actor_user_id, metadata, created_at FROM experiment_events WHERE experiment_id = ? ORDER BY created_at DESC LIMIT 100'
+  ).bind(exp.id).all();
+  const parsed = (result.results || []).map((e: any) => ({ ...e, metadata: JSON.parse(e.metadata || '{}') }));
+  return c.json({ events: parsed });
+});
+
+// ============================================================
+// WORKSPACES (minimal foundation — team management UI deferred)
+// ============================================================
+
+app.post('/v1/workspaces', async (c) => {
+  const env = c.env;
+  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
+
+  const body = await c.req.json<{ userId: string; name: string }>();
+  if (!body.userId || !body.name?.trim()) return c.json({ error: 'userId and name are required' }, 400);
+
+  const id = 'ws-' + crypto.randomUUID().split('-')[0];
+  const slugBase = body.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 60);
+  const existing = await env.DB.prepare('SELECT id FROM workspaces WHERE slug = ?').bind(slugBase).first();
+  const slug = existing ? slugBase + '-' + id.split('-')[1] : slugBase;
+  const now = new Date().toISOString();
+
+  await env.DB.prepare('INSERT INTO workspaces (id, name, slug, owner_user_id, created_at) VALUES (?, ?, ?, ?, ?)')
+    .bind(id, body.name.trim(), slug, body.userId, now).run();
+  await env.DB.prepare('INSERT INTO workspace_members (workspace_id, user_id, role, joined_at) VALUES (?, ?, ?, ?)')
+    .bind(id, body.userId, 'owner', now).run();
+
+  return c.json({ id, name: body.name.trim(), slug, ownerUserId: body.userId, createdAt: now }, 201);
+});
+
+app.get('/v1/workspaces/mine', async (c) => {
+  const env = c.env;
+  const userId = c.req.query('userId');
+  if (!userId) return c.json({ error: 'userId is required' }, 400);
+
+  const result = await env.DB.prepare(
+    `SELECT w.id, w.name, w.slug, w.owner_user_id, m.role, w.created_at
+     FROM workspace_members m JOIN workspaces w ON w.id = m.workspace_id
+     WHERE m.user_id = ? ORDER BY w.created_at DESC`
+  ).bind(userId).all();
+
+  return c.json({ workspaces: result.results });
+});
+
+app.get('/v1/workspaces/:id/members', async (c) => {
+  const env = c.env;
+  const userId = c.req.query('userId');
+  if (!userId) return c.json({ error: 'userId is required' }, 400);
+
+  const isMember = await env.DB.prepare('SELECT 1 FROM workspace_members WHERE workspace_id = ? AND user_id = ?').bind(c.req.param('id'), userId).first();
+  if (!isMember) return c.json({ error: 'Workspace not found' }, 404);
+
+  const result = await env.DB.prepare('SELECT user_id, role, joined_at FROM workspace_members WHERE workspace_id = ?').bind(c.req.param('id')).all();
+  return c.json({ members: result.results });
+});
+
+// Requires the requester to be workspace owner/admin.
+app.post('/v1/workspaces/:id/members', async (c) => {
+  const env = c.env;
+  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
+
+  const body = await c.req.json<{ userId: string; memberUserId: string; role?: string }>();
+  if (!body.userId || !body.memberUserId) return c.json({ error: 'userId and memberUserId are required' }, 400);
+  const role = body.role || 'member';
+  if (!['owner', 'admin', 'member'].includes(role)) return c.json({ error: 'role must be owner, admin, or member' }, 400);
+
+  const requester = await env.DB.prepare('SELECT role FROM workspace_members WHERE workspace_id = ? AND user_id = ?').bind(c.req.param('id'), body.userId).first();
+  if (!requester || !['owner', 'admin'].includes((requester as any).role)) return c.json({ error: 'Insufficient permission' }, 403);
+
+  const now = new Date().toISOString();
+  await env.DB.prepare(
+    `INSERT INTO workspace_members (workspace_id, user_id, role, joined_at) VALUES (?, ?, ?, ?)
+     ON CONFLICT(workspace_id, user_id) DO UPDATE SET role = excluded.role`
+  ).bind(c.req.param('id'), body.memberUserId, role, now).run();
+
+  return c.json({ workspaceId: c.req.param('id'), userId: body.memberUserId, role }, 201);
 });
 
 // ============================================================
