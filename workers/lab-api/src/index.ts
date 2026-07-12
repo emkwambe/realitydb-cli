@@ -1024,6 +1024,21 @@ async function resolveAccess(env: Env, exp: any, userId: string | null | undefin
   return level;
 }
 
+// Stricter than hasAccess(access, 'editor') — an explicit `editor` access
+// grant is content-editing rights (evidence, findings), NOT ownership.
+// Visibility, access-grant management, and publishing are ownership-
+// sensitive decisions and require being the owner or a workspace
+// owner/admin — a plain editor grant is deliberately insufficient here.
+async function isOwnerOrWorkspaceAdmin(env: Env, exp: any, userId: string | null | undefined): Promise<boolean> {
+  if (!exp || !userId) return false;
+  if (exp.user_id === userId) return true;
+  if (!exp.workspace_id) return false;
+  const member = await env.DB.prepare(
+    'SELECT role FROM workspace_members WHERE workspace_id = ? AND user_id = ?'
+  ).bind(exp.workspace_id, userId).first();
+  return !!member && ['owner', 'admin'].includes((member as any).role);
+}
+
 // Immutable activity ledger — the durable source of truth for meaningful
 // engagement (publish/fork/reproduce/reference/validate/review/bookmark/
 // share). Denormalized counters (view_count, fork_count) stay as cheap
@@ -1265,8 +1280,11 @@ app.post('/v1/experiments/:id/evidence', async (c) => {
 
 const VISIBILITY_VALUES = new Set(['private', 'workspace', 'specific_people', 'unlisted', 'public']);
 
-// Publish an experiment — requires findings + at least one evidence block,
-// and editor access. BACKWARD COMPAT: userId optional, see PATCH note above.
+// Publish an experiment — requires findings + at least one evidence block.
+// Publishing is ownership-sensitive (it changes discoverability and
+// interacts with visibility), so it requires owner or workspace owner/
+// admin — a plain editor grant is not enough. BACKWARD COMPAT: userId
+// optional, falls back to owner (see PATCH note above).
 // Accepts an optional target `visibility`; if omitted, defaults to
 // 'unlisted' (safe middle ground — shareable via link, not broadcast in
 // the public gallery listing) unless a non-default visibility was already
@@ -1281,8 +1299,7 @@ app.post('/v1/experiments/:id/publish', async (c) => {
 
   const body = await c.req.json<{ visibility?: string; userId?: string }>().catch(() => ({} as any));
   const requesterId = body.userId || (exp.user_id as string);
-  const access = await resolveAccess(env, exp, requesterId);
-  if (!hasAccess(access, 'editor')) return c.json({ error: 'Insufficient permission' }, 403);
+  if (!(await isOwnerOrWorkspaceAdmin(env, exp, requesterId))) return c.json({ error: 'Insufficient permission — owner or workspace admin required' }, 403);
 
   if (!exp.findings) return c.json({ error: 'Findings are required before publishing' }, 400);
 
@@ -1317,8 +1334,9 @@ app.post('/v1/experiments/:id/publish', async (c) => {
 // EXPERIMENT ACCESS & VISIBILITY
 // ============================================================
 
-// Set/update visibility (and optionally attach a workspace). Requires
-// editor access. Enforces server-side: public/unlisted require status =
+// Set/update visibility (and optionally attach a workspace). Ownership-
+// sensitive — requires owner or workspace owner/admin, not a plain editor
+// grant. Enforces server-side: public/unlisted require status =
 // 'published'; drafts may only be private, workspace, or specific_people.
 app.patch('/v1/experiments/:id/visibility', async (c) => {
   const env = c.env;
@@ -1332,8 +1350,7 @@ app.patch('/v1/experiments/:id/visibility', async (c) => {
   if (!body.userId) return c.json({ error: 'userId is required' }, 400);
   if (!body.visibility || !VISIBILITY_VALUES.has(body.visibility)) return c.json({ error: 'Valid visibility is required' }, 400);
 
-  const access = await resolveAccess(env, exp, body.userId);
-  if (!hasAccess(access, 'editor')) return c.json({ error: 'Insufficient permission' }, 403);
+  if (!(await isOwnerOrWorkspaceAdmin(env, exp, body.userId))) return c.json({ error: 'Insufficient permission — owner or workspace admin required' }, 403);
 
   if ((body.visibility === 'public' || body.visibility === 'unlisted') && exp.status !== 'published') {
     return c.json({ error: 'Publish this experiment before setting public or unlisted visibility' }, 400);
@@ -1383,7 +1400,8 @@ app.get('/v1/experiments/:id/access', async (c) => {
   return c.json({ visibility: exp.visibility, workspace, workspaceMembers, accessGrants: grants.results || [] });
 });
 
-// Grant explicit access to a user or an email invite. Requires editor access.
+// Grant explicit access to a user or an email invite. Ownership-sensitive
+// — requires owner or workspace owner/admin, not a plain editor grant.
 app.post('/v1/experiments/:id/access', async (c) => {
   const env = c.env;
   const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
@@ -1394,8 +1412,7 @@ app.post('/v1/experiments/:id/access', async (c) => {
 
   const body = await c.req.json<{ userId: string; granteeUserId?: string; inviteEmail?: string; permission: string }>();
   if (!body.userId) return c.json({ error: 'userId is required' }, 400);
-  const access = await resolveAccess(env, exp, body.userId);
-  if (!hasAccess(access, 'editor')) return c.json({ error: 'Insufficient permission' }, 403);
+  if (!(await isOwnerOrWorkspaceAdmin(env, exp, body.userId))) return c.json({ error: 'Insufficient permission — owner or workspace admin required' }, 403);
 
   if (!['viewer', 'reviewer', 'editor'].includes(body.permission)) return c.json({ error: 'permission must be viewer, reviewer, or editor' }, 400);
   const hasGrantee = !!body.granteeUserId;
@@ -1412,7 +1429,8 @@ app.post('/v1/experiments/:id/access', async (c) => {
   return c.json({ id, experimentId: exp.id, userId: body.granteeUserId || null, inviteEmail: body.inviteEmail || null, permission: body.permission, invitedAt: now }, 201);
 });
 
-// Revoke an access grant. Requires editor access.
+// Revoke an access grant. Ownership-sensitive — owner or workspace
+// owner/admin only.
 app.delete('/v1/experiments/:id/access/:grantId', async (c) => {
   const env = c.env;
   const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
@@ -1423,8 +1441,7 @@ app.delete('/v1/experiments/:id/access/:grantId', async (c) => {
 
   const userId = c.req.query('userId');
   if (!userId) return c.json({ error: 'userId is required' }, 400);
-  const access = await resolveAccess(env, exp, userId);
-  if (!hasAccess(access, 'editor')) return c.json({ error: 'Insufficient permission' }, 403);
+  if (!(await isOwnerOrWorkspaceAdmin(env, exp, userId))) return c.json({ error: 'Insufficient permission — owner or workspace admin required' }, 403);
 
   const result = await env.DB.prepare('DELETE FROM experiment_access_grants WHERE id = ? AND experiment_id = ?').bind(c.req.param('grantId'), exp.id).run();
   const changes = result.meta?.changes ?? 0;
@@ -1594,8 +1611,11 @@ app.get('/v1/experiments/:id/reviews', async (c) => {
   return c.json({ reviews: result.results });
 });
 
-// Resolve a review (mark addressed/dismissed). Allowed for the experiment
-// owner/editor, or the reviewer dismissing their own review.
+// Resolve a review (mark addressed/dismissed). Only the experiment
+// owner/editor may do this — a review's author does NOT get to mark
+// their own review addressed/dismissed (that would let someone silence
+// their own critique). Authors instead edit or withdraw their review via
+// the two endpoints below.
 app.patch('/v1/experiments/:id/reviews/:reviewId', async (c) => {
   const env = c.env;
   const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
@@ -1612,8 +1632,7 @@ app.patch('/v1/experiments/:id/reviews/:reviewId', async (c) => {
   if (!['addressed', 'dismissed'].includes(body.status)) return c.json({ error: 'status must be addressed or dismissed' }, 400);
 
   const access = await resolveAccess(env, exp, body.userId);
-  const isOwnReview = review.reviewer_user_id === body.userId;
-  if (!hasAccess(access, 'editor') && !isOwnReview) return c.json({ error: 'Insufficient permission' }, 403);
+  if (!hasAccess(access, 'editor')) return c.json({ error: 'Insufficient permission — experiment editor or owner required' }, 403);
 
   const now = new Date().toISOString();
   await env.DB.prepare(
@@ -1621,6 +1640,45 @@ app.patch('/v1/experiments/:id/reviews/:reviewId', async (c) => {
   ).bind(body.status, now, body.userId, review.id).run();
 
   return c.json({ id: review.id, status: body.status, resolvedAt: now, resolvedBy: body.userId });
+});
+
+// Edit the content of your own review. Author-only, and only while the
+// review is still 'open' — once an owner/editor has resolved it, the
+// record of what was said should stop changing.
+app.patch('/v1/experiments/:id/reviews/:reviewId/content', async (c) => {
+  const env = c.env;
+  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
+
+  const review = await env.DB.prepare('SELECT * FROM experiment_reviews WHERE id = ? AND experiment_id = ?').bind(c.req.param('reviewId'), c.req.param('id')).first();
+  if (!review) return c.json({ error: 'Review not found' }, 404);
+
+  const body = await c.req.json<{ userId: string; content: string }>();
+  if (!body.userId || review.reviewer_user_id !== body.userId) return c.json({ error: 'Only the review author may edit it' }, 403);
+  if (review.status !== 'open') return c.json({ error: 'Only open reviews can be edited' }, 400);
+  if (!body.content?.trim()) return c.json({ error: 'content is required' }, 400);
+
+  await env.DB.prepare('UPDATE experiment_reviews SET content = ? WHERE id = ?').bind(body.content.trim(), review.id).run();
+  return c.json({ id: review.id, content: body.content.trim() });
+});
+
+// Withdraw your own review. Author-only. This removes the structured
+// review record; the 'reviewed' event stays in the immutable ledger
+// regardless — the ledger records that engagement happened, not the
+// current state of the review content.
+app.delete('/v1/experiments/:id/reviews/:reviewId', async (c) => {
+  const env = c.env;
+  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
+
+  const review = await env.DB.prepare('SELECT * FROM experiment_reviews WHERE id = ? AND experiment_id = ?').bind(c.req.param('reviewId'), c.req.param('id')).first();
+  if (!review) return c.json({ error: 'Review not found' }, 404);
+
+  const userId = c.req.query('userId');
+  if (!userId || review.reviewer_user_id !== userId) return c.json({ error: 'Only the review author may withdraw it' }, 403);
+
+  await env.DB.prepare('DELETE FROM experiment_reviews WHERE id = ?').bind(review.id).run();
+  return c.json({ withdrawn: true });
 });
 
 // ============================================================
@@ -1646,6 +1704,7 @@ app.post('/v1/experiments/:id/validations', async (c) => {
   if (!['confirms', 'disputes', 'needs_more_info'].includes(body.verdict)) {
     return c.json({ error: 'verdict must be confirms, disputes, or needs_more_info' }, 400);
   }
+  if (body.userId === exp.user_id) return c.json({ error: 'Owners cannot validate their own experiment' }, 400);
   const access = await resolveAccess(env, exp, body.userId);
   if (!hasAccess(access, 'reviewer')) return c.json({ error: 'Insufficient permission — reviewer access required' }, 403);
 
@@ -1698,6 +1757,10 @@ app.post('/v1/experiments/:id/references', async (c) => {
 
   const targetAccess = await resolveAccess(env, target, body.userId);
   if (!hasAccess(targetAccess, 'viewer')) return c.json({ error: 'Experiment not found' }, 404);
+  // Existence/visibility check passed (viewer) — but attaching a reference
+  // is a credibility claim about the target, same tier as review/validate,
+  // so creation itself requires reviewer.
+  if (!hasAccess(targetAccess, 'reviewer')) return c.json({ error: 'Insufficient permission — reviewer access required' }, 403);
 
   if (body.sourceExperimentId) {
     if (body.sourceExperimentId === target.id) return c.json({ error: 'An experiment cannot reference itself' }, 400);
@@ -1848,6 +1911,55 @@ app.post('/v1/workspaces/:id/members', async (c) => {
   ).bind(c.req.param('id'), body.memberUserId, role, now).run();
 
   return c.json({ workspaceId: c.req.param('id'), userId: body.memberUserId, role }, 201);
+});
+
+// ============================================================
+// ADMIN / DEPLOYMENT CHECKS
+// ============================================================
+//
+// MIGRATION RULE — read before adding any column to `experiments` (or any
+// other table `resolveAccess`/visibility logic depends on):
+//
+//   Any ALTER TABLE that adds a column with a DEFAULT affecting access-
+//   control semantics (visibility, workspace_id, permission tiers, etc.)
+//   MUST NOT leave already-published rows in a state that is more
+//   restrictive than their pre-migration behavior. Either:
+//     (a) choose a default that preserves existing access, or
+//     (b) ship an explicit, narrowly-scoped backfill UPDATE (targeting
+//         specific rows/IDs, never a blanket predicate) alongside the
+//         migration, run and verified before the code that enforces the
+//         new column goes live.
+//
+//   This happened once already: `visibility TEXT DEFAULT 'private'` was
+//   added while 3 experiments were already published (and had been fully
+//   public); the default silently demoted all 3. Run the check below
+//   after every schema change that touches access control, and treat any
+//   non-empty result as a release blocker.
+
+// Flags published experiments sitting at the raw column default with no
+// explicit visibility decision ever made — the exact signature of a
+// migration-induced demotion (the publish endpoint itself never leaves
+// visibility at bare 'private'; it defaults new publishes to 'unlisted'
+// at minimum). A non-empty result here after a deploy means: stop and
+// investigate before doing anything else.
+app.get('/v1/admin/checks/visibility-integrity', async (c) => {
+  const env = c.env;
+  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
+
+  const suspect = await env.DB.prepare(
+    "SELECT id, slug, title, user_id, status, visibility, published_at FROM experiments WHERE status = 'published' AND visibility = 'private' ORDER BY published_at ASC"
+  ).all();
+
+  const inconsistentWorkspace = await env.DB.prepare(
+    "SELECT id, slug, title, visibility, workspace_id FROM experiments WHERE visibility = 'workspace' AND workspace_id IS NULL"
+  ).all();
+
+  return c.json({
+    ok: (suspect.results?.length ?? 0) === 0 && (inconsistentWorkspace.results?.length ?? 0) === 0,
+    likelyDemotedOnMigration: suspect.results || [],
+    workspaceVisibilityMissingWorkspaceId: inconsistentWorkspace.results || [],
+  });
 });
 
 // ============================================================
