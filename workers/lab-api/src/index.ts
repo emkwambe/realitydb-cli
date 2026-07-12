@@ -2203,44 +2203,72 @@ app.get('/v1/experiments/:id/validations', async (c) => {
 // authoring UX/UI is deferred)
 // ============================================================
 
+// Creating a citation is an edit to the SOURCE experiment ("this
+// experiment builds upon X") — it requires editor-or-above on the source
+// (:id), the same tier as any other content edit. No permission on the
+// target is required or checked beyond "it exists and is visible to the
+// caller" — acknowledging someone else's public work doesn't need their
+// approval. (Corrected 2026-07-12: this previously required reviewer
+// access on the TARGET, which had the relationship backwards.)
 app.post('/v1/experiments/:id/references', async (c) => {
   const env = c.env;
   const apiKey = c.req.header('X-API-Key');
   if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
 
-  const target = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
-  if (!target) return c.json({ error: 'Experiment not found' }, 404);
+  const source = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
+  if (!source) return c.json({ error: 'Experiment not found' }, 404);
 
   const userId = await verifySupabaseJWT(c.req.header('Authorization'));
   if (!userId) return c.json({ error: 'Sign in required' }, 401);
 
-  const body = await c.req.json<{ sourceExperimentId?: string; note?: string }>();
+  const sourceAccess = await resolveAccess(env, source, userId);
+  if (!hasAccess(sourceAccess, 'editor')) return c.json({ error: 'Insufficient permission — editor access required on the source experiment' }, 403);
 
+  const body = await c.req.json<{ targetExperimentId?: string; note?: string }>();
+  if (!body.targetExperimentId) return c.json({ error: 'targetExperimentId is required' }, 400);
+  if (body.targetExperimentId === source.id) return c.json({ error: 'An experiment cannot reference itself' }, 400);
+
+  const target = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(body.targetExperimentId).first();
+  if (!target) return c.json({ error: 'targetExperimentId not found' }, 404);
   const targetAccess = await resolveAccess(env, target, userId);
-  if (!hasAccess(targetAccess, 'viewer')) return c.json({ error: 'Experiment not found' }, 404);
-  // Existence/visibility check passed (viewer) — but attaching a reference
-  // is a credibility claim about the target, same tier as review/validate,
-  // so creation itself requires reviewer.
-  if (!hasAccess(targetAccess, 'reviewer')) return c.json({ error: 'Insufficient permission — reviewer access required' }, 403);
+  if (!hasAccess(targetAccess, 'viewer')) return c.json({ error: 'targetExperimentId not found' }, 404);
 
-  if (body.sourceExperimentId) {
-    if (body.sourceExperimentId === target.id) return c.json({ error: 'An experiment cannot reference itself' }, 400);
-    const source = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(body.sourceExperimentId).first();
-    if (!source) return c.json({ error: 'sourceExperimentId not found' }, 404);
-    const sourceAccess = await resolveAccess(env, source, userId);
-    if (!hasAccess(sourceAccess, 'viewer')) return c.json({ error: 'sourceExperimentId not found' }, 404);
-  }
+  const dup = await env.DB.prepare('SELECT id FROM experiment_references WHERE source_experiment_id = ? AND target_experiment_id = ?').bind(source.id, target.id).first();
+  if (dup) return c.json({ error: 'This citation already exists' }, 409);
 
   const id = 'ref-' + crypto.randomUUID().split('-')[0];
   const now = new Date().toISOString();
   await env.DB.prepare(
     `INSERT INTO experiment_references (id, source_experiment_id, target_experiment_id, note, created_by, created_at)
      VALUES (?, ?, ?, ?, ?, ?)`
-  ).bind(id, body.sourceExperimentId || null, target.id, body.note || null, userId, now).run();
+  ).bind(id, source.id, target.id, body.note || null, userId, now).run();
 
-  await logExperimentEvent(env, target.id as string, 'referenced', userId, { referenceId: id, sourceExperimentId: body.sourceExperimentId || null });
+  await logExperimentEvent(env, target.id as string, 'referenced', userId, { referenceId: id, sourceExperimentId: source.id });
 
-  return c.json({ id, sourceExperimentId: body.sourceExperimentId || null, targetExperimentId: target.id, note: body.note || null, createdAt: now }, 201);
+  return c.json({ id, sourceExperimentId: source.id, targetExperimentId: target.id, note: body.note || null, createdAt: now }, 201);
+});
+
+// Remove a citation — same authorization as creating one: editor-or-above
+// on the reference's source experiment.
+app.delete('/v1/experiments/:id/references/:referenceId', async (c) => {
+  const env = c.env;
+  const apiKey = c.req.header('X-API-Key');
+  if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
+
+  const ref = await env.DB.prepare('SELECT * FROM experiment_references WHERE id = ? AND source_experiment_id = ?')
+    .bind(c.req.param('referenceId'), c.req.param('id')).first();
+  if (!ref) return c.json({ error: 'Reference not found' }, 404);
+
+  const userId = await verifySupabaseJWT(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Sign in required' }, 401);
+
+  const source = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(ref.source_experiment_id).first();
+  if (!source) return c.json({ error: 'Experiment not found' }, 404);
+  const sourceAccess = await resolveAccess(env, source, userId);
+  if (!hasAccess(sourceAccess, 'editor')) return c.json({ error: 'Insufficient permission — editor access required on the source experiment' }, 403);
+
+  await env.DB.prepare('DELETE FROM experiment_references WHERE id = ?').bind(ref.id).run();
+  return c.json({ deleted: true });
 });
 
 app.get('/v1/experiments/:id/references', async (c) => {

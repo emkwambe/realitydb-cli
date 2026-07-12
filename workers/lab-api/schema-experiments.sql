@@ -63,6 +63,7 @@ CREATE TABLE experiment_references (
   CHECK (source_experiment_id IS NULL OR source_experiment_id != target_experiment_id)
 );
 CREATE INDEX idx_references_target ON experiment_references(target_experiment_id);
+CREATE UNIQUE INDEX idx_references_source_target ON experiment_references(source_experiment_id, target_experiment_id) WHERE source_experiment_id IS NOT NULL; -- added 2026-07-12, duplicate-citation backstop (Sub-Sprint 2B correction)
 
 CREATE TABLE experiment_reproductions (
   id                TEXT PRIMARY KEY,
