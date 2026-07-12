@@ -776,7 +776,51 @@ app.get('/v1/gallery/experiments/:slug', async (c) => {
 
   const credibility = await getCredibilitySummary(env, exp.id as string);
 
-  return c.json({ ...exp, view_count: (exp.view_count as number) + 1, viewerAccess: access, bookmarked, ...credibility, evidence: parsedEvidence });
+  // Fork lineage ("Derived From") is a distinct relationship from the
+  // citation graph — resolved as a plain follow-up lookup, not a JOIN on
+  // the main query, since forked_from_id is null for the common case.
+  let forkedFrom: { id: string; title: string; slug: string } | null = null;
+  if (exp.forked_from_id) {
+    const parent = await env.DB.prepare('SELECT id, title, slug FROM experiments WHERE id = ?').bind(exp.forked_from_id).first();
+    if (parent) forkedFrom = parent as any;
+  }
+
+  return c.json({ ...exp, view_count: (exp.view_count as number) + 1, viewerAccess: access, bookmarked, ...credibility, forkedFrom, evidence: parsedEvidence });
+});
+
+// Related Experiments — a landing-page-scoped heuristic (same
+// template/author/tag overlap), deliberately separate from the discovery
+// lens machinery (buildExperimentsDiscoveryQuery) since that only supports
+// single-value tag/template filters, not "relative to experiment X"
+// scoring with self-exclusion. Public read, mirrors the slug-detail route.
+app.get('/v1/gallery/experiments/:slug/related', async (c) => {
+  const env = c.env;
+  const source = await env.DB.prepare("SELECT id, template, authors, tags FROM experiments WHERE slug = ? AND status = 'published' AND visibility = 'public'").bind(c.req.param('slug')).first();
+  if (!source) return c.json({ error: 'Experiment not found' }, 404);
+
+  const tags = ((source.tags as string) || '').split(',').map((t) => t.trim()).filter(Boolean).slice(0, 5);
+  const tagScoreExpr = tags.map(() => `CASE WHEN e.tags LIKE ? THEN 1 ELSE 0 END`).join(' + ');
+  const tagWhereExpr = tags.map(() => `e.tags LIKE ?`).join(' OR ');
+
+  const query = `SELECT e.id, e.slug, e.title, e.question, e.authors, e.tags, e.template, e.published_at,
+${CREDIBILITY_SUBQUERIES_E},
+      (CASE WHEN e.template = ? THEN 1 ELSE 0 END
+       + CASE WHEN e.authors = ? THEN 1 ELSE 0 END
+       ${tags.length ? '+ ' + tagScoreExpr : ''}) as relevance
+    FROM experiments e
+    WHERE e.status = 'published' AND e.visibility = 'public' AND e.id != ?
+      AND (e.template = ? OR e.authors = ?${tags.length ? ' OR ' + tagWhereExpr : ''})
+    ORDER BY relevance DESC, e.published_at DESC
+    LIMIT 6`;
+
+  const tagLikeParams = tags.map((t) => '%' + t + '%');
+  const params = [
+    source.template, source.authors, ...tagLikeParams,
+    source.id, source.template, source.authors, ...tagLikeParams,
+  ];
+
+  const result = await env.DB.prepare(query).bind(...params).all();
+  return c.json({ related: result.results || [] });
 });
 
 // Fork a published experiment — provisions a fresh lab from the same
@@ -1511,17 +1555,22 @@ app.patch('/v1/experiments/:id', async (c) => {
   const access = await resolveAccess(env, exp, userId);
   if (!hasAccess(access, 'editor')) return c.json({ error: 'Insufficient permission' }, 403);
 
-  const body = await c.req.json<{ title?: string; question?: string; findings?: string; tags?: string; authors?: string; license?: string }>();
+  const body = await c.req.json<{
+    title?: string; question?: string; findings?: string; tags?: string; authors?: string; license?: string;
+    keyFindings?: string; limitations?: string; futureWork?: string;
+  }>();
   await env.DB.prepare(
     `UPDATE experiments SET
        title = COALESCE(?, title), question = COALESCE(?, question),
        findings = COALESCE(?, findings), tags = COALESCE(?, tags),
        authors = COALESCE(?, authors), license = COALESCE(?, license),
+       key_findings = COALESCE(?, key_findings), limitations = COALESCE(?, limitations), future_work = COALESCE(?, future_work),
        updated_at = ?
      WHERE id = ?`
   ).bind(
     body.title ?? null, body.question ?? null, body.findings ?? null,
     body.tags ?? null, body.authors ?? null, body.license ?? null,
+    body.keyFindings ?? null, body.limitations ?? null, body.futureWork ?? null,
     new Date().toISOString(), exp.id
   ).run();
 
@@ -2203,8 +2252,20 @@ app.get('/v1/experiments/:id/references', async (c) => {
   const access = await resolveAccess(env, exp, userId);
   if (!hasAccess(access, 'viewer')) return c.json({ error: 'Experiment not found' }, 404);
 
-  const citedBy = await env.DB.prepare('SELECT * FROM experiment_references WHERE target_experiment_id = ? ORDER BY created_at DESC').bind(exp.id).all();
-  const cites = await env.DB.prepare('SELECT * FROM experiment_references WHERE source_experiment_id = ? ORDER BY created_at DESC').bind(exp.id).all();
+  // Joined to the *other* experiment's title/slug in each row — citedBy
+  // rows join on source_experiment_id (the citing experiment), cites rows
+  // join on target_experiment_id (the cited experiment) — so the UI can
+  // render "Referenced by: <title>" without an extra fetch per row.
+  const citedBy = await env.DB.prepare(`
+    SELECT r.id, r.note, r.created_at, r.source_experiment_id, s.title as other_title, s.slug as other_slug
+    FROM experiment_references r LEFT JOIN experiments s ON s.id = r.source_experiment_id
+    WHERE r.target_experiment_id = ? ORDER BY r.created_at DESC
+  `).bind(exp.id).all();
+  const cites = await env.DB.prepare(`
+    SELECT r.id, r.note, r.created_at, r.target_experiment_id, t.title as other_title, t.slug as other_slug
+    FROM experiment_references r JOIN experiments t ON t.id = r.target_experiment_id
+    WHERE r.source_experiment_id = ? ORDER BY r.created_at DESC
+  `).bind(exp.id).all();
 
   return c.json({ citedBy: citedBy.results || [], cites: cites.results || [] });
 });

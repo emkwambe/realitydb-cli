@@ -32,7 +32,10 @@ CREATE TABLE experiments (
   published_at      TEXT,
   rows              INTEGER,
   visibility        TEXT NOT NULL DEFAULT 'private', -- private|workspace|specific_people|unlisted|public
-  workspace_id      TEXT
+  workspace_id      TEXT,
+  key_findings      TEXT,                            -- added 2026-07-12 for landing page depth (Sub-Sprint 2B)
+  limitations       TEXT,                             -- added 2026-07-12 for landing page depth (Sub-Sprint 2B)
+  future_work       TEXT                              -- added 2026-07-12 for landing page depth (Sub-Sprint 2B)
 );
 CREATE INDEX idx_experiments_status ON experiments(status, published_at);
 CREATE INDEX idx_experiments_workspace ON experiments(workspace_id);
