@@ -697,6 +697,117 @@ app.get('/v1/gallery', async (c) => {
   return c.json({ labs: result.results });
 });
 
+// Browse published experiments.
+// NOTE: registered before /v1/gallery/:slug below — this Hono version matches
+// routes in registration order, not static-before-dynamic priority, so
+// /v1/gallery/experiments would otherwise be swallowed as slug="experiments".
+app.get('/v1/gallery/experiments', async (c) => {
+  const env = c.env;
+  const tag = c.req.query('tag');
+  const template = c.req.query('template');
+  const search = c.req.query('q');
+
+  let query = "SELECT id, slug, title, question, authors, tags, template, seed, rows, view_count, fork_count, published_at FROM experiments WHERE status = 'published'";
+  const params: string[] = [];
+
+  if (tag) { query += ' AND tags LIKE ?'; params.push('%' + tag + '%'); }
+  if (template) { query += ' AND template = ?'; params.push(template); }
+  if (search) { query += ' AND (title LIKE ? OR question LIKE ?)'; params.push('%' + search + '%', '%' + search + '%'); }
+
+  query += ' ORDER BY published_at DESC LIMIT 50';
+
+  const result = params.length > 0
+    ? await env.DB.prepare(query).bind(...params).all()
+    : await env.DB.prepare(query).all();
+
+  return c.json({ experiments: result.results });
+});
+
+// Get a single published experiment with full evidence (public).
+app.get('/v1/gallery/experiments/:slug', async (c) => {
+  const env = c.env;
+  const exp = await env.DB.prepare("SELECT * FROM experiments WHERE slug = ? AND status = 'published'").bind(c.req.param('slug')).first();
+  if (!exp) return c.json({ error: 'Experiment not found' }, 404);
+
+  await env.DB.prepare('UPDATE experiments SET view_count = view_count + 1 WHERE id = ?').bind(exp.id).run();
+
+  const evidence = await env.DB.prepare(
+    'SELECT id, type, position, title, data, created_at FROM experiment_evidence WHERE experiment_id = ? ORDER BY position ASC'
+  ).bind(exp.id).all();
+  const parsedEvidence = (evidence.results || []).map((e: any) => ({ ...e, data: JSON.parse(e.data) }));
+
+  return c.json({ ...exp, view_count: (exp.view_count as number) + 1, evidence: parsedEvidence });
+});
+
+// Fork a published experiment — provisions a fresh lab from the same
+// template/seed/rows (the reproducibility manifest) and clones all
+// evidence blocks into a new draft the forker can re-run and extend.
+app.post('/v1/gallery/experiments/:slug/fork', async (c) => {
+  const env = c.env;
+  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
+
+  const source = await env.DB.prepare("SELECT * FROM experiments WHERE slug = ? AND status = 'published'").bind(c.req.param('slug')).first();
+  if (!source) return c.json({ error: 'Experiment not found' }, 404);
+
+  const body = await c.req.json<{ userId?: string }>().catch(() => ({}));
+  const userId = (body as any).userId || 'api-user';
+
+  if (!source.template) return c.json({ error: 'Source experiment has no template on record — cannot reproduce' }, 400);
+
+  const rows = (source.rows as number) || 5000;
+  const rowLabel = rows >= 1000 ? `${rows / 1000}k` : String(rows);
+  const r2Key = `templates/${source.template}-${rowLabel}.sql`;
+  const templateObj = await env.TEMPLATES.get(r2Key);
+  if (!templateObj) return c.json({ error: `Template not found for reproduction: ${r2Key}` }, 404);
+
+  const forkLabId = 'lab-' + crypto.randomUUID().split('-')[0];
+  const branch = await createNeonBranch(env.NEON_PROJECT_ID, env.NEON_API_KEY, forkLabId);
+  const sqlText = await templateObj.text();
+  try {
+    const sql = neon(branch.connectionUri);
+    await sql(sqlText);
+  } catch { /* best-effort seed, matches existing fork behavior for dataset forks */ }
+
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  await env.DB.prepare(
+    `INSERT INTO labs (id, user_id, name, template, rows, seed, neon_branch_id, neon_endpoint_id, connection_string, status, created_at, expires_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)`
+  ).bind(
+    forkLabId, userId, 'fork-' + (source.slug as string).substring(0, 20), source.template, rows, source.seed ?? null,
+    branch.branchId, branch.endpointId, branch.connectionUri, now.toISOString(), expiresAt.toISOString()
+  ).run();
+
+  const newExpId = 'exp-' + crypto.randomUUID().split('-')[0];
+  await env.DB.prepare(
+    `INSERT INTO experiments (id, user_id, lab_id, status, title, question, template, seed, rows, lab_version, engine_version, environment, forked_from_id, created_at)
+     VALUES (?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).bind(
+    newExpId, userId, forkLabId, source.title, source.question, source.template, source.seed ?? null, rows,
+    LAB_API_VERSION, ENGINE_VERSION, source.environment, source.id, now.toISOString()
+  ).run();
+
+  const sourceEvidence = await env.DB.prepare(
+    'SELECT type, position, title, data FROM experiment_evidence WHERE experiment_id = ? ORDER BY position ASC'
+  ).bind(source.id).all();
+  for (const e of (sourceEvidence.results || []) as any[]) {
+    await env.DB.prepare(
+      'INSERT INTO experiment_evidence (id, experiment_id, type, position, title, data, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).bind('ev-' + crypto.randomUUID().split('-')[0], newExpId, e.type, e.position, e.title, e.data, now.toISOString()).run();
+  }
+
+  await env.DB.prepare('UPDATE experiments SET fork_count = fork_count + 1 WHERE id = ?').bind(source.id).run();
+
+  return c.json({
+    id: newExpId,
+    labId: forkLabId,
+    connectionString: branch.connectionUri,
+    forkedFrom: source.slug,
+    expiresAt: expiresAt.toISOString(),
+  }, 201);
+});
+
 // Get a single published lab
 app.get('/v1/gallery/:slug', async (c) => {
   const env = c.env;
@@ -819,6 +930,232 @@ app.get('/v1/labs/:id/queries', async (c) => {
 
   const result = await env.DB.prepare('SELECT * FROM saved_queries WHERE lab_id = ? ORDER BY created_at DESC').bind(c.req.param('id')).all();
   return c.json({ queries: result.results });
+});
+
+// ============================================================
+// EXPERIMENT ENDPOINTS
+// Experiment = the permanent record of asking a question, running
+// analyses, collecting evidence, and documenting conclusions.
+// Evidence is intentionally polymorphic (type + JSON data) so future
+// modalities (notebook cells, benchmarks, simulations, images) need
+// no schema change — just a new `type` string and documented shape.
+// ============================================================
+
+const ENGINE_VERSION = '@realitydb/engine (see packages/engine)';
+const LAB_API_VERSION = 'lab-api-experiments-v1';
+
+async function nextEvidencePosition(db: D1Database, experimentId: string): Promise<number> {
+  const row = await db.prepare(
+    'SELECT COALESCE(MAX(position), -1) as maxPos FROM experiment_evidence WHERE experiment_id = ?'
+  ).bind(experimentId).first();
+  return ((row as any)?.maxPos ?? -1) + 1;
+}
+
+// Create a draft experiment. If labId is given, the reproducibility
+// manifest (template/seed/rows) is captured from that lab automatically.
+app.post('/v1/experiments', async (c) => {
+  const env = c.env;
+  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
+
+  const body = await c.req.json<{
+    title: string; question?: string; labId?: string;
+    template?: string; seed?: number; rows?: number; userId?: string;
+  }>();
+  if (!body.title) return c.json({ error: 'title is required' }, 400);
+
+  let template = body.template ?? null;
+  let seed = body.seed ?? null;
+  let rows = body.rows ?? null;
+
+  if (body.labId) {
+    const lab = await env.DB.prepare('SELECT * FROM labs WHERE id = ?').bind(body.labId).first();
+    if (lab) {
+      template = template ?? (lab.template as string);
+      seed = seed ?? (lab.seed as number | null);
+      rows = rows ?? (lab.rows as number);
+    }
+  }
+
+  const id = 'exp-' + crypto.randomUUID().split('-')[0];
+  const now = new Date().toISOString();
+
+  await env.DB.prepare(
+    `INSERT INTO experiments (id, user_id, lab_id, status, title, question, template, seed, rows, lab_version, engine_version, environment, created_at)
+     VALUES (?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).bind(
+    id, body.userId || 'api-user', body.labId || null, body.title, body.question || null,
+    template, seed, rows, LAB_API_VERSION, ENGINE_VERSION,
+    JSON.stringify({ createdVia: 'api', platform: 'realitydb-simlab' }), now
+  ).run();
+
+  return c.json({ id, title: body.title, status: 'draft', template, seed, rows, createdAt: now }, 201);
+});
+
+// Get a single experiment with its ordered evidence blocks.
+app.get('/v1/experiments/:id', async (c) => {
+  const env = c.env;
+  const exp = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
+  if (!exp) return c.json({ error: 'Experiment not found' }, 404);
+
+  const evidence = await env.DB.prepare(
+    'SELECT id, type, position, title, data, created_at FROM experiment_evidence WHERE experiment_id = ? ORDER BY position ASC'
+  ).bind(exp.id).all();
+
+  const parsedEvidence = (evidence.results || []).map((e: any) => ({ ...e, data: JSON.parse(e.data) }));
+  return c.json({ ...exp, evidence: parsedEvidence });
+});
+
+// List a user's experiments (drafts + published).
+app.get('/v1/experiments', async (c) => {
+  const env = c.env;
+  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
+
+  const userId = c.req.query('userId') || 'api-user';
+  const result = await env.DB.prepare(
+    'SELECT * FROM experiments WHERE user_id = ? ORDER BY created_at DESC'
+  ).bind(userId).all();
+  return c.json({ experiments: result.results });
+});
+
+// Update an experiment's narrative fields.
+app.patch('/v1/experiments/:id', async (c) => {
+  const env = c.env;
+  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
+
+  const exp = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
+  if (!exp) return c.json({ error: 'Experiment not found' }, 404);
+
+  const body = await c.req.json<{ title?: string; question?: string; findings?: string; tags?: string; authors?: string; license?: string }>();
+  await env.DB.prepare(
+    `UPDATE experiments SET
+       title = COALESCE(?, title), question = COALESCE(?, question),
+       findings = COALESCE(?, findings), tags = COALESCE(?, tags),
+       authors = COALESCE(?, authors), license = COALESCE(?, license),
+       updated_at = ?
+     WHERE id = ?`
+  ).bind(
+    body.title ?? null, body.question ?? null, body.findings ?? null,
+    body.tags ?? null, body.authors ?? null, body.license ?? null,
+    new Date().toISOString(), exp.id
+  ).run();
+
+  return c.json({ id: exp.id, updated: true });
+});
+
+// Add an evidence block to an experiment. For type 'sql_query' with
+// execute:true, the SQL actually runs against the experiment's lab and
+// the real result set is cached as a companion 'result_table' block —
+// this is what lets a published Experiment render forever, even after
+// the originating lab (and its Neon branch) has expired.
+app.post('/v1/experiments/:id/evidence', async (c) => {
+  const env = c.env;
+  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
+
+  const exp = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
+  if (!exp) return c.json({ error: 'Experiment not found' }, 404);
+
+  const body = await c.req.json<{
+    type: 'sql_query' | 'result_table' | 'chart' | 'markdown';
+    title?: string;
+    sql?: string;
+    execute?: boolean;
+    data?: any;
+  }>();
+
+  if (!body.type) return c.json({ error: 'type is required' }, 400);
+  const now = new Date().toISOString();
+  const created: any[] = [];
+
+  if (body.type === 'sql_query') {
+    if (!body.sql?.trim()) return c.json({ error: 'sql is required for type sql_query' }, 400);
+
+    let executionTimeMs: number | null = null;
+    let resultBlock: any = null;
+
+    if (body.execute) {
+      if (!exp.lab_id) return c.json({ error: 'Experiment has no lab_id — cannot execute SQL' }, 400);
+      const lab = await env.DB.prepare('SELECT * FROM labs WHERE id = ?').bind(exp.lab_id).first();
+      if (!lab) return c.json({ error: 'Originating lab not found (may have expired)' }, 404);
+
+      const start = Date.now();
+      try {
+        const sql = neon(lab.connection_string as string);
+        const rowsResult = await sql(body.sql);
+        executionTimeMs = Date.now() - start;
+
+        const capped = rowsResult.slice(0, 500);
+        resultBlock = {
+          columns: capped.length > 0 ? Object.keys(capped[0]) : [],
+          rows: capped,
+          rowCount: rowsResult.length,
+          truncated: rowsResult.length > 500,
+        };
+      } catch (err: any) {
+        return c.json({ error: `Query execution failed: ${err.message}` }, 400);
+      }
+    }
+
+    const sqlEvidenceId = 'ev-' + crypto.randomUUID().split('-')[0];
+    const sqlPosition = await nextEvidencePosition(env.DB, exp.id as string);
+    const sqlData = { sql: body.sql, executionTimeMs };
+    await env.DB.prepare(
+      'INSERT INTO experiment_evidence (id, experiment_id, type, position, title, data, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).bind(sqlEvidenceId, exp.id, 'sql_query', sqlPosition, body.title || null, JSON.stringify(sqlData), now).run();
+    created.push({ id: sqlEvidenceId, type: 'sql_query', position: sqlPosition, title: body.title || null, data: sqlData });
+
+    if (resultBlock) {
+      const resultEvidenceId = 'ev-' + crypto.randomUUID().split('-')[0];
+      const resultPosition = await nextEvidencePosition(env.DB, exp.id as string);
+      const resultData = { ...resultBlock, sourceEvidenceId: sqlEvidenceId };
+      await env.DB.prepare(
+        'INSERT INTO experiment_evidence (id, experiment_id, type, position, title, data, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      ).bind(resultEvidenceId, exp.id, 'result_table', resultPosition, null, JSON.stringify(resultData), now).run();
+      created.push({ id: resultEvidenceId, type: 'result_table', position: resultPosition, title: null, data: resultData });
+    }
+  } else {
+    // markdown / chart / future evidence types — data is caller-provided and opaque to this endpoint.
+    if (!body.data) return c.json({ error: 'data is required for this evidence type' }, 400);
+    const evidenceId = 'ev-' + crypto.randomUUID().split('-')[0];
+    const position = await nextEvidencePosition(env.DB, exp.id as string);
+    await env.DB.prepare(
+      'INSERT INTO experiment_evidence (id, experiment_id, type, position, title, data, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).bind(evidenceId, exp.id, body.type, position, body.title || null, JSON.stringify(body.data), now).run();
+    created.push({ id: evidenceId, type: body.type, position, title: body.title || null, data: body.data });
+  }
+
+  await env.DB.prepare('UPDATE experiments SET updated_at = ? WHERE id = ?').bind(now, exp.id).run();
+  return c.json({ evidence: created }, 201);
+});
+
+// Publish an experiment — requires findings + at least one evidence block.
+app.post('/v1/experiments/:id/publish', async (c) => {
+  const env = c.env;
+  const apiKey = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.header('X-API-Key');
+  if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
+
+  const exp = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
+  if (!exp) return c.json({ error: 'Experiment not found' }, 404);
+  if (!exp.findings) return c.json({ error: 'Findings are required before publishing' }, 400);
+
+  const evidenceCount = await env.DB.prepare(
+    'SELECT COUNT(*) as c FROM experiment_evidence WHERE experiment_id = ?'
+  ).bind(exp.id).first();
+  if (((evidenceCount as any)?.c || 0) === 0) return c.json({ error: 'At least one evidence block is required before publishing' }, 400);
+
+  const slugBase = (exp.title as string).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 60);
+  const existing = await env.DB.prepare('SELECT id FROM experiments WHERE slug = ?').bind(slugBase).first();
+  const slug = existing ? slugBase + '-' + (exp.id as string).split('-')[1] : slugBase;
+
+  const now = new Date().toISOString();
+  await env.DB.prepare(
+    `UPDATE experiments SET status = 'published', slug = ?, published_at = ? WHERE id = ?`
+  ).bind(slug, now, exp.id).run();
+
+  return c.json({ id: exp.id, slug, url: 'https://sandbox.realitydb.dev/#gallery/' + slug, publishedAt: now });
 });
 
 // ============================================================
