@@ -703,38 +703,50 @@ app.get('/v1/gallery', async (c) => {
 // /v1/gallery/experiments would otherwise be swallowed as slug="experiments".
 app.get('/v1/gallery/experiments', async (c) => {
   const env = c.env;
-  const tag = c.req.query('tag');
-  const template = c.req.query('template');
-  const search = c.req.query('q');
-
   // Only public, published experiments are ever listed. Unlisted experiments
   // are reachable by slug (below) but deliberately never appear here —
   // that's the whole point of "anyone with the link."
-  // Credibility aggregates (reproductions/validations/reviews) are computed
-  // here via correlated subqueries so gallery cards can show a real
-  // reproducibility badge without an N+1 fetch per card.
-  let query = `SELECT e.id, e.slug, e.title, e.question, e.authors, e.tags, e.template, e.seed, e.rows, e.view_count, e.fork_count, e.published_at,
-      (SELECT COUNT(*) FROM experiment_reproductions r WHERE r.experiment_id = e.id) as reproduction_count,
-      (SELECT COUNT(*) FROM experiment_reproductions r WHERE r.experiment_id = e.id AND r.matched = 1) as reproduction_matched_count,
-      (SELECT COUNT(*) FROM experiment_validations v WHERE v.experiment_id = e.id AND v.superseded_at IS NULL) as validation_count,
-      (SELECT COUNT(*) FROM experiment_validations v WHERE v.experiment_id = e.id AND v.superseded_at IS NULL AND v.verdict = 'confirms') as validation_confirms_count,
-      (SELECT COUNT(*) FROM experiment_validations v WHERE v.experiment_id = e.id AND v.superseded_at IS NULL AND v.verdict = 'disputes') as validation_disputes_count,
-      (SELECT COUNT(*) FROM experiment_reviews rv WHERE rv.experiment_id = e.id) as review_count,
-      (SELECT COUNT(*) FROM experiment_reviews rv WHERE rv.experiment_id = e.id AND rv.status = 'open') as review_open_count
-    FROM experiments e WHERE e.status = 'published' AND e.visibility = 'public'`;
-  const params: string[] = [];
+  // Kept as a back-compat alias: same query the 'experiments' discovery
+  // lens now runs (see runDiscoveryQuery below), just under its original
+  // route and response envelope so existing callers are unaffected.
+  const results = await runDiscoveryQuery(env, 'experiments', parseDiscoveryFilters(c));
+  return c.json({ experiments: results });
+});
 
-  if (tag) { query += ' AND e.tags LIKE ?'; params.push('%' + tag + '%'); }
-  if (template) { query += ' AND e.template = ?'; params.push(template); }
-  if (search) { query += ' AND (e.title LIKE ? OR e.question LIKE ?)'; params.push('%' + search + '%', '%' + search + '%'); }
+// Knowledge Discovery layer — one route per lens, all routed through the
+// same shared query-building path (runDiscoveryQuery). Every lens's rows
+// always carry their parent Experiment's slug/title/author — visualizations
+// and SQL are derived artifacts, never standalone content.
+app.get('/v1/discover/:lens', async (c) => {
+  const lens = c.req.param('lens');
+  if (!DISCOVERY_LENSES.has(lens)) return c.json({ error: 'Unknown discovery lens' }, 404);
+  const results = await runDiscoveryQuery(c.env, lens as DiscoveryLens, parseDiscoveryFilters(c));
+  return c.json({ lens, results });
+});
 
-  query += ' ORDER BY e.published_at DESC LIMIT 50';
+// Public researcher profile — read-only, no auth required. Only published
+// experiments + aggregate credibility stats are exposed here; drafts and
+// bookmarks stay private to the authenticated "mine" routes
+// (/v1/experiments, /v1/experiments/bookmarks/mine, etc).
+app.get('/v1/profiles/:userId', async (c) => {
+  const env = c.env;
+  const userId = c.req.param('userId');
+  const published = await env.DB.prepare(`SELECT e.id, e.slug, e.title, e.question, e.tags, e.template, e.published_at,
+${CREDIBILITY_SUBQUERIES_E}
+    FROM experiments e WHERE e.user_id = ? AND e.status = 'published' AND e.visibility = 'public'
+    ORDER BY e.published_at DESC`).bind(userId).all();
 
-  const result = params.length > 0
-    ? await env.DB.prepare(query).bind(...params).all()
-    : await env.DB.prepare(query).all();
+  if (published.results.length === 0) return c.json({ error: 'Profile not found' }, 404);
 
-  return c.json({ experiments: result.results });
+  const rows = published.results as any[];
+  const stats = rows.reduce((acc, e) => ({
+    reproduction_count: acc.reproduction_count + (e.reproduction_count || 0),
+    validation_count: acc.validation_count + (e.validation_count || 0),
+    validation_confirms_count: acc.validation_confirms_count + (e.validation_confirms_count || 0),
+    review_count: acc.review_count + (e.review_count || 0),
+  }), { reproduction_count: 0, validation_count: 0, validation_confirms_count: 0, review_count: 0 });
+
+  return c.json({ userId, published_count: rows.length, stats, experiments: rows });
 });
 
 // Get a single published experiment by slug. Public read — no token
@@ -1159,6 +1171,178 @@ async function nextEvidencePosition(db: D1Database, experimentId: string): Promi
   return ((row as any)?.maxPos ?? -1) + 1;
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// Knowledge Discovery layer — one shared query-building path for every
+// discovery lens (experiments/visualizations/sql/profiles), instead of a
+// bespoke hand-rolled SELECT per lens. Every lens's primary rows always
+// carry their parent Experiment's identity (slug/title/author) so a
+// visualization or SQL card can never be rendered without a way back to
+// its canonical Experiment.
+// ─────────────────────────────────────────────────────────────────────────
+
+type DiscoveryLens = 'experiments' | 'visualizations' | 'sql' | 'profiles';
+const DISCOVERY_LENSES: Set<string> = new Set(['experiments', 'visualizations', 'sql', 'profiles']);
+
+interface DiscoveryFilters {
+  q?: string;
+  tag?: string;
+  template?: string;
+  sort?: string;
+  limit: number;
+  offset: number;
+}
+
+function parseDiscoveryFilters(c: any): DiscoveryFilters {
+  const limit = Math.min(Math.max(parseInt(c.req.query('limit') || '50', 10) || 50, 1), 100);
+  const offset = Math.max(parseInt(c.req.query('offset') || '0', 10) || 0, 0);
+  return {
+    q: c.req.query('q') || undefined,
+    tag: c.req.query('tag') || undefined,
+    template: c.req.query('template') || undefined,
+    sort: c.req.query('sort') || undefined,
+    limit,
+    offset,
+  };
+}
+
+// Credibility aggregates keyed off an `e.id` correlated experiments alias —
+// reused by every lens whose rows resolve back to a parent experiment, so
+// "most reproduced/validated/reviewed" sorting means the same thing (and is
+// computed the same way) everywhere.
+const CREDIBILITY_SUBQUERIES_E = `
+      (SELECT COUNT(*) FROM experiment_reproductions r WHERE r.experiment_id = e.id) as reproduction_count,
+      (SELECT COUNT(*) FROM experiment_reproductions r WHERE r.experiment_id = e.id AND r.matched = 1) as reproduction_matched_count,
+      (SELECT COUNT(*) FROM experiment_validations v WHERE v.experiment_id = e.id AND v.superseded_at IS NULL) as validation_count,
+      (SELECT COUNT(*) FROM experiment_validations v WHERE v.experiment_id = e.id AND v.superseded_at IS NULL AND v.verdict = 'confirms') as validation_confirms_count,
+      (SELECT COUNT(*) FROM experiment_validations v WHERE v.experiment_id = e.id AND v.superseded_at IS NULL AND v.verdict = 'disputes') as validation_disputes_count,
+      (SELECT COUNT(*) FROM experiment_reviews rv WHERE rv.experiment_id = e.id) as review_count,
+      (SELECT COUNT(*) FROM experiment_reviews rv WHERE rv.experiment_id = e.id AND rv.status = 'open') as review_open_count`;
+
+function discoverySortColumn(sort: string | undefined): string {
+  switch (sort) {
+    case 'most_reproduced': return 'reproduction_count DESC';
+    case 'most_validated': return 'validation_count DESC';
+    case 'most_reviewed': return 'review_count DESC';
+    case 'recent':
+    default: return 'published_at DESC';
+  }
+}
+
+// Appends q/tag/template filters shared across lenses. `searchCols` is a
+// list of SQL expressions (column refs or json_extract calls) ORed together
+// for `q`; `tagCol`/`templateCol` are omitted (skipped) for lenses where
+// they don't apply (e.g. profiles has no tags).
+function applyDiscoveryFilters(
+  query: string,
+  params: (string | number)[],
+  filters: DiscoveryFilters,
+  opts: { searchCols?: string[]; tagCol?: string; templateCol?: string }
+): string {
+  if (filters.q && opts.searchCols?.length) {
+    query += ` AND (${opts.searchCols.map((c) => `${c} LIKE ?`).join(' OR ')})`;
+    for (const _ of opts.searchCols) params.push('%' + filters.q + '%');
+  }
+  if (filters.tag && opts.tagCol) { query += ` AND ${opts.tagCol} LIKE ?`; params.push('%' + filters.tag + '%'); }
+  if (filters.template && opts.templateCol) { query += ` AND ${opts.templateCol} = ?`; params.push(filters.template); }
+  return query;
+}
+
+function buildExperimentsDiscoveryQuery(filters: DiscoveryFilters): { query: string; params: (string | number)[] } {
+  let query = `SELECT e.id, e.slug, e.title, e.question, e.authors, e.tags, e.template, e.seed, e.rows, e.view_count, e.fork_count, e.published_at,
+${CREDIBILITY_SUBQUERIES_E}
+    FROM experiments e WHERE e.status = 'published' AND e.visibility = 'public'`;
+  const params: (string | number)[] = [];
+  query = applyDiscoveryFilters(query, params, filters, { searchCols: ['e.title', 'e.question'], tagCol: 'e.tags', templateCol: 'e.template' });
+  query += ` ORDER BY ${discoverySortColumn(filters.sort)} LIMIT ? OFFSET ?`;
+  params.push(filters.limit, filters.offset);
+  return { query, params };
+}
+
+function buildVisualizationsDiscoveryQuery(filters: DiscoveryFilters): { query: string; params: (string | number)[] } {
+  let query = `SELECT ev.id, ev.title, ev.description, ev.tags, ev.data, ev.created_at,
+      e.id as experiment_id, e.slug as experiment_slug, e.title as experiment_title, e.authors as experiment_authors, e.template, e.published_at,
+${CREDIBILITY_SUBQUERIES_E}
+    FROM experiment_evidence ev
+    JOIN experiments e ON e.id = ev.experiment_id
+    WHERE ev.type = 'chart' AND e.status = 'published' AND e.visibility = 'public'`;
+  const params: (string | number)[] = [];
+  query = applyDiscoveryFilters(query, params, filters, { searchCols: ['ev.title', 'ev.description', 'e.title'], tagCol: 'ev.tags', templateCol: 'e.template' });
+  query += ` ORDER BY ${discoverySortColumn(filters.sort)} LIMIT ? OFFSET ?`;
+  params.push(filters.limit, filters.offset);
+  return { query, params };
+}
+
+function buildSqlDiscoveryQuery(filters: DiscoveryFilters): { query: string; params: (string | number)[] } {
+  let query = `SELECT ev.id, ev.title, ev.description, ev.tags, ev.data, ev.created_at,
+      e.id as experiment_id, e.slug as experiment_slug, e.title as experiment_title, e.authors as experiment_authors, e.template, e.published_at,
+${CREDIBILITY_SUBQUERIES_E}
+    FROM experiment_evidence ev
+    JOIN experiments e ON e.id = ev.experiment_id
+    WHERE ev.type = 'sql_query' AND e.status = 'published' AND e.visibility = 'public'`;
+  const params: (string | number)[] = [];
+  query = applyDiscoveryFilters(query, params, filters, { searchCols: ['ev.title', "json_extract(ev.data, '$.sql')", 'e.title'], tagCol: 'ev.tags', templateCol: 'e.template' });
+  query += ` ORDER BY ${discoverySortColumn(filters.sort)} LIMIT ? OFFSET ?`;
+  params.push(filters.limit, filters.offset);
+  return { query, params };
+}
+
+function buildProfilesDiscoveryQuery(filters: DiscoveryFilters): { query: string; params: (string | number)[] } {
+  const sortCol = filters.sort === 'most_reproduced' ? 'reproduction_count'
+    : filters.sort === 'most_validated' ? 'validation_confirms_count'
+    : filters.sort === 'most_reviewed' ? 'review_count'
+    : 'last_published_at';
+  const query = `SELECT e.user_id,
+      COUNT(*) as published_count,
+      MAX(e.published_at) as last_published_at,
+      SUM((SELECT COUNT(*) FROM experiment_reproductions r WHERE r.experiment_id = e.id)) as reproduction_count,
+      SUM((SELECT COUNT(*) FROM experiment_validations v WHERE v.experiment_id = e.id AND v.superseded_at IS NULL)) as validation_count,
+      SUM((SELECT COUNT(*) FROM experiment_validations v WHERE v.experiment_id = e.id AND v.superseded_at IS NULL AND v.verdict = 'confirms')) as validation_confirms_count,
+      SUM((SELECT COUNT(*) FROM experiment_reviews rv WHERE rv.experiment_id = e.id)) as review_count
+    FROM experiments e
+    WHERE e.status = 'published' AND e.visibility = 'public'
+    GROUP BY e.user_id
+    ORDER BY ${sortCol} DESC
+    LIMIT ? OFFSET ?`;
+  return { query, params: [filters.limit, filters.offset] };
+}
+
+// Chart evidence stores its axis config but not the underlying rows —
+// those live in the paired result_table block referenced by
+// data.sourceEvidenceId. Resolved here as a single batched follow-up
+// query (not one query per chart) so the visualization lens can report a
+// row count without an N+1 fetch.
+async function resolveVisualizationRowCounts(db: D1Database, rows: any[]): Promise<any[]> {
+  const sourceIds = rows
+    .map((r) => { try { return JSON.parse(r.data).sourceEvidenceId; } catch { return null; } })
+    .filter((id): id is string => !!id);
+  if (sourceIds.length === 0) return rows.map((r) => ({ ...r, row_count: null }));
+
+  const placeholders = sourceIds.map(() => '?').join(',');
+  const resultTables = await db.prepare(
+    `SELECT id, data FROM experiment_evidence WHERE id IN (${placeholders}) AND type = 'result_table'`
+  ).bind(...sourceIds).all();
+  const rowCountById = new Map<string, number>();
+  for (const rt of resultTables.results as any[]) {
+    try { rowCountById.set(rt.id, JSON.parse(rt.data).rowCount ?? null); } catch { /* ignore malformed row */ }
+  }
+  return rows.map((r) => {
+    let sourceId: string | null = null;
+    try { sourceId = JSON.parse(r.data).sourceEvidenceId ?? null; } catch { /* ignore */ }
+    return { ...r, row_count: sourceId ? (rowCountById.get(sourceId) ?? null) : null };
+  });
+}
+
+async function runDiscoveryQuery(env: Env, lens: DiscoveryLens, filters: DiscoveryFilters): Promise<any[]> {
+  const builder = lens === 'experiments' ? buildExperimentsDiscoveryQuery
+    : lens === 'visualizations' ? buildVisualizationsDiscoveryQuery
+    : lens === 'sql' ? buildSqlDiscoveryQuery
+    : buildProfilesDiscoveryQuery;
+  const { query, params } = builder(filters);
+  const result = await env.DB.prepare(query).bind(...params).all();
+  if (lens === 'visualizations') return resolveVisualizationRowCounts(env.DB, result.results as any[]);
+  return result.results as any[];
+}
+
 // Create a draft experiment. If labId is given, the reproducibility
 // manifest (template/seed/rows) is captured from that lab automatically.
 app.post('/v1/experiments', async (c) => {
@@ -1433,6 +1617,43 @@ app.post('/v1/experiments/:id/evidence', async (c) => {
 
   await env.DB.prepare('UPDATE experiments SET updated_at = ? WHERE id = ?').bind(now, exp.id).run();
   return c.json({ evidence: created }, 201);
+});
+
+// Edit an existing evidence block's title/description/tags — needed because
+// chart evidence today only gets an auto-generated title at creation time
+// (e.g. "bar chart: revenue by month"). Same editor-or-above tier as
+// evidence creation, not the stricter owner/admin tier used for
+// visibility/publish — an editor is trusted to curate evidence metadata.
+app.patch('/v1/experiments/:id/evidence/:evidenceId', async (c) => {
+  const env = c.env;
+  const apiKey = c.req.header('X-API-Key');
+  if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
+
+  const exp = await env.DB.prepare('SELECT * FROM experiments WHERE id = ?').bind(c.req.param('id')).first();
+  if (!exp) return c.json({ error: 'Experiment not found' }, 404);
+
+  const evidence = await env.DB.prepare('SELECT * FROM experiment_evidence WHERE id = ? AND experiment_id = ?')
+    .bind(c.req.param('evidenceId'), exp.id).first();
+  if (!evidence) return c.json({ error: 'Evidence not found' }, 404);
+
+  const userId = await verifySupabaseJWT(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Sign in required' }, 401);
+  const access = await resolveAccess(env, exp, userId);
+  if (!hasAccess(access, 'editor')) return c.json({ error: 'Insufficient permission' }, 403);
+
+  const body = await c.req.json<{ title?: string; description?: string; tags?: string }>();
+  const updates: string[] = [];
+  const params: (string | null)[] = [];
+  if (body.title !== undefined) { updates.push('title = ?'); params.push(body.title || null); }
+  if (body.description !== undefined) { updates.push('description = ?'); params.push(body.description || null); }
+  if (body.tags !== undefined) { updates.push('tags = ?'); params.push(body.tags || null); }
+  if (updates.length === 0) return c.json({ error: 'No fields to update' }, 400);
+
+  params.push(evidence.id as string);
+  await env.DB.prepare(`UPDATE experiment_evidence SET ${updates.join(', ')} WHERE id = ?`).bind(...params).run();
+
+  const updated = await env.DB.prepare('SELECT * FROM experiment_evidence WHERE id = ?').bind(evidence.id).first();
+  return c.json({ evidence: updated });
 });
 
 const VISIBILITY_VALUES = new Set(['private', 'workspace', 'specific_people', 'unlisted', 'public']);
