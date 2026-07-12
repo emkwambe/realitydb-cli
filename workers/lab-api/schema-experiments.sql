@@ -165,3 +165,19 @@ CREATE VIRTUAL TABLE evidence_fts USING fts5(
 -- sql_text is populated from json_extract(data,'$.sql') for sql_query rows
 -- only (NULL for chart/result_table/markdown), so SQL evidence is
 -- full-text searchable by its actual query text, not just title/description.
+
+-- Professional Profiles (Sub-Sprint 2D) — added 2026-07-12. The one schema
+-- exception this sprint: profiles were previously purely derived from
+-- Supabase auth + aggregated experiments, with zero self-authored identity
+-- data anywhere. Keyed generically by user_id so the same shape could serve
+-- an org profile later without rework (not built now — noted only).
+-- Self-only writes via PATCH /v1/profile (derives the actor from the
+-- verified JWT, same as every other authorization-sensitive endpoint).
+CREATE TABLE user_profiles (
+  user_id                 TEXT PRIMARY KEY,
+  bio                     TEXT,
+  research_interests      TEXT,   -- comma-separated, same convention as experiments.tags
+  expertise_tags          TEXT,   -- comma-separated
+  featured_experiment_ids TEXT,   -- comma-separated, self-curated, max ~5
+  updated_at              TEXT NOT NULL
+);

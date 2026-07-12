@@ -848,7 +848,78 @@ ${CREDIBILITY_SUBQUERIES_E}
     review_count: acc.review_count + (e.review_count || 0),
   }), { reproduction_count: 0, validation_count: 0, validation_confirms_count: 0, review_count: 0 });
 
-  return c.json({ userId, published_count: rows.length, stats, experiments: rows });
+  // Self-authored identity data (2D) — absent entirely for a user who
+  // hasn't filled it in, rather than returning empty-string placeholders.
+  const profileRow = await env.DB.prepare('SELECT bio, research_interests, expertise_tags, featured_experiment_ids FROM user_profiles WHERE user_id = ?').bind(userId).first();
+  let profile: any = null;
+  if (profileRow) {
+    const featuredIds = ((profileRow.featured_experiment_ids as string) || '').split(',').map((s) => s.trim()).filter(Boolean);
+    let featured: any[] = [];
+    if (featuredIds.length > 0) {
+      const placeholders = featuredIds.map(() => '?').join(',');
+      const featuredRows = await env.DB.prepare(
+        `SELECT id, slug, title, question FROM experiments WHERE id IN (${placeholders}) AND status = 'published' AND visibility = 'public'`
+      ).bind(...featuredIds).all();
+      featured = featuredRows.results || [];
+    }
+    profile = {
+      bio: profileRow.bio || null,
+      researchInterests: profileRow.research_interests || null,
+      expertiseTags: profileRow.expertise_tags || null,
+      featured,
+    };
+  }
+
+  return c.json({ userId, published_count: rows.length, stats, experiments: rows, profile });
+});
+
+// Self-only profile edit — the actor is derived from the verified JWT and
+// can only ever write their own row (no :userId param, no admin path).
+// Upserts so a first-time save and a later edit use the same call.
+app.patch('/v1/profile', async (c) => {
+  const env = c.env;
+  const apiKey = c.req.header('X-API-Key');
+  if (!authenticate(apiKey, env)) return c.json({ error: 'Unauthorized' }, 401);
+
+  const userId = await verifySupabaseJWT(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Sign in required' }, 401);
+
+  const body = await c.req.json<{ bio?: string; researchInterests?: string; expertiseTags?: string; featuredExperimentIds?: string[] }>();
+
+  // Featured experiments must actually belong to the caller and be
+  // published — silently drops anything that doesn't, rather than
+  // erroring, since this is a self-curated highlight list, not a claim
+  // about someone else's work.
+  let featuredIdsCsv: string | null = null;
+  if (body.featuredExperimentIds) {
+    const ids = body.featuredExperimentIds.slice(0, 5);
+    if (ids.length > 0) {
+      const placeholders = ids.map(() => '?').join(',');
+      const owned = await env.DB.prepare(
+        `SELECT id FROM experiments WHERE id IN (${placeholders}) AND user_id = ? AND status = 'published'`
+      ).bind(...ids, userId).all();
+      featuredIdsCsv = (owned.results as any[]).map((r) => r.id).join(',') || null;
+    } else {
+      featuredIdsCsv = null;
+    }
+  }
+
+  const now = new Date().toISOString();
+  await env.DB.prepare(`
+    INSERT INTO user_profiles (user_id, bio, research_interests, expertise_tags, featured_experiment_ids, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT(user_id) DO UPDATE SET
+      bio = COALESCE(excluded.bio, user_profiles.bio),
+      research_interests = COALESCE(excluded.research_interests, user_profiles.research_interests),
+      expertise_tags = COALESCE(excluded.expertise_tags, user_profiles.expertise_tags),
+      featured_experiment_ids = CASE WHEN ? THEN excluded.featured_experiment_ids ELSE user_profiles.featured_experiment_ids END,
+      updated_at = excluded.updated_at
+  `).bind(
+    userId, body.bio ?? null, body.researchInterests ?? null, body.expertiseTags ?? null, featuredIdsCsv, now,
+    body.featuredExperimentIds ? 1 : 0
+  ).run();
+
+  return c.json({ userId, updated: true });
 });
 
 // Get a single published experiment by slug. Public read — no token
