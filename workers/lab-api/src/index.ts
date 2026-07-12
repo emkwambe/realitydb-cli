@@ -657,7 +657,7 @@ app.post('/v1/publish', async (c) => {
       id: pubId,
       slug: finalSlug,
       title: body.title,
-      url: 'https://gallery.realitydb.dev/labs/' + finalSlug,
+      url: 'https://sandbox.realitydb.dev/#gallery/' + finalSlug,
       publishedAt: new Date().toISOString(),
     }, 201);
   } catch (err: any) {
