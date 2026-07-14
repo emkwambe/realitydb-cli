@@ -71,6 +71,11 @@
       "match": "customers",
       "columns": {
         "id": { "strategy": "uuid" },
+        "date_of_birth": {
+          "type": "date",
+          "strategy": "past_date",
+          "options": { "minYearsAgo": 20, "maxYearsAgo": 84, "_note": "birthdates approx 1940-2004; >=18 at created_at (past_date ignores min/max date strings)" }
+        },
         "customer_type": {
           "strategy": "enum",
           "options": {
@@ -157,7 +162,23 @@
           }
         },
         "created_at": { "strategy": "timestamp" }
-      }
+      },
+      "temporal_constraints": [
+        {
+          "type": "age_minimum",
+          "description": "Customer must be >=18 at account creation",
+          "birth_column": "date_of_birth",
+          "event_column": "created_at",
+          "min_age_years": 18,
+          "severity": "ERROR"
+        },
+        {
+          "type": "intra_row_order",
+          "description": "date_of_birth must precede created_at",
+          "check": "date_of_birth < created_at",
+          "severity": "ERROR"
+        }
+      ]
     },
 
     "currencies": {
@@ -497,6 +518,11 @@
       "match": "beneficial_owners",
       "columns": {
         "id": { "strategy": "uuid" },
+        "date_of_birth": {
+          "type": "date",
+          "strategy": "past_date",
+          "options": { "minYearsAgo": 20, "maxYearsAgo": 84 }
+        },
         "customer_id": {
           "strategy": "uuid",
           "foreignKey": { "table": "customers", "column": "id" }

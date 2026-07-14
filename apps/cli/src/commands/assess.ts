@@ -473,6 +473,61 @@ function computeTemporalLogic(tables: ParsedTable[], packDef?: any): MetricResul
   };
 }
 
+// Semantic temporal rules from pack `temporal_constraints` (Blocker 12).
+// Currently evaluates `age_minimum` (age at an event column >= threshold).
+// `intra_row_order` is subsumed by age_minimum here and by computeTemporalLogic
+// for _at pairs, so it is not double-counted. Packs without temporal_constraints
+// score 100 (0/0), so other packs are never penalized.
+function computeSemanticRules(tables: ParsedTable[], packDef?: any): MetricResult {
+  let total = 0;
+  let valid = 0;
+  const violations: string[] = [];
+
+  if (packDef?.tables) {
+    for (const [tableName, tableDef] of Object.entries(packDef.tables as any)) {
+      const constraints = (tableDef as any).temporal_constraints;
+      if (!Array.isArray(constraints)) continue;
+      const parsed = tables.find(t => t.name === tableName);
+      if (!parsed) continue;
+
+      for (const constraint of constraints) {
+        if (constraint.type !== 'age_minimum') continue;
+
+        const birthCol = constraint.birth_column;
+        const eventCol = constraint.event_column;
+        const minAge = constraint.min_age_years;
+        for (const row of parsed.rows) {
+          const birthVal = row[birthCol];
+          const eventVal = row[eventCol];
+          if (!birthVal || !eventVal || birthVal === 'NULL' || eventVal === 'NULL') continue;
+          const b = new Date(birthVal);
+          const e = new Date(eventVal);
+          if (isNaN(b.getTime()) || isNaN(e.getTime())) continue;
+
+          total++;
+          const ageAtEvent = (e.getTime() - b.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+          if (ageAtEvent >= minAge) {
+            valid++;
+          } else if (violations.length < 5) {
+            violations.push(`${tableName}: age at ${eventCol} was ${ageAtEvent.toFixed(1)} years (min: ${minAge})`);
+          }
+        }
+      }
+    }
+  }
+
+  const score = total > 0 ? Math.round((valid / total) * 100) : 100;
+  return {
+    name: 'Semantic rules',
+    pillar: 'structure',
+    value: `${valid}/${total} rules satisfied`,
+    threshold: '100%',
+    score,
+    status: score === 100 ? 'pass' : 'warn',
+    detail: violations.length > 0 ? violations.slice(0, 3).join('; ') : 'All semantic rules satisfied',
+  };
+}
+
 function computeEnumValidity(tables: ParsedTable[]): MetricResult {
   let categoricalCols = 0;
   let validCols = 0;
@@ -940,6 +995,7 @@ export async function assessCommand(file: string, options: {
     computeFkIntegrity(tables),
     computeUniqueness(tables),
     computeTemporalLogic(tables, packDef),
+    computeSemanticRules(tables, packDef),
     computeEnumValidity(tables),
     computeCardinalityRatios(tables, declaredCardinality),
   ];
