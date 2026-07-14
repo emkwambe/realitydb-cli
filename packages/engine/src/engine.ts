@@ -10,6 +10,7 @@ import { EU_FINANCIAL_DISTRIBUTIONS, DistributionParams } from './data/eu-financ
 import { EU_PHONE_PATTERNS } from './data/eu-phone';         // Sprint 2 (Blocker 9): phone_eu structural validity
 import { EU_BIC_BANKS } from './data/eu-bic';                // Sprint 2 (Blocker 10): bic
 import { EU_EMAIL_DOMAINS } from './data/eu-domains';        // Sprint 2 (Blocker 11): email_eu
+import { generateBusinessDate, EU_TIMEZONES } from './data/eu-timezones'; // Sprint 6 (Blocker 7): business_date
 
 export function topologicalSort(tables: NormalizedTable[]): NormalizedTable[] {
   const tableMap = new Map(tables.map(t => [t.name, t]));
@@ -685,6 +686,19 @@ function generateRowDependentValue(
 
       const clamped = Math.max(dist.min, Math.min(dist.max, raw));
       return Math.round(clamped * 100) / 100;
+    }
+    // ── Blocker 7: business_date (timezone-aware, business-day, deterministic) ──
+    // ISO 8601 with explicit country offset (+01:00/+02:00; IE +00:00/+01:00),
+    // weekends + public holidays skipped, business hours 08:00–18:00. Pure UTC
+    // arithmetic (see eu-timezones.ts) → host-tz independent.
+    case 'business_date': {
+      const c = EU_TIMEZONES[country] ? country : 'DE'; // EU default
+      // Force UTC parse when the range string has no tz designator (else a bare
+      // datetime parses as host-local time, breaking determinism).
+      const toUtc = (s: string) => new Date(/([zZ]|[+-]\d\d:?\d\d)$/.test(s) ? s : s + 'Z');
+      const minDate = toUtc(options?.min ?? '2019-01-01T00:00:00');
+      const maxDate = toUtc(options?.max ?? '2024-12-31T23:59:59');
+      return generateBusinessDate(c, minDate, maxDate, rng);
     }
     // Phase 4 handlers inserted here, one sub-phase at a time.
     default:

@@ -11,3 +11,4 @@ export * from './eu-financial';
 export * from './eu-phone';
 export * from './eu-bic';
 export * from './eu-domains';
+export * from './eu-timezones';

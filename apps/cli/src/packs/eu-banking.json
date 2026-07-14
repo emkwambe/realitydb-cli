@@ -263,7 +263,11 @@
           "strategy": "float",
           "options": { "distribution": "normal", "mean": 8000, "stddev": 12000, "min": 0, "max": 250000 }
         },
-        "created_at": { "strategy": "timestamp" }
+        "created_at": {
+          "strategy": "business_date",
+          "type": "datetime",
+          "options": { "country_source": "country_code", "min": "2018-01-01T00:00:00", "max": "2024-12-31T23:59:59" }
+        }
       }
     },
 
@@ -689,8 +693,9 @@
           }
         },
         "origination_date": {
-          "strategy": "past_date",
-          "options": { "minYearsAgo": 0, "maxYearsAgo": 5, "_note": "approx 2019-2024; upgrades to business_date in Sprint 6" }
+          "strategy": "business_date",
+          "type": "datetime",
+          "options": { "country_source": "country_of_residence", "min": "2019-01-01T00:00:00", "max": "2024-06-01T23:59:59" }
         },
         "disbursement_date": {
           "strategy": "timestamp",
