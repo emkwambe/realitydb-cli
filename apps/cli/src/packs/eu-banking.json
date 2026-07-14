@@ -11,6 +11,17 @@
     "target_assess_score": "98+/100",
     "eu_enterprise": true,
     "dpa_contact": "compliance@realitydb.dev",
+    "eu_suitability_version": "2.0.0",
+    "blockers_resolved": [1,2,3,4,5,6,8],
+    "blocker_7_status": "deferred_separate_sprint",
+    "known_limitations": [
+      "IBAN validity: MOD-97 only, not nationally validated",
+      "Geographic coherence: intra-row only (Decision 2)",
+      "country_code per table drawn independently (no cross-FK propagation)",
+      "name pools: DE+FR full, IT/ES/NL/AT/BE/IE/PL/SE stub (5M/5F/5 last)",
+      "loans.origination_date/disbursement_date/maturity_date use timestamp/past_date + dependsOn:after; upgrade to business_date in Sprint 6 (Blocker 7)"
+    ],
+    "country_coverage": ["DE","FR","IT","ES","NL","AT","BE","IE","PL","SE"],
     "citations": [
       {
         "field": "customers.customer_type",
@@ -68,13 +79,56 @@
             "_citation": "ECB Banking Supervision Annual Report 2024 — EU bank customer segment distribution"
           }
         },
-        "full_name": { "strategy": "full_name" },
-        "email": { "strategy": "dependent_email", "options": { "derivesFrom": "full_name", "domains": ["gmail.com", "yahoo.com", "hotmail.com", "proton.me", "outlook.com"] } },
+        "gender": {
+          "strategy": "enum",
+          "type": "string",
+          "options": { "values": ["M", "F"], "weights": [0.50, 0.50] }
+        },
+        "first_name": {
+          "strategy": "name_first",
+          "type": "string",
+          "options": { "country_source": "country_of_residence", "gender_source": "gender" }
+        },
+        "last_name": {
+          "strategy": "name_last",
+          "type": "string",
+          "options": { "country_source": "country_of_residence" }
+        },
+        "city": {
+          "strategy": "city_eu",
+          "type": "string",
+          "options": { "country_source": "country_of_residence" }
+        },
+        "postal_code": {
+          "strategy": "postal_code",
+          "type": "string",
+          "options": { "country_source": "country_of_residence", "city_source": "city" }
+        },
+        "address": {
+          "strategy": "address_eu",
+          "type": "string",
+          "options": { "country_source": "country_of_residence", "city_source": "city", "postal_source": "postal_code" }
+        },
+        "phone": {
+          "strategy": "phone_eu",
+          "type": "string",
+          "options": { "country_source": "country_of_residence" }
+        },
+        "vat_number": {
+          "strategy": "vat",
+          "type": "string",
+          "options": { "country_source": "country_of_residence" }
+        },
+        "email": {
+          "strategy": "dependent_email",
+          "type": "string",
+          "options": { "derivesFrom": "first_name" }
+        },
         "country_of_residence": {
           "strategy": "enum",
           "options": {
-            "values": ["DE","AT","FR","NL","BE","ES","IT","PL","CZ","SK","HU","HR","SE","DK","FI","IE","PT","RO","BG","GB","CH","US","CN","IN","AE"],
-            "weights": [20,12,10,8,6,6,6,5,4,3,3,2,2,2,2,2,2,2,1,3,2,2,1,1,1],
+            "values": ["DE","FR","IT","ES","NL","AT","BE","IE","PL","SE"],
+            "weights": [0.20,0.15,0.12,0.12,0.10,0.08,0.08,0.05,0.05,0.05],
             "_citation": "ECB Payment Statistics 2024 — cross-border payment origination by country"
           }
         },
@@ -151,8 +205,9 @@
           "foreignKey": { "table": "customers", "column": "id" }
         },
         "iban": {
-          "strategy": "template",
-          "options": { "pattern": "DE89{{number}}", "min": 100000000000, "max": 999999999999 }
+          "strategy": "iban",
+          "type": "string",
+          "options": { "country_source": "country_code" }
         },
         "account_type": {
           "strategy": "enum",
@@ -171,18 +226,15 @@
           }
         },
         "currency_code": {
-          "strategy": "enum",
-          "options": {
-            "values": ["EUR","GBP","CHF","PLN","CZK"],
-            "weights": [60, 15, 10, 8, 7],
-            "_citation": "BIS Triennial Central Bank Survey 2022 — reference to currencies.code (EU currency share)"
-          }
+          "strategy": "currency",
+          "type": "string",
+          "options": { "country_source": "country_code" }
         },
         "country_code": {
           "strategy": "enum",
           "options": {
-            "values": ["DE","AT","FR","NL","BE","ES","IT","PL","CZ","SK","HU","HR","SE","DK","FI","IE","PT","RO","BG","GB","CH","US","CN","IN","AE"],
-            "weights": [20,12,10,8,6,6,6,5,4,3,3,2,2,2,2,2,2,2,1,3,2,2,1,1,1],
+            "values": ["DE","FR","IT","ES","NL","AT","BE","IE","PL","SE"],
+            "weights": [0.20,0.15,0.12,0.12,0.10,0.08,0.08,0.05,0.05,0.05],
             "_citation": "ECB Payment Statistics 2024 — account country distribution (matches customer country_of_residence)"
           }
         },
@@ -449,7 +501,21 @@
           "strategy": "uuid",
           "foreignKey": { "table": "customers", "column": "id" }
         },
-        "full_name": { "strategy": "full_name" },
+        "gender": {
+          "strategy": "enum",
+          "type": "string",
+          "options": { "values": ["M", "F"], "weights": [0.50, 0.50] }
+        },
+        "first_name": {
+          "strategy": "name_first",
+          "type": "string",
+          "options": { "country_source": "country_of_residence", "gender_source": "gender" }
+        },
+        "last_name": {
+          "strategy": "name_last",
+          "type": "string",
+          "options": { "country_source": "country_of_residence" }
+        },
         "ownership_pct": {
           "strategy": "float",
           "options": { "distribution": "normal", "mean": 35, "stddev": 20, "min": 10, "max": 100 }
@@ -457,8 +523,8 @@
         "country_of_residence": {
           "strategy": "enum",
           "options": {
-            "values": ["DE","AT","FR","NL","BE","ES","IT","PL","CZ","SK","HU","HR","SE","DK","FI","IE","PT","RO","BG","GB","CH","US","CN","IN","AE"],
-            "weights": [20,12,10,8,6,6,6,5,4,3,3,2,2,2,2,2,2,2,1,3,2,2,1,1,1],
+            "values": ["DE","FR","IT","ES","NL","AT","BE","IE","PL","SE"],
+            "weights": [0.20,0.15,0.12,0.12,0.10,0.08,0.08,0.05,0.05,0.05],
             "_citation": "ECB Payment Statistics 2024 — UBO residence distribution (matches customer country_of_residence)"
           }
         },
@@ -560,6 +626,64 @@
         },
         "filing_date": { "strategy": "timestamp" }
       }
+    },
+
+    "loans": {
+      "match": "loans",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "customer_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "customers", "column": "id" }
+        },
+        "loan_type": {
+          "strategy": "enum",
+          "options": {
+            "values": ["mortgage", "personal", "auto", "business"],
+            "weights": [0.55, 0.25, 0.12, 0.08],
+            "_citation": "EMF Hypostat 2025 — EU retail lending product mix (illustrative)"
+          }
+        },
+        "loan_amount": {
+          "strategy": "calibrated",
+          "type": "decimal",
+          "options": { "country_source": "country_of_residence", "metric": "mortgage_amount" }
+        },
+        "currency_code": {
+          "strategy": "currency",
+          "type": "string",
+          "options": { "country_source": "country_of_residence" }
+        },
+        "interest_rate": {
+          "strategy": "float",
+          "options": {
+            "distribution": "normal",
+            "mean": 4.34, "stddev": 1.5, "min": 0.5, "max": 15.0,
+            "_note": "Percentage points (4.34 = 4.34%). float rounds to 2dp; EU-27 avg 4.34% per EMF Hypostat 2025."
+          }
+        },
+        "origination_date": {
+          "strategy": "past_date",
+          "options": { "minYearsAgo": 0, "maxYearsAgo": 5, "_note": "approx 2019-2024; upgrades to business_date in Sprint 6" }
+        },
+        "disbursement_date": {
+          "strategy": "timestamp",
+          "options": {
+            "dependsOn": "origination_date", "dependencyRule": "after",
+            "offsetMin": 0, "offsetMax": 7,
+            "_note": "1-7 days after origination (engine floors offsetMin 0 to 1); business_date in Sprint 6"
+          }
+        },
+        "maturity_date": {
+          "strategy": "timestamp",
+          "options": {
+            "dependsOn": "origination_date", "dependencyRule": "after",
+            "offsetMin": 3650, "offsetMax": 10950,
+            "_note": "10-30yr after origination; guarantees origination < maturity"
+          }
+        }
+      },
+      "cascade_columns": { "from": "customers", "via": "customer_id", "columns": ["country_of_residence"] }
     }
   },
 
@@ -608,6 +732,11 @@
       "targetTable": "fraud_alerts",
       "sourceTable": "accounts",
       "cardinality": { "strategy": "poisson", "mean": 0.3, "min": 0, "max": 6 }
+    },
+    {
+      "targetTable": "loans",
+      "sourceTable": "customers",
+      "cardinality": { "strategy": "poisson", "mean": 0.3, "min": 0, "max": 3 }
     }
   ]
 }
