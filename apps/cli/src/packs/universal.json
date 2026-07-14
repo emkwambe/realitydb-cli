@@ -1,5 +1,5 @@
 {
-  "name": "universal",
+  "name": "saas-application-core",
   "version": "2.0.0",
   "description": "6 cross-industry tables present in virtually every application — users, addresses, transactions, audit logs, API requests, and errors. v2.0: match keys added, boolean and type fields standardized, enum weights added, ip_address strategy used, cardinality declarations added, format aligned to engine v2.38.0 conventions.",
 
