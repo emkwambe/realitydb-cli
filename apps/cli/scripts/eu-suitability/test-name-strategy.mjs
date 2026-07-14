@@ -45,11 +45,23 @@ if (!rows) {
 }
 if (!rows) { console.error('Could not locate rows:', Object.keys(parsed)); process.exit(1); }
 
-// Expected pool membership (mirrors eu-names.ts).
-const DE_FIRST = new Set(['Maximilian','Alexander','Paul','Ben','Leon','Elias','Noah','Louis','Jonas','Felix','Emilia','Emma','Sophia','Hannah','Mia','Ella','Mila','Lina','Lea','Clara']);
-const FR_FIRST = new Set(['Jean','Pierre','Michel','André','Philippe','René','Louis','Alain','Jacques','Bernard','Marie','Jeanne','Marguerite','Lucie','Édith','Simone','Yvonne','Madeleine','Catherine','Nathalie']);
-const DE_FEMALE_ONLY = new Set(['Emilia','Emma','Sophia','Hannah','Mia','Ella','Mila','Lina','Lea','Clara']);
-const DE_MALE_ONLY = new Set(['Maximilian','Alexander','Paul','Ben','Leon','Elias','Noah','Louis','Jonas','Felix']);
+// Expected pool membership — parsed from eu-names.ts source so it stays in sync
+// with pool edits (was a frozen 10M/10F list; went stale after Sprint 3's 14/14).
+const namesSrc = readFileSync(new URL('../../../../packages/engine/src/data/eu-names.ts', import.meta.url), 'utf8');
+function poolSets(country) {
+  const start = namesSrc.indexOf(`  ${country}: {`);
+  const end = namesSrc.indexOf('\n  },', start);
+  const block = namesSrc.slice(start, end);
+  const entries = [...block.matchAll(/name: '([^']+)', weight: [\d.]+, gender: '([MF])'/g)];
+  const all = new Set(), males = new Set(), females = new Set();
+  for (const m of entries) { all.add(m[1]); (m[2] === 'M' ? males : females).add(m[1]); }
+  return { all, males, females };
+}
+const de = poolSets('DE'), fr = poolSets('FR');
+const DE_FIRST = de.all;
+const FR_FIRST = fr.all;
+const DE_FEMALE_ONLY = new Set([...de.females].filter((n) => !de.males.has(n)));
+const DE_MALE_ONLY = new Set([...de.males].filter((n) => !de.females.has(n)));
 
 const results = [];
 const add = (name, ok, detail) => results.push({ name, ok, detail });
