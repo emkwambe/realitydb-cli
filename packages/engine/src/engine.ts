@@ -425,8 +425,25 @@ function selectWeighted<T extends { weight: number }>(
 }
 
 // Strips diacritics and non-letters for email local parts (é→e, ü→u; ł dropped).
+// Characters NFD cannot decompose to ASCII (ł, ø, ß, æ, …) — pre-mapped before
+// normalize so email local parts stay ASCII-clean (e.g. Mikołaj -> mikolaj).
+const CHAR_MAP: Record<string, string> = {
+  'ł': 'l', 'Ł': 'l',
+  'ø': 'o', 'Ø': 'o',
+  'ð': 'd', 'Ð': 'd',
+  'þ': 'th', 'Þ': 'th',
+  'ß': 'ss',
+  'æ': 'ae', 'Æ': 'ae',
+  'œ': 'oe', 'Œ': 'oe',
+};
+
 function stripDiacritics(s: string): string {
-  return (s ?? '')
+  // Pre-map characters that NFD cannot decompose, then strip combining marks.
+  let mapped = s ?? '';
+  for (const [char, replacement] of Object.entries(CHAR_MAP)) {
+    mapped = mapped.split(char).join(replacement);
+  }
+  return mapped
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
     .toLowerCase()

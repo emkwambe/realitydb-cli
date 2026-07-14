@@ -11,15 +11,14 @@
     "target_assess_score": "98+/100",
     "eu_enterprise": true,
     "dpa_contact": "compliance@realitydb.dev",
-    "eu_suitability_version": "2.0.0",
-    "blockers_resolved": [1,2,3,4,5,6,8],
-    "blocker_7_status": "deferred_separate_sprint",
+    "eu_suitability_version": "3.0.0",
+    "blockers_resolved": [1,2,3,4,5,6,7,8,9,10,11,12],
     "known_limitations": [
       "IBAN validity: MOD-97 only, not nationally validated",
       "Geographic coherence: intra-row only (Decision 2)",
-      "country_code per table drawn independently (no cross-FK propagation)",
-      "name pools: DE+FR full, IT/ES/NL/AT/BE/IE/PL/SE stub (5M/5F/5 last)",
-      "loans.origination_date/disbursement_date/maturity_date use timestamp/past_date + dependsOn:after; upgrade to business_date in Sprint 6 (Blocker 7)"
+      "cross-table country coherence via cascade_columns on accounts and loans; sepa/mifid/kyc/fraud/sar tables draw country independently (no in-row country_source available)",
+      "name pools: all 10 countries at 14M/14F/10 last, sourced from national statistics offices",
+      "loans.origination_date + accounts.created_at use business_date (timezone-aware, EU country offsets); loans.disbursement_date/maturity_date remain timestamp + dependsOn:after (no country_source available at those columns)"
     ],
     "country_coverage": ["DE","FR","IT","ES","NL","AT","BE","IE","PL","SE"],
     "citations": [
