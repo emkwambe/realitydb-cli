@@ -8,3 +8,6 @@ export * from './eu-names';
 export * from './eu-geography';
 export * from './eu-vat';
 export * from './eu-financial';
+export * from './eu-phone';
+export * from './eu-bic';
+export * from './eu-domains';

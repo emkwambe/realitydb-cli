@@ -7,6 +7,9 @@ import { computeIBANCheckDigits, validateIBAN } from './iban-utils';
 import { VAT_STRATEGY_GENERATORS } from './vat-generators'; // Phase 4e: vat
 import { EU_GEOGRAPHY } from './data/eu-geography';          // Phase 4f–4i: city_eu / postal_code / address_eu / phone_eu
 import { EU_FINANCIAL_DISTRIBUTIONS, DistributionParams } from './data/eu-financial'; // Phase 4j: calibrated
+import { EU_PHONE_PATTERNS } from './data/eu-phone';         // Sprint 2 (Blocker 9): phone_eu structural validity
+import { EU_BIC_BANKS } from './data/eu-bic';                // Sprint 2 (Blocker 10): bic
+import { EU_EMAIL_DOMAINS } from './data/eu-domains';        // Sprint 2 (Blocker 11): email_eu
 
 export function topologicalSort(tables: NormalizedTable[]): NormalizedTable[] {
   const tableMap = new Map(tables.map(t => [t.name, t]));
@@ -420,6 +423,15 @@ function selectWeighted<T extends { weight: number }>(
   return pool[pool.length - 1];
 }
 
+// Strips diacritics and non-letters for email local parts (é→e, ü→u; ł dropped).
+function stripDiacritics(s: string): string {
+  return (s ?? '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z]/g, '');
+}
+
 // Normalizes assorted gender spellings to 'M' | 'F'; undefined if unrecognized.
 function normalizeGender(v: any): 'M' | 'F' | undefined {
   if (v === undefined || v === null) return undefined;
@@ -615,14 +627,43 @@ function generateRowDependentValue(
         .split('{postal}').join(String(postal ?? ''))
         .split('{city}').join(String(cityName ?? ''));
     }
-    // ── 4i: phone_eu (Blocker 3) ──
-    // E.164 phone: country dial prefix + 9 subscriber digits.
+    // ── Blocker 9: phone_eu (structural E.164) ──
+    // Dial code + real mobile prefix + subscriber digits, so the national number
+    // matches the country's actual mobile structure. Fallback: +00 + 9 digits.
     case 'phone_eu': {
-      const geo = EU_GEOGRAPHY[country];
-      const prefix = geo ? geo.phonePrefix : '+00';
-      let sub = '';
-      for (let i = 0; i < 9; i++) sub += Math.floor(rng() * 10);
-      return prefix + sub;
+      const pat = EU_PHONE_PATTERNS[country];
+      if (!pat) {
+        let sub = '';
+        for (let i = 0; i < 9; i++) sub += Math.floor(rng() * 10);
+        return '+00' + sub;
+      }
+      const mobilePrefix = pat.mobilePrefixes[Math.floor(rng() * pat.mobilePrefixes.length)];
+      let digits = '';
+      for (let i = 0; i < pat.subscriberLength; i++) digits += Math.floor(rng() * 10);
+      return pat.countryCode + mobilePrefix + digits;
+    }
+    // ── Blocker 10: bic (ISO 9362, country-coherent) ──
+    // bankCode(4) + countryCode(2) + locationCode(2) = 8-char BIC; optional XXX
+    // branch suffix for the primary office. Fallback: 'XXXXXXXX'.
+    case 'bic': {
+      const banks = EU_BIC_BANKS[country];
+      if (!banks || banks.length === 0) return 'XXXXXXXX';
+      const b = banks[Math.floor(rng() * banks.length)];
+      const base = b.bankCode + b.countryCode + b.locationCode;
+      return options?.include_branch === true ? base + 'XXX' : base;
+    }
+    // ── Blocker 11: email_eu (name + country coherent) ──
+    // first.last@{country-domain}, diacritics normalized. Fallback when country
+    // unknown or name sources missing. Existing dependent_email is untouched.
+    case 'email_eu': {
+      const domains = EU_EMAIL_DOMAINS[country];
+      const first = stripDiacritics(options?.first_name_source ? row[options.first_name_source] : '');
+      const last = stripDiacritics(options?.last_name_source ? row[options.last_name_source] : '');
+      if (!domains || !first || !last) {
+        return 'user' + Math.floor(rng() * 10000) + '@example.com';
+      }
+      const domain = domains[Math.floor(rng() * domains.length)];
+      return `${first}.${last}@${domain}`;
     }
     // ── 4j: calibrated (Blocker 8) ──
     // Country-calibrated numeric value from EU_FINANCIAL_DISTRIBUTIONS[metric].
