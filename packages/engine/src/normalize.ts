@@ -54,6 +54,7 @@ export function normalizeTables(pack: any): { tables: NormalizedTable[]; templat
             name: t.name,
             columns: columnsObj,
             foreignKeys: fks,
+            cascade_columns: t.cascade_columns, // Decision 5: pass-through (undefined if absent)
           };
         });
       } else {
@@ -74,6 +75,7 @@ export function normalizeTables(pack: any): { tables: NormalizedTable[]; templat
             name: t.name || t.table_name || 'unknown',
             columns: cols,
             foreignKeys: extractForeignKeys(cols),
+            cascade_columns: t.cascade_columns, // Decision 5: pass-through (undefined if absent)
           };
         });
       }
@@ -83,6 +85,7 @@ export function normalizeTables(pack: any): { tables: NormalizedTable[]; templat
         name: tableName,
         columns: tableDef.columns || tableDef.schema || {},
         foreignKeys: extractForeignKeys(tableDef.columns || tableDef.schema || {}),
+        cascade_columns: tableDef.cascade_columns, // Decision 5: pass-through (undefined if absent)
       }));
     }
   }

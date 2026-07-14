@@ -214,6 +214,20 @@ export function generateData(
     const tableData: any[] = [];
     const ids: any[] = [];
 
+    // Cascade setup (Decision 5). If this child table declares cascade_columns,
+    // build a parent-id → parent-row lookup ONCE. Parents precede children in the
+    // topological `ordered`, so allData[from] is fully populated — and already
+    // carries its OWN cascaded values, which is what makes multi-level propagation
+    // (customer → account → transaction) work automatically.
+    const cascade = (table as any).cascade_columns as
+      { from: string; via: string; columns: string[] } | undefined;
+    const cascadeSet = new Set<string>(cascade?.columns ?? []);
+    let cascadeParentMap: Map<any, any> | null = null;
+    if (cascade && Array.isArray(allData[cascade.from])) {
+      cascadeParentMap = new Map();
+      for (const p of allData[cascade.from]) cascadeParentMap.set(p.id, p);
+    }
+
     for (let i = 0; i < tableRows; i++) {
       const row: Record<string, any> = {};
       const activeLifecycleNulls: string[] = [];
@@ -258,7 +272,8 @@ export function generateData(
           (def?.options?.dependsOn && def?.options?.dependencyRule === 'after') ||
           def?.strategy === 'dependent_enum' ||
           def?.strategy === 'dependent_email' ||
-          def?.options?.country_source !== undefined   // EU row-dependent strategies → Pass 3
+          def?.options?.country_source !== undefined ||  // EU row-dependent strategies → Pass 3
+          cascadeSet.has(colName)                         // value comes from the cascade step below
         ) {
           // Skip — handled in third pass after all other columns have values
           continue;
@@ -281,6 +296,24 @@ export function generateData(
           (Array.isArray(tablePK) && tablePK.includes(colName));
         if (isPK && row[colName] != null) {
           ids.push(row[colName]);
+        }
+      }
+
+      // CASCADE COLUMNS — Decision 5 (reopened Decision 2)
+      // Copies parent column values into child rows at the
+      // 2→3 boundary. Zero rng() draws — determinism-neutral.
+      // Gated on table.cascade_columns declaration in pack JSON.
+      // Parent key assumption: parent table PK must be named 'id'.
+      // To generalize: key on foreignKey.references.column instead.
+      // Packs that don't declare cascade_columns are unaffected.
+      // Fallback: missing parent row or missing parent column leaves
+      // the child column untouched — never overwritten with undefined.
+      if (cascade && cascadeParentMap) {
+        const parent = cascadeParentMap.get(row[cascade.via]);
+        if (parent) {
+          for (const col of cascade.columns) {
+            if (parent[col] !== undefined) row[col] = parent[col];
+          }
         }
       }
 
