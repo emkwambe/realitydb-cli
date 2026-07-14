@@ -124,9 +124,13 @@
           "options": { "country_source": "country_of_residence" }
         },
         "email": {
-          "strategy": "dependent_email",
           "type": "string",
-          "options": { "derivesFrom": "first_name" }
+          "strategy": "email_eu",
+          "options": {
+            "first_name_source": "first_name",
+            "last_name_source": "last_name",
+            "country_source": "country_of_residence"
+          }
         },
         "country_of_residence": {
           "strategy": "enum",
