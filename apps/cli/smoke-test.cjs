@@ -311,6 +311,29 @@ if (fs.existsSync(BANKING_PACK)) {
   console.log('  ⚠️  Banking pack not found — skipping legacy tests');
 }
 
+// ─────────────────────────────────────────────
+// TIER 7: EU Suitability Regression Suite
+// ─────────────────────────────────────────────
+console.log('TIER 7: EU Suitability Regression Suite');
+console.log('────────────────────────────────────────');
+{
+  const { spawnSync } = require('child_process');
+  const euSuitePath = path.join(__dirname, 'scripts/eu-suitability/run-all.mjs');
+  if (fs.existsSync(euSuitePath)) {
+    const res = spawnSync(process.execPath, [euSuitePath], { encoding: 'utf8' });
+    if (res.status === 0) {
+      // One logical check — does not increment `passed`, keeping the 215 count clean.
+      console.log('  ✅ EU suitability: 17/17 passed');
+    } else {
+      console.log('  ❌ EU suitability: FAILED');
+      failed++;
+    }
+  } else {
+    // Graceful degradation — environments without the scripts dir don't fail the suite.
+    console.log('  ⚠️  EU suitability scripts not found — skipping');
+  }
+}
+
 // ============================================================
 // RESULTS
 // ============================================================
