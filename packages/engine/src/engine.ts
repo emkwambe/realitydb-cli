@@ -1,5 +1,12 @@
 import type { NormalizedTable, GenerationResult } from './types';
 import { generateMockValue, createRng, deriveBaseEpoch, weightedRandom } from './generators';
+import { COUNTRY_CURRENCY } from './data/eu-currency'; // Phase 4a: currency strategy (also keeps eu-currency.ts in the bundle)
+import { EU_NAME_POOLS } from './data/eu-names';       // Phase 4b: name_first / name_last
+import { EU_IBAN_CONFIGS } from './data/eu-iban';      // Phase 4d: iban
+import { computeIBANCheckDigits, validateIBAN } from './iban-utils';
+import { VAT_STRATEGY_GENERATORS } from './vat-generators'; // Phase 4e: vat
+import { EU_GEOGRAPHY } from './data/eu-geography';          // Phase 4f–4i: city_eu / postal_code / address_eu / phone_eu
+import { EU_FINANCIAL_DISTRIBUTIONS, DistributionParams } from './data/eu-financial'; // Phase 4j: calibrated
 
 export function topologicalSort(tables: NormalizedTable[]): NormalizedTable[] {
   const tableMap = new Map(tables.map(t => [t.name, t]));
@@ -250,7 +257,8 @@ export function generateData(
         } else if (
           (def?.options?.dependsOn && def?.options?.dependencyRule === 'after') ||
           def?.strategy === 'dependent_enum' ||
-          def?.strategy === 'dependent_email'
+          def?.strategy === 'dependent_email' ||
+          def?.options?.country_source !== undefined   // EU row-dependent strategies → Pass 3
         ) {
           // Skip — handled in third pass after all other columns have values
           continue;
@@ -280,6 +288,31 @@ export function generateData(
       for (const [colName, colDef] of Object.entries(table.columns)) {
         const def = colDef as any;
         if (row[colName] !== undefined) continue; // already generated or nullified
+
+        // EU row-dependent strategies (Blockers 1–8). All sibling columns already
+        // hold values by Pass 3, so we resolve country_source (and city_source /
+        // gender_source / postal_source) here. Gated on options.country_source — no
+        // existing pack sets it, so this branch is inert until Phase 5 wires
+        // eu-banking. Unimplemented strategies return undefined and fall back to the
+        // current generateMockValue behavior.
+        //
+        // COLUMN ORDERING REQUIREMENT (geographic chain): Pass 3 iterates columns
+        // in JSON key order and mutates `row` in place, so a strategy can only read
+        // a sibling that appears EARLIER in the table's column list. Packs MUST
+        // declare: country_code → city → postal_code → address (and phone anywhere
+        // after country_code). postal_code reads city; address reads city + postal.
+        // Out-of-order declaration yields empty upstream values, not an error.
+        if (def?.options?.country_source !== undefined) {
+          if (activeLifecycleNulls.includes(colName)) { row[colName] = null; continue; }
+          const country = row[def.options.country_source];
+          const value = generateRowDependentValue(
+            def.strategy, def.options, row, country, colName, table.name, rng, baseEpoch,
+          );
+          row[colName] = value !== undefined
+            ? value
+            : generateMockValue(def, colName, table.name, rng, baseEpoch);
+          continue;
+        }
 
         // dependent_enum — value drawn from a map keyed on a sibling column's value
         if (def?.strategy === 'dependent_enum') {
@@ -337,6 +370,252 @@ export function generateData(
   const actualTotal = Object.values(allData).reduce((sum, arr) => sum + arr.length, 0);
 
   return { allData, actualTotal, elapsed };
+}
+
+// Weighted pick over a pool of { weight } items, using the shared seeded rng.
+// Consumes exactly one rng() draw so determinism is stable per selection.
+function selectWeighted<T extends { weight: number }>(
+  pool: T[],
+  rng: () => number,
+): T {
+  const total = pool.reduce((s, i) => s + i.weight, 0);
+  let threshold = rng() * total;
+  for (const item of pool) {
+    threshold -= item.weight;
+    if (threshold <= 0) return item;
+  }
+  return pool[pool.length - 1];
+}
+
+// Normalizes assorted gender spellings to 'M' | 'F'; undefined if unrecognized.
+function normalizeGender(v: any): 'M' | 'F' | undefined {
+  if (v === undefined || v === null) return undefined;
+  const s = String(v).trim().toLowerCase();
+  if (s === 'm' || s === 'male') return 'M';
+  if (s === 'f' || s === 'female') return 'F';
+  return undefined;
+}
+
+// Standard-normal sample via Box-Muller. DETERMINISM: consumes EXACTLY 2 rng()
+// draws per call, so callers advance the stream by a fixed, predictable amount.
+function boxMuller(rng: () => number): number {
+  const u1 = rng();
+  const u2 = rng();
+  const safe_u1 = u1 < 1e-10 ? 1e-10 : u1; // guard log(0)
+  return Math.sqrt(-2 * Math.log(safe_u1)) * Math.cos(2 * Math.PI * u2);
+}
+
+// Lognormal sample from the target distribution's mean/stddev (method of moments
+// for the underlying normal). DETERMINISM: consumes EXACTLY 2 rng() draws (via
+// one boxMuller call).
+function sampleLognormal(mean: number, stddev: number, rng: () => number): number {
+  const cv2 = (stddev / mean) ** 2;
+  const mu = Math.log(mean) - 0.5 * Math.log(1 + cv2);
+  const sigma = Math.sqrt(Math.log(1 + cv2));
+  return Math.exp(mu + sigma * boxMuller(rng));
+}
+
+// Gamma sample via sum of `shape` exponentials (integer shape, method of moments).
+// DETERMINISM: consumes EXACTLY `shape` rng() draws, where shape is fixed by the
+// (mean, stddev) pair — so the draw count is constant per metric/country.
+function sampleGamma(mean: number, stddev: number, rng: () => number): number {
+  const shape = Math.max(1, Math.round((mean / stddev) ** 2));
+  const scale = (stddev ** 2) / mean;
+  let value = 0;
+  for (let i = 0; i < shape; i++) {
+    const u = rng();
+    const safe_u = u < 1e-10 ? 1e-10 : u;
+    value += -scale * Math.log(safe_u);
+  }
+  return value;
+}
+
+// Pass-3 dispatcher for EU row-dependent strategies (Decision 1).
+// Phase 1: scaffold only. Returns undefined for every strategy so the caller
+// falls back to existing generateMockValue behavior. Country-specific DATA is
+// imported from src/data/* starting in Phase 3; no country literals live here.
+// Handlers added in Phase 4: currency, name_first, name_last, iban, vat,
+// city_eu, postal_code, address_eu, phone_eu, calibrated.
+function generateRowDependentValue(
+  strategy: string,
+  options: any,
+  row: Record<string, any>,
+  country: any,
+  colName: string | undefined,
+  tableName: string | undefined,
+  rng: () => number,
+  baseEpoch?: number,
+): any {
+  switch (strategy) {
+    // ── 4a: currency (Blocker 5) ──
+    // Domestic currency for row's country; EUR fallback for unknown countries.
+    // Optional transaction_type_source drives SEPA/cross-border behavior.
+    case 'currency': {
+      const entry = COUNTRY_CURRENCY[country];
+      const domestic = entry ? entry.code : 'EUR';
+      const ttSource = options?.transaction_type_source;
+      if (ttSource !== undefined) {
+        const tt = row[ttSource];
+        if (tt === 'domestic') return domestic;
+        if (tt === 'sepa') return 'EUR';                    // SEPA is EUR-only
+        if (tt === 'cross_border') return rng() < 0.7 ? domestic : 'EUR';
+      }
+      return domestic;
+    }
+    // ── 4b: name_first (Blockers 2 + 4) ──
+    // Country + optional gender dual-key. Gender filters the pool when
+    // recognized; otherwise the full (both-gender) pool is used. Unknown country
+    // falls back to a unisex pool so it never throws.
+    case 'name_first': {
+      const pool = EU_NAME_POOLS[country];
+      if (!pool) {
+        const fallback = ['Alex', 'Sam', 'Chris'].map((name) => ({ name, weight: 1 }));
+        return selectWeighted(fallback, rng).name;
+      }
+      const g = options?.gender_source !== undefined
+        ? normalizeGender(row[options.gender_source])
+        : undefined;
+      let candidates = pool.firstNames;
+      if (g === 'M' || g === 'F') {
+        const filtered = pool.firstNames.filter((n) => n.gender === g);
+        if (filtered.length > 0) candidates = filtered;
+      }
+      return selectWeighted(candidates, rng).name;
+    }
+    // ── 4b: name_last (Blocker 2) ──
+    // Country-keyed surname, weighted. Unknown country falls back to a generic pool.
+    case 'name_last': {
+      const pool = EU_NAME_POOLS[country];
+      if (!pool || !pool.lastNames || pool.lastNames.length === 0) {
+        const fallback = ['Smith', 'Jones', 'Brown'].map((name) => ({ name, weight: 1 }));
+        return selectWeighted(fallback, rng).name;
+      }
+      return selectWeighted(pool.lastNames, rng).name;
+    }
+    // ── 4d: iban (Blocker 1) ──
+    // Structurally valid IBAN (ISO 13616 + MOD-97). Bank code (may contain
+    // letters) from config; numeric account suffix fills to exact length; check
+    // digits computed via iban-utils. Self-validates and throws loudly on any
+    // miss (this guard relocates to the test suite in Phase 6).
+    case 'iban': {
+      const config = EU_IBAN_CONFIGS[country];
+      if (!config) return 'UNKNOWN_IBAN_' + country;
+
+      const bankCode = config.bankCodes[Math.floor(rng() * config.bankCodes.length)];
+      const accountLength = config.length - 4 - bankCode.length;
+      let account = '';
+      for (let i = 0; i < accountLength; i++) account += Math.floor(rng() * 10);
+
+      const bban = bankCode + account;
+      const checkDigits = computeIBANCheckDigits(country, bban);
+      const iban = country + checkDigits + bban;
+
+      if (!validateIBAN(iban)) {
+        throw new Error(`Generated invalid IBAN: ${iban} country=${country} bban=${bban}`);
+      }
+      return iban;
+    }
+    // ── 4e: vat (Blocker 6) ──
+    // Country-specific VAT number. Empty string for unknown countries — not all
+    // entities have a VAT number (nullable by design).
+    case 'vat': {
+      const gen = VAT_STRATEGY_GENERATORS[country];
+      return gen ? gen(rng) : '';
+    }
+    // ── 4f: city_eu (Blocker 3) ──
+    // Population-weighted city for the row's country. Returns the name only; the
+    // city entry is re-resolved by name in postal_code/address_eu (see note: we
+    // do NOT stash a hidden key on `row`, because output columns are derived from
+    // row keys and any extra key would leak into every generated table).
+    case 'city_eu': {
+      const geo = EU_GEOGRAPHY[country];
+      if (!geo || geo.cities.length === 0) return 'Unknown City';
+      const weighted = geo.cities.map((c) => ({ ...c, weight: c.population }));
+      return selectWeighted(weighted, rng).name;
+    }
+    // ── 4g: postal_code (Blocker 3) ──
+    // City-coherent postal code. Resolves the city entry by name (unique per
+    // country) to get its postal prefix, then appends country-formatted digits.
+    case 'postal_code': {
+      const geo = EU_GEOGRAPHY[country];
+      const cityName = options?.city_source !== undefined ? row[options.city_source] : undefined;
+      const cityEntry = geo && cityName != null
+        ? geo.cities.find((c) => c.name === cityName)
+        : undefined;
+      const prefix = cityEntry ? cityEntry.postalPrefix : '';
+      const d = (n: number): string => {
+        let s = '';
+        for (let i = 0; i < n; i++) s += Math.floor(rng() * 10);
+        return s;
+      };
+      switch (country) {
+        case 'DE': case 'FR': case 'ES': case 'IT': case 'IE':
+          return (prefix || d(2)) + d(3);                     // 5 chars (IE alpha prefix used as-is)
+        case 'AT':
+          return (prefix ? prefix.slice(0, 1) : d(1)) + d(3); // 4 chars
+        case 'NL':
+          return (prefix || d(2)) + d(2);                     // 4 chars
+        case 'BE':
+          return (prefix ? prefix.slice(0, 1) : d(1)) + d(3); // 4 chars
+        case 'PL':
+          return (prefix || d(2)) + '-' + d(3);               // XX-XXX
+        case 'SE':
+          return (prefix || d(2)) + d(1) + ' ' + d(2);        // XXX XX
+        default:
+          return (prefix || d(2)) + d(3);
+      }
+    }
+    // ── 4h: address_eu (Blocker 3) ──
+    // Country-formatted street address using the row's already-generated city and
+    // postal code. Placeholders replaced globally (a format may repeat a token).
+    case 'address_eu': {
+      const geo = EU_GEOGRAPHY[country];
+      const cityName = options?.city_source !== undefined ? row[options.city_source] : '';
+      const postal = options?.postal_source !== undefined ? row[options.postal_source] : '';
+      const streets = geo && geo.streetNames.length ? geo.streetNames : ['Main Street'];
+      const street = streets[Math.floor(rng() * streets.length)];
+      const number = Math.floor(rng() * 200) + 1;
+      const fmt = geo?.addressFormat || '{number} {street}, {postal} {city}';
+      return fmt
+        .split('{street}').join(street)
+        .split('{number}').join(String(number))
+        .split('{postal}').join(String(postal ?? ''))
+        .split('{city}').join(String(cityName ?? ''));
+    }
+    // ── 4i: phone_eu (Blocker 3) ──
+    // E.164 phone: country dial prefix + 9 subscriber digits.
+    case 'phone_eu': {
+      const geo = EU_GEOGRAPHY[country];
+      const prefix = geo ? geo.phonePrefix : '+00';
+      let sub = '';
+      for (let i = 0; i < 9; i++) sub += Math.floor(rng() * 10);
+      return prefix + sub;
+    }
+    // ── 4j: calibrated (Blocker 8) ──
+    // Country-calibrated numeric value from EU_FINANCIAL_DISTRIBUTIONS[metric].
+    // Never throws — unknown metric/country falls back to a generic lognormal.
+    case 'calibrated': {
+      const metric: string | undefined = options?.metric;
+      const dist: DistributionParams =
+        (metric ? EU_FINANCIAL_DISTRIBUTIONS[metric]?.[country] : undefined)
+        ?? { mean: 1000, stddev: 500, min: 1, max: 100000, distribution: 'lognormal' };
+
+      let raw: number;
+      if (dist.distribution === 'lognormal') {
+        raw = sampleLognormal(dist.mean, dist.stddev, rng);
+      } else if (dist.distribution === 'gamma') {
+        raw = sampleGamma(dist.mean, dist.stddev, rng);
+      } else {
+        raw = dist.mean + dist.stddev * boxMuller(rng); // normal
+      }
+
+      const clamped = Math.max(dist.min, Math.min(dist.max, raw));
+      return Math.round(clamped * 100) / 100;
+    }
+    // Phase 4 handlers inserted here, one sub-phase at a time.
+    default:
+      return undefined; // unimplemented → caller uses generateMockValue fallback
+  }
 }
 
 export function getLifecycleMap(columns: Record<string, any>): Map<string, string[]> {
