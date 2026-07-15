@@ -190,14 +190,15 @@ export async function runCommand(options: RunOptions): Promise<void> {
   const BUILT_IN_PACKS: Record<string, string> = {
     universal: 'Universal Starter — 6 cross-industry tables (users, transactions, audit_logs, api_requests, errors, addresses)',
     banking: 'Retail Banking — 16 tables (accounts, transactions, loans, compliance)',
-    oncology: 'Oncology Research — 20 tables (patients, treatments, clinical trials)',
     healthcare: 'Healthcare Analytics — 14 tables (patients, billing, insurance, labs)',
+    oncology: 'Oncology Research — 20 tables (patients, treatments, clinical trials)',
     'supply-chain': 'Supply Chain — 24 tables (suppliers, shipments, warehouses)',
     telecom: 'Telecom & Network — 21 tables (subscribers, towers, billing, churn)',
-    fintech: 'FinTech Platform — 5 tables (customers, transactions, fraud)',
+    fintech: 'FinTech Platform — 9 tables (customers, accounts, transactions, fraud)',
     'eu-banking': 'EU Banking — 11 tables (SEPA, PSD2, MiFID II, KYC, AML/SAR)',
     'eu-healthcare': 'EU Healthcare — 14 tables (ICD-10, EHDS, GDPR Art.9)',
     'eu-telecom': 'EU Telecom — 12 tables (BEREC, EECC, GDPR consent)',
+    'us-healthcare': 'US Healthcare — 14 tables (ICD-10-CM, MS-DRG, HIPAA)',
   };
 
   // If pack is a built-in name (no slashes, no .json extension), try bundled pack
