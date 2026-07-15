@@ -180,6 +180,7 @@ async function runHandler(options: any) {
         'eu-healthcare': 'EU Healthcare — 14 tables (ICD-10, EHDS, GDPR Art.9)',
         'eu-telecom': 'EU Telecom — 12 tables (BEREC, EECC, GDPR consent)',
         'us-healthcare': 'US Healthcare — 14 tables (ICD-10-CM, MS-DRG, HIPAA)',
+        'us-telecom': 'US Telecom — 12 tables (FCC, CCPA/TCPA, CTIA)',
       };
       if (!options.pack.includes('/') && !options.pack.includes('\\') && !options.pack.endsWith('.json')) {
         if (options.pack === 'list') {
