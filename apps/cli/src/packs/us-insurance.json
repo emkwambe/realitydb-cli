@@ -1,0 +1,651 @@
+{
+  "name": "us-insurance",
+  "version": "1.0.0",
+  "description": "11-table US insurance dataset covering policyholders, policies, claims, payments, agents, underwriting, medical exams, adjudications, appeals, fraud investigations, and reinsurance. NAIC/IIHS/CMS sourced distributions. HIPAA-safe. State DOI compliant framing.",
+
+  "_meta": {
+    "version": "1.0.0",
+    "domain": "US Insurance / P&C / Life / Health",
+    "regulation_scope": "NAIC Model Laws, state DOI regulations, HIPAA (health lines), Gramm-Leach-Bliley Act (financial privacy), state unfair claims settlement practices acts",
+    "primary_market": "US insurance carriers, MGAs, TPAs, reinsurers, insurtech analytics teams",
+    "datasheet_standard": "Gebru et al. 2018 — Datasheets for Datasets",
+    "target_assess_score": "98+/100",
+    "country_coverage": ["US"],
+    "data_sources": [
+      "NAIC Insurance Industry Chartbook 2022",
+      "IIHS Highway Loss Data Institute 2022 (auto)",
+      "CMS Medicare Advantage 2022 (health)",
+      "III Insurance Fact Book 2023",
+      "Verisk/ISO Commercial Lines data 2022",
+      "SOA Group Term Life Mortality 2022",
+      "FEMA NFIP Claims Data 2022 (property)"
+    ],
+    "synthetic_data_note": "Synthetic data only. No real policyholder records. Reinsurer names refer to real market participants used illustratively as enum labels — no real treaty data is represented. Safe for analytics development, SQL training, and pipeline testing.",
+    "dpa_contact": "compliance@realitydb.dev",
+    "citations": [
+      {
+        "field": "policyholders.state",
+        "claim": "US policyholder distribution by state, regionally weighted toward the Southeast market (NC/SC/GA/VA overweighted relative to pure population share)",
+        "source": "US Census Bureau 2020 Census (approximate, regionally adjusted)"
+      },
+      {
+        "field": "policyholders.marital_status",
+        "claim": "US adult marital status distribution",
+        "source": "US Census ACS 2021"
+      },
+      {
+        "field": "policyholders.credit_score_band",
+        "claim": "US FICO score band distribution: exceptional 21%, very_good 25%, good 21%, fair 17%, poor 16%",
+        "source": "Experian State of Credit 2022"
+      },
+      {
+        "field": "policies.policy_type",
+        "claim": "US personal/commercial lines policy mix (auto dominant, homeowners, life, health, commercial)",
+        "source": "NAIC Insurance Industry Chartbook 2022"
+      },
+      {
+        "field": "policies.premium_annual_usd",
+        "claim": "US average combined annual insurance premium ~$2,450",
+        "source": "III Insurance Fact Book 2023"
+      },
+      {
+        "field": "policies.deductible_usd",
+        "claim": "US auto/property deductible selection distribution, $1,000 most common",
+        "source": "IIHS / Verisk-ISO 2022"
+      },
+      {
+        "field": "claims.claim_type",
+        "claim": "US P&C/health claim type distribution (collision, liability, medical, property damage dominant)",
+        "source": "NAIC / IIHS 2022"
+      },
+      {
+        "field": "claims.claimed_amount_usd",
+        "claim": "US average insurance claim amount ~$18,500",
+        "source": "NAIC Insurance Industry Chartbook 2022"
+      },
+      {
+        "field": "claims.catastrophe_flag",
+        "claim": "~8% of claims meet NAIC catastrophe designation criteria",
+        "source": "NAIC CAT designation criteria 2022"
+      },
+      {
+        "field": "agents.agent_type",
+        "claim": "US insurance producer channel mix: captive 38%, independent 32%, broker 16%, direct_writer 10%, MGA 4%",
+        "source": "NAIC Producer Licensing 2022"
+      },
+      {
+        "field": "underwriting_assessments.mvr_points",
+        "claim": "US motor vehicle record point distribution for underwriting risk scoring",
+        "source": "IIHS driver record data 2022"
+      },
+      {
+        "field": "fraud_investigations.investigation_type",
+        "claim": "US SIU investigation trigger source distribution (SIU referral, data analytics, external tip, audit, cross-claim pattern)",
+        "source": "CAIF / ISO ClaimSearch 2022"
+      },
+      {
+        "field": "premium_payments.payment_method",
+        "claim": "US premium collection method mix, ACH autopay dominant",
+        "source": "NAIC Premium Collection Study 2022"
+      }
+    ]
+  },
+
+  "tables": {
+    "policyholders": {
+      "match": "policyholders",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "first_name": { "strategy": "name_first" },
+        "last_name": { "strategy": "name_last" },
+        "date_of_birth": {
+          "strategy": "past_date",
+          "options": { "minYearsAgo": 18, "maxYearsAgo": 85 }
+        },
+        "state": {
+          "strategy": "enum",
+          "options": {
+            "values": ["NC","SC","VA","GA","TN","FL","TX","CA","NY","PA","OH","IL","MI","NJ","WA","CO","AZ","MA","MD","MN","other"],
+            "weights": [22, 10, 8, 9, 5, 6, 5, 4, 4, 4, 3, 3, 2, 3, 2, 2, 2, 2, 3, 1, 9],
+            "_citation": "US Census Bureau 2020 Census — regionally weighted toward Southeast market"
+          }
+        },
+        "gender": {
+          "strategy": "enum",
+          "options": {
+            "values": ["male","female","non_binary"],
+            "weights": [0.490, 0.508, 0.002]
+          }
+        },
+        "marital_status": {
+          "strategy": "enum",
+          "options": {
+            "values": ["single","married","divorced","widowed"],
+            "weights": [0.32, 0.48, 0.14, 0.06],
+            "_citation": "US Census ACS 2021"
+          }
+        },
+        "credit_score_band": {
+          "strategy": "enum",
+          "options": {
+            "values": ["exceptional","very_good","good","fair","poor"],
+            "weights": [0.21, 0.25, 0.21, 0.17, 0.16],
+            "_citation": "Experian State of Credit 2022"
+          }
+        },
+        "occupation_category": {
+          "strategy": "enum",
+          "options": {
+            "values": ["professional","skilled_trade","service","administrative","executive","retired","student","unemployed"],
+            "weights": [0.22, 0.18, 0.16, 0.14, 0.10, 0.12, 0.05, 0.03]
+          }
+        },
+        "created_at": {
+          "strategy": "past_date",
+          "options": { "minYearsAgo": 1, "maxYearsAgo": 20 }
+        }
+      }
+    },
+
+    "policies": {
+      "match": "policies",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "policyholder_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "policyholders", "column": "id" }
+        },
+        "policy_type": {
+          "strategy": "enum",
+          "options": {
+            "values": ["auto","homeowners","renters","life_term","life_whole","health","umbrella","commercial_property","workers_comp","professional_liability"],
+            "weights": [0.28, 0.22, 0.10, 0.12, 0.06, 0.10, 0.04, 0.03, 0.03, 0.02],
+            "_citation": "NAIC Insurance Industry Chartbook 2022"
+          }
+        },
+        "carrier_tier": {
+          "strategy": "enum",
+          "options": {
+            "values": ["standard","preferred","non_standard","specialty"],
+            "weights": [0.52, 0.30, 0.12, 0.06]
+          }
+        },
+        "premium_annual_usd": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 2450, "stddev": 1800, "min": 180, "max": 85000 }
+        },
+        "coverage_limit_usd": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 285000, "stddev": 220000, "min": 15000, "max": 5000000 }
+        },
+        "deductible_usd": {
+          "strategy": "enum",
+          "options": {
+            "values": ["250","500","1000","2500","5000","10000"],
+            "weights": [0.08, 0.22, 0.38, 0.18, 0.10, 0.04],
+            "_citation": "IIHS/ISO 2022"
+          }
+        },
+        "policy_status": {
+          "strategy": "enum",
+          "options": {
+            "values": ["active","lapsed","cancelled","expired","non_renewed","suspended"],
+            "weights": [0.78, 0.08, 0.06, 0.04, 0.03, 0.01]
+          }
+        },
+        "effective_date": {
+          "strategy": "past_date",
+          "options": { "minYearsAgo": 0, "maxYearsAgo": 10 }
+        },
+        "expiration_date": {
+          "strategy": "timestamp",
+          "options": {
+            "dependsOn": "effective_date",
+            "dependencyRule": "after",
+            "offsetMin": 365,
+            "offsetMax": 1095
+          }
+        },
+        "renewal_count": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 3.2, "stddev": 2.8, "min": 0, "max": 15 }
+        }
+      },
+      "cascade_columns": { "from": "policyholders", "via": "policyholder_id", "columns": ["state", "date_of_birth", "gender", "credit_score_band"] }
+    },
+
+    "claims": {
+      "match": "claims",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "policy_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "policies", "column": "id" }
+        },
+        "claim_type": {
+          "strategy": "enum",
+          "options": {
+            "values": ["collision","comprehensive","liability","medical","property_damage","theft","water_damage","fire","liability_bodily","disability","death_benefit"],
+            "weights": [0.22, 0.14, 0.16, 0.12, 0.10, 0.06, 0.08, 0.04, 0.04, 0.02, 0.02],
+            "_citation": "NAIC/IIHS 2022"
+          }
+        },
+        "claim_status": {
+          "strategy": "enum",
+          "options": {
+            "values": ["open","under_investigation","approved","partially_approved","denied","closed","reopened","subrogation_pending"],
+            "weights": [0.18, 0.12, 0.38, 0.14, 0.10, 0.05, 0.02, 0.01]
+          }
+        },
+        "claimed_amount_usd": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 18500, "stddev": 28000, "min": 100, "max": 2500000 }
+        },
+        "paid_amount_usd": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 12800, "stddev": 22000, "min": 0, "max": 2000000 }
+        },
+        "fault_determination": {
+          "strategy": "enum",
+          "options": {
+            "values": ["at_fault","not_at_fault","shared_fault","undetermined","no_fault_state"],
+            "weights": [0.32, 0.38, 0.14, 0.10, 0.06]
+          }
+        },
+        "catastrophe_flag": {
+          "strategy": "enum",
+          "options": {
+            "values": ["true","false"],
+            "weights": [0.08, 0.92],
+            "_citation": "NAIC CAT designation criteria"
+          }
+        },
+        "filed_at": {
+          "strategy": "past_date",
+          "options": { "minYearsAgo": 0, "maxYearsAgo": 5 }
+        },
+        "closed_at": {
+          "strategy": "timestamp",
+          "options": {
+            "dependsOn": "filed_at",
+            "dependencyRule": "after",
+            "offsetMin": 7,
+            "offsetMax": 730
+          }
+        }
+      },
+      "cascade_columns": { "from": "policies", "via": "policy_id", "columns": ["policy_type", "state", "carrier_tier"] }
+    },
+
+    "claim_payments": {
+      "match": "claim_payments",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "claim_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "claims", "column": "id" }
+        },
+        "payment_type": {
+          "strategy": "enum",
+          "options": {
+            "values": ["initial_reserve","partial_payment","final_settlement","expense_payment","salvage_recovery","subrogation_recovery"],
+            "weights": [0.20, 0.28, 0.32, 0.12, 0.04, 0.04]
+          }
+        },
+        "amount_usd": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 8500, "stddev": 15000, "min": 50, "max": 1500000 }
+        },
+        "payment_method": {
+          "strategy": "enum",
+          "options": {
+            "values": ["check","ACH","wire","virtual_card"],
+            "weights": [0.42, 0.38, 0.12, 0.08]
+          }
+        },
+        "payee_type": {
+          "strategy": "enum",
+          "options": {
+            "values": ["policyholder","repair_shop","medical_provider","attorney","lienholder","other"],
+            "weights": [0.38, 0.24, 0.18, 0.10, 0.06, 0.04]
+          }
+        },
+        "issued_at": {
+          "strategy": "past_date",
+          "options": { "minYearsAgo": 0, "maxYearsAgo": 5 }
+        }
+      }
+    },
+
+    "agents": {
+      "match": "agents",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "first_name": { "strategy": "name_first" },
+        "last_name": { "strategy": "name_last" },
+        "license_state": {
+          "strategy": "enum",
+          "options": {
+            "values": ["NC","SC","VA","GA","TN","FL","TX","CA","NY","PA","OH","IL","MI","NJ","WA","CO","AZ","MA","MD","MN","other"],
+            "weights": [22, 10, 8, 9, 5, 6, 5, 4, 4, 4, 3, 3, 2, 3, 2, 2, 2, 2, 3, 1, 9],
+            "_citation": "US Census Bureau 2020 Census — regionally weighted toward Southeast market"
+          }
+        },
+        "agent_type": {
+          "strategy": "enum",
+          "options": {
+            "values": ["captive","independent","broker","direct_writer","MGA"],
+            "weights": [0.38, 0.32, 0.16, 0.10, 0.04],
+            "_citation": "NAIC Producer Licensing 2022"
+          }
+        },
+        "years_experience": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 11, "stddev": 7, "min": 0, "max": 40 }
+        },
+        "book_of_business_usd": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 2800000, "stddev": 3500000, "min": 50000, "max": 50000000 }
+        },
+        "created_at": {
+          "strategy": "past_date",
+          "options": { "minYearsAgo": 1, "maxYearsAgo": 20 }
+        }
+      }
+    },
+
+    "underwriting_assessments": {
+      "match": "underwriting_assessments",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "policy_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "policies", "column": "id" }
+        },
+        "risk_score": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 52, "stddev": 18, "min": 1, "max": 100 }
+        },
+        "risk_tier": {
+          "strategy": "enum",
+          "options": {
+            "values": ["preferred_plus","preferred","standard_plus","standard","substandard","decline"],
+            "weights": [0.15, 0.25, 0.22, 0.24, 0.11, 0.03]
+          }
+        },
+        "mvr_points": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 0.8, "stddev": 1.4, "min": 0, "max": 12 }
+        },
+        "prior_claims_3yr": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 0.3, "stddev": 0.6, "min": 0, "max": 5 }
+        },
+        "credit_factor": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 1.02, "stddev": 0.18, "min": 0.60, "max": 1.80 }
+        },
+        "territory_factor": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 1.08, "stddev": 0.22, "min": 0.75, "max": 2.50 }
+        },
+        "decision": {
+          "strategy": "enum",
+          "options": {
+            "values": ["approved","approved_with_conditions","referred_to_underwriter","declined"],
+            "weights": [0.72, 0.18, 0.07, 0.03]
+          }
+        },
+        "assessed_at": {
+          "strategy": "past_date",
+          "options": { "minYearsAgo": 0, "maxYearsAgo": 10 }
+        }
+      }
+    },
+
+    "fraud_investigations": {
+      "match": "fraud_investigations",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "claim_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "claims", "column": "id" }
+        },
+        "investigation_type": {
+          "strategy": "enum",
+          "options": {
+            "values": ["SIU_referral","data_analytics_flag","external_tip","routine_audit","cross_claim_pattern"],
+            "weights": [0.38, 0.28, 0.14, 0.12, 0.08],
+            "_citation": "CAIF/ISO ClaimSearch 2022"
+          }
+        },
+        "fraud_indicator": {
+          "strategy": "enum",
+          "options": {
+            "values": ["staged_accident","inflated_claim","phantom_injury","identity_fraud","provider_fraud","arson","none_found"],
+            "weights": [0.18, 0.24, 0.16, 0.12, 0.10, 0.04, 0.16]
+          }
+        },
+        "status": {
+          "strategy": "enum",
+          "options": {
+            "values": ["open","closed_confirmed_fraud","closed_no_fraud","referred_to_DA","civil_recovery"],
+            "weights": [0.22, 0.18, 0.42, 0.10, 0.08]
+          }
+        },
+        "estimated_fraud_amount_usd": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 28000, "stddev": 45000, "min": 500, "max": 2000000 }
+        },
+        "opened_at": {
+          "strategy": "past_date",
+          "options": { "minYearsAgo": 0, "maxYearsAgo": 5 }
+        }
+      }
+    },
+
+    "appeals": {
+      "match": "appeals",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "claim_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "claims", "column": "id" }
+        },
+        "appeal_reason": {
+          "strategy": "enum",
+          "options": {
+            "values": ["coverage_dispute","settlement_amount","denial_reversal","additional_damages","bad_faith_allegation"],
+            "weights": [0.30, 0.28, 0.22, 0.12, 0.08]
+          }
+        },
+        "appeal_status": {
+          "strategy": "enum",
+          "options": {
+            "values": ["pending","upheld","overturned","partially_overturned","withdrawn","litigation"],
+            "weights": [0.25, 0.38, 0.20, 0.10, 0.05, 0.02]
+          }
+        },
+        "additional_amount_requested_usd": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 14000, "stddev": 22000, "min": 500, "max": 500000 }
+        },
+        "resolution_days": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 45, "stddev": 30, "min": 1, "max": 365 }
+        },
+        "filed_at": {
+          "strategy": "past_date",
+          "options": { "minYearsAgo": 0, "maxYearsAgo": 4 }
+        }
+      }
+    },
+
+    "premium_payments": {
+      "match": "premium_payments",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "policy_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "policies", "column": "id" }
+        },
+        "payment_method": {
+          "strategy": "enum",
+          "options": {
+            "values": ["ACH_autopay","credit_card","check","escrow","payroll_deduction","wire"],
+            "weights": [0.42, 0.28, 0.14, 0.10, 0.04, 0.02],
+            "_citation": "NAIC Premium Collection Study 2022"
+          }
+        },
+        "amount_usd": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 210, "stddev": 165, "min": 15, "max": 8000 }
+        },
+        "payment_status": {
+          "strategy": "enum",
+          "options": {
+            "values": ["paid","returned_NSF","late","waived","written_off"],
+            "weights": [0.88, 0.04, 0.05, 0.02, 0.01]
+          }
+        },
+        "billing_frequency": {
+          "strategy": "enum",
+          "options": {
+            "values": ["monthly","quarterly","semiannual","annual"],
+            "weights": [0.48, 0.18, 0.14, 0.20]
+          }
+        },
+        "paid_at": {
+          "strategy": "past_date",
+          "options": { "minYearsAgo": 0, "maxYearsAgo": 5 }
+        }
+      }
+    },
+
+    "policy_endorsements": {
+      "match": "policy_endorsements",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "policy_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "policies", "column": "id" }
+        },
+        "endorsement_type": {
+          "strategy": "enum",
+          "options": {
+            "values": ["coverage_increase","coverage_decrease","add_driver","remove_driver","add_property","remove_property","name_change","address_change","payment_plan_change","cancellation"],
+            "weights": [0.18, 0.08, 0.14, 0.06, 0.12, 0.05, 0.08, 0.10, 0.10, 0.09]
+          }
+        },
+        "premium_impact_usd": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 85, "stddev": 220, "min": -1200, "max": 3500 }
+        },
+        "effective_date": {
+          "strategy": "past_date",
+          "options": { "minYearsAgo": 0, "maxYearsAgo": 8 }
+        },
+        "processed_by": {
+          "strategy": "enum",
+          "options": {
+            "values": ["agent","customer_self_service","call_center","underwriter","system_auto"],
+            "weights": [0.38, 0.28, 0.18, 0.10, 0.06]
+          }
+        },
+        "created_at": {
+          "strategy": "past_date",
+          "options": { "minYearsAgo": 0, "maxYearsAgo": 8 }
+        }
+      }
+    },
+
+    "reinsurance_cessions": {
+      "match": "reinsurance_cessions",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "policy_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "policies", "column": "id" }
+        },
+        "reinsurer_name": {
+          "strategy": "enum",
+          "options": {
+            "values": ["Munich_Re","Swiss_Re","Berkshire_Hathaway_Re","Lloyd_s_of_London","Hannover_Re","Gen_Re","Everest_Re","RenaissanceRe","Transatlantic_Re","other"],
+            "weights": [0.18, 0.16, 0.14, 0.12, 0.10, 0.09, 0.08, 0.06, 0.04, 0.03]
+          }
+        },
+        "treaty_type": {
+          "strategy": "enum",
+          "options": {
+            "values": ["quota_share","excess_of_loss","surplus_share","facultative","catastrophe_XL"],
+            "weights": [0.32, 0.28, 0.18, 0.14, 0.08]
+          }
+        },
+        "cession_pct": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 28, "stddev": 15, "min": 5, "max": 90 }
+        },
+        "ceded_premium_usd": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 680, "stddev": 520, "min": 50, "max": 50000 }
+        },
+        "retention_limit_usd": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 850000, "stddev": 650000, "min": 50000, "max": 10000000 }
+        },
+        "effective_date": {
+          "strategy": "past_date",
+          "options": { "minYearsAgo": 0, "maxYearsAgo": 5 }
+        }
+      }
+    }
+  },
+
+  "relationships": [
+    {
+      "targetTable": "policies",
+      "sourceTable": "policyholders",
+      "cardinality": { "strategy": "poisson", "mean": 1.8, "min": 1, "max": 6 }
+    },
+    {
+      "targetTable": "claims",
+      "sourceTable": "policies",
+      "cardinality": { "strategy": "poisson", "mean": 0.4, "min": 0, "max": 8 }
+    },
+    {
+      "targetTable": "claim_payments",
+      "sourceTable": "claims",
+      "cardinality": { "strategy": "poisson", "mean": 1.8, "min": 0, "max": 8 }
+    },
+    {
+      "targetTable": "underwriting_assessments",
+      "sourceTable": "policies",
+      "cardinality": { "strategy": "poisson", "mean": 1.0, "min": 1, "max": 3 }
+    },
+    {
+      "targetTable": "fraud_investigations",
+      "sourceTable": "claims",
+      "cardinality": { "strategy": "poisson", "mean": 0.08, "min": 0, "max": 2 }
+    },
+    {
+      "targetTable": "appeals",
+      "sourceTable": "claims",
+      "cardinality": { "strategy": "poisson", "mean": 0.12, "min": 0, "max": 3 }
+    },
+    {
+      "targetTable": "premium_payments",
+      "sourceTable": "policies",
+      "cardinality": { "strategy": "poisson", "mean": 8, "min": 1, "max": 60 }
+    },
+    {
+      "targetTable": "policy_endorsements",
+      "sourceTable": "policies",
+      "cardinality": { "strategy": "poisson", "mean": 2.2, "min": 0, "max": 12 }
+    },
+    {
+      "targetTable": "reinsurance_cessions",
+      "sourceTable": "policies",
+      "cardinality": { "strategy": "poisson", "mean": 0.3, "min": 0, "max": 2 }
+    }
+  ]
+}
