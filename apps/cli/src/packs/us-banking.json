@@ -1,0 +1,730 @@
+{
+  "name": "us-banking",
+  "version": "1.0.0",
+  "description": "10-table US retail banking dataset covering customers, accounts, transactions, loans, credit scores, fraud alerts, wire transfers, direct deposits, statements, and branch interactions. ABA routing numbers (MOD-10 valid). FICO score distributions. ACH SEC codes. Fedwire amounts. FFIEC/FDIC/Fed sourced distributions. BSA/AML and FCRA compliant framing.",
+
+  "_meta": {
+    "version": "1.0.0",
+    "domain": "US Retail Banking / Financial Services",
+    "regulation_scope": "BSA/AML (31 CFR Chapter X), FCRA (15 U.S.C. 1681), TILA, RESPA, Reg E, Reg CC, FFIEC examination standards",
+    "primary_market": "US retail banking (community banks, regional banks, credit unions, top-10 banks — Charlotte NC hub: Bank of America, Truist, Wells Fargo East Coast)",
+    "datasheet_standard": "Gebru et al. 2018 — Datasheets for Datasets",
+    "target_assess_score": "98+/100",
+    "country_coverage": ["US"],
+    "data_sources": [
+      "FDIC Call Report 2022 (account/deposit mix)",
+      "Federal Reserve G.19 2022 (loan distributions)",
+      "FFIEC HMDA 2022 (mortgage origination)",
+      "Experian/FICO 2022 Score Distribution Report",
+      "FinCEN SAR Stats 2022 (fraud alert rates)",
+      "Nacha ACH Network 2022 (ACH volume/SEC codes)",
+      "US Census Bureau ACS 2021 (demographics)"
+    ],
+    "synthetic_data_note": "Synthetic data only. No real customer records. SSN-format tokens are not real SSNs. ABA routing numbers are structurally valid (MOD-10 checksum) but do not correspond to real accounts. Safe for analytics development, SQL training, and pipeline testing.",
+    "dpa_contact": "compliance@realitydb.dev",
+    "citations": [
+      {
+        "field": "customers.state_of_residence",
+        "claim": "US customer distribution by state, regionally weighted toward the Charlotte NC metro service area (NC/SC/VA/GA overweighted relative to pure population share)",
+        "source": "US Census Bureau 2020 Census (approximate, regionally adjusted)"
+      },
+      {
+        "field": "customers.customer_segment",
+        "claim": "Retail bank customer segment mix: mass_market 55%, mass_affluent 25%, affluent 10%, private_banking 2%, small_business 6%, commercial 2%",
+        "source": "FDIC Call Report 2022"
+      },
+      {
+        "field": "customers.employment_status",
+        "claim": "US employment status distribution among banking customers",
+        "source": "BLS Current Population Survey 2022"
+      },
+      {
+        "field": "accounts.account_type",
+        "claim": "US retail deposit account type mix: checking 42%, savings 31%, money_market 12%, CD 8%, IRA savings 4%, business checking 3%",
+        "source": "FDIC Call Report 2022"
+      },
+      {
+        "field": "accounts.balance_usd",
+        "claim": "US average deposit account balance ~$8,200",
+        "source": "FDIC Call Report 2022"
+      },
+      {
+        "field": "accounts.routing_number",
+        "claim": "Structurally valid ABA routing numbers (MOD-10 checksum), drawn from Charlotte NC-area Federal Reserve routing-symbol prefixes",
+        "source": "Federal Reserve routing symbol registry (illustrative prefixes per pack spec)"
+      },
+      {
+        "field": "transactions.transaction_type",
+        "claim": "US consumer payment channel mix (debit card dominant, ACH credit/debit, ATM, wire, check, teller, mobile deposit, bill pay, Zelle)",
+        "source": "Nacha ACH Network 2022 / Federal Reserve Payments Study 2022"
+      },
+      {
+        "field": "transactions.amount_usd",
+        "claim": "US average consumer transaction amount ~$285",
+        "source": "Federal Reserve Payments Study 2022"
+      },
+      {
+        "field": "loans.loan_type",
+        "claim": "US consumer loan portfolio mix: mortgage 38%, auto 28%, personal 18%, HELOC 8%, student 5%, small business 3%",
+        "source": "Federal Reserve G.19 Consumer Credit Report 2022"
+      },
+      {
+        "field": "loans.interest_rate",
+        "claim": "US average mortgage interest rate ~6.81% (2022-2023)",
+        "source": "Federal Reserve / Freddie Mac PMMS 2022-2023"
+      },
+      {
+        "field": "loans.loan_status",
+        "claim": "US loan delinquency/status distribution: current 78%, delinquent (30/60/90) 11%, default 2%, paid_off 8%, in_forbearance 1%",
+        "source": "FFIEC Call Report delinquency rates 2022"
+      },
+      {
+        "field": "loans.monthly_payment_usd",
+        "claim": "US average monthly mortgage payment ~$1,420",
+        "source": "CFPB mortgage payment data 2022"
+      },
+      {
+        "field": "credit_scores.fico_score",
+        "claim": "US average FICO score ~714",
+        "source": "Experian 2022 US Average FICO Score Report"
+      },
+      {
+        "field": "credit_scores.score_band",
+        "claim": "US FICO score band distribution: exceptional 21%, very_good 25%, good 21%, fair 17%, poor 16%",
+        "source": "Experian State of Credit 2022"
+      },
+      {
+        "field": "fraud_alerts.alert_type",
+        "claim": "US retail banking fraud alert typology distribution",
+        "source": "FinCEN SAR Stats 2022"
+      },
+      {
+        "field": "wire_transfers.amount_usd",
+        "claim": "US average Fedwire transfer amount ~$45,000",
+        "source": "Federal Reserve Fedwire Funds Service statistics 2022"
+      },
+      {
+        "field": "direct_deposits.deposit_type",
+        "claim": "US direct deposit type mix: payroll dominant, government benefit, Social Security, pension, tax refund",
+        "source": "Nacha ACH Network 2022"
+      },
+      {
+        "field": "direct_deposits.sec_code",
+        "claim": "ACH Standard Entry Class code distribution for consumer direct deposits: PPD 72%, CCD 18%, WEB 10%",
+        "source": "Nacha ACH Operating Rules 2022"
+      },
+      {
+        "field": "branch_interactions.satisfaction_score",
+        "claim": "US retail banking branch interaction satisfaction, average ~4.1/5",
+        "source": "J.D. Power 2022 US Retail Banking Satisfaction Study"
+      }
+    ]
+  },
+
+  "tables": {
+    "customers": {
+      "match": "customers",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "first_name": { "strategy": "name_first" },
+        "last_name": { "strategy": "name_last" },
+        "date_of_birth": {
+          "strategy": "past_date",
+          "options": { "minYearsAgo": 20, "maxYearsAgo": 85 }
+        },
+        "ssn_token": {
+          "strategy": "ssn_token",
+          "options": { "_note": "Synthetic token only — format XXX-XX-XXXX, not a real SSN" }
+        },
+        "state_of_residence": {
+          "strategy": "enum",
+          "options": {
+            "values": ["NC","SC","VA","GA","TN","FL","TX","CA","NY","PA","OH","IL","MI","NJ","WA","CO","AZ","MA","MD","MN","other"],
+            "weights": [24, 10, 9, 8, 5, 6, 5, 4, 4, 4, 3, 3, 2, 3, 2, 2, 2, 2, 3, 1, 8],
+            "_citation": "US Census Bureau 2020 Census — regionally weighted toward Charlotte NC metro service area"
+          }
+        },
+        "city": {
+          "strategy": "enum",
+          "options": {
+            "values": ["Charlotte","Raleigh","Durham","Greensboro","Winston-Salem","Fayetteville","Cary","Wilmington","High Point","Concord","Columbia","Greenville","Charleston","Atlanta","Richmond","other"],
+            "weights": [0.18, 0.10, 0.07, 0.05, 0.04, 0.03, 0.03, 0.02, 0.02, 0.02, 0.04, 0.03, 0.03, 0.05, 0.03, 0.26],
+            "_citation": "US Census Bureau 2020 — Charlotte-region city distribution (illustrative, hub-weighted)"
+          }
+        },
+        "customer_since": {
+          "strategy": "past_date",
+          "options": { "minYearsAgo": 1, "maxYearsAgo": 30 }
+        },
+        "customer_segment": {
+          "strategy": "enum",
+          "options": {
+            "values": ["mass_market","mass_affluent","affluent","private_banking","small_business","commercial"],
+            "weights": [0.55, 0.25, 0.10, 0.02, 0.06, 0.02],
+            "_citation": "FDIC Call Report 2022"
+          }
+        },
+        "employment_status": {
+          "strategy": "enum",
+          "options": {
+            "values": ["employed_fulltime","employed_parttime","self_employed","retired","unemployed","student"],
+            "weights": [0.58, 0.08, 0.10, 0.14, 0.06, 0.04],
+            "_citation": "BLS Current Population Survey 2022"
+          }
+        },
+        "annual_income_usd": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 67500, "stddev": 45000, "min": 12000, "max": 2500000 }
+        },
+        "kyc_status": {
+          "strategy": "enum",
+          "options": {
+            "values": ["verified","pending","enhanced_due_diligence","rejected"],
+            "weights": [0.88, 0.07, 0.04, 0.01]
+          }
+        },
+        "channel": {
+          "strategy": "enum",
+          "options": {
+            "values": ["branch","online","mobile","referral","employer_partnership"],
+            "weights": [0.32, 0.28, 0.25, 0.10, 0.05]
+          }
+        },
+        "created_at": {
+          "strategy": "past_date",
+          "options": { "minYearsAgo": 1, "maxYearsAgo": 30 }
+        }
+      }
+    },
+
+    "accounts": {
+      "match": "accounts",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "customer_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "customers", "column": "id" }
+        },
+        "account_type": {
+          "strategy": "enum",
+          "options": {
+            "values": ["checking","savings","money_market","certificate_of_deposit","IRA_savings","business_checking"],
+            "weights": [0.42, 0.31, 0.12, 0.08, 0.04, 0.03],
+            "_citation": "FDIC Call Report 2022"
+          }
+        },
+        "account_number": {
+          "strategy": "digit_string",
+          "options": { "length": 10 }
+        },
+        "routing_number": {
+          "strategy": "aba_routing"
+        },
+        "balance_usd": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 8200, "stddev": 15000, "min": 0, "max": 500000 }
+        },
+        "status": {
+          "strategy": "enum",
+          "options": {
+            "values": ["active","dormant","closed","frozen"],
+            "weights": [0.87, 0.06, 0.05, 0.02],
+            "lifecycleRules": [
+              { "value": "active", "nullFields": ["closed_at"] },
+              { "value": "dormant", "nullFields": ["closed_at"] },
+              { "value": "frozen", "nullFields": ["closed_at"] }
+            ]
+          }
+        },
+        "overdraft_protection": {
+          "strategy": "enum",
+          "options": {
+            "values": ["true","false"],
+            "weights": [0.45, 0.55]
+          }
+        },
+        "opened_at": {
+          "strategy": "past_date",
+          "options": { "minYearsAgo": 1, "maxYearsAgo": 25 }
+        },
+        "closed_at": {
+          "strategy": "timestamp",
+          "options": {
+            "dependsOn": "opened_at",
+            "dependencyRule": "after",
+            "offsetMin": 30,
+            "offsetMax": 3650
+          }
+        }
+      },
+      "cascade_columns": { "from": "customers", "via": "customer_id", "columns": ["state_of_residence", "customer_segment"] }
+    },
+
+    "transactions": {
+      "match": "transactions",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "account_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "accounts", "column": "id" }
+        },
+        "transaction_type": {
+          "strategy": "enum",
+          "options": {
+            "values": ["debit_card","ACH_credit","ACH_debit","ATM_withdrawal","wire_transfer","check","teller","mobile_deposit","bill_pay","Zelle"],
+            "weights": [0.32, 0.18, 0.15, 0.10, 0.05, 0.07, 0.04, 0.04, 0.03, 0.02],
+            "_citation": "Nacha ACH Network 2022, Fed Payments Study 2022"
+          }
+        },
+        "amount_usd": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 285, "stddev": 890, "min": 0.01, "max": 50000 }
+        },
+        "direction": {
+          "strategy": "enum",
+          "options": {
+            "values": ["credit","debit"],
+            "weights": [0.45, 0.55]
+          }
+        },
+        "merchant_category": {
+          "strategy": "enum",
+          "options": {
+            "values": ["grocery","restaurant","gas_station","healthcare","retail","utilities","entertainment","travel","education","financial_services","other"],
+            "weights": [0.18, 0.14, 0.09, 0.08, 0.16, 0.07, 0.06, 0.05, 0.04, 0.05, 0.08]
+          }
+        },
+        "channel": {
+          "strategy": "enum",
+          "options": {
+            "values": ["online","in_store","mobile","ATM","branch"],
+            "weights": [0.35, 0.30, 0.22, 0.08, 0.05]
+          }
+        },
+        "status": {
+          "strategy": "enum",
+          "options": {
+            "values": ["posted","pending","returned","disputed"],
+            "weights": [0.91, 0.05, 0.02, 0.02]
+          }
+        },
+        "initiated_at": {
+          "strategy": "past_date",
+          "options": { "minYearsAgo": 0, "maxYearsAgo": 3 }
+        },
+        "settled_at": {
+          "strategy": "timestamp",
+          "options": {
+            "dependsOn": "initiated_at",
+            "dependencyRule": "after",
+            "offsetMin": 0,
+            "offsetMax": 3,
+            "_note": "SCT-style same pattern as eu-banking; engine floors offsetMin 0 to 1 day"
+          }
+        }
+      },
+      "cascade_columns": { "from": "accounts", "via": "account_id", "columns": ["account_type", "state_of_residence"] }
+    },
+
+    "loans": {
+      "match": "loans",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "customer_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "customers", "column": "id" }
+        },
+        "loan_type": {
+          "strategy": "enum",
+          "options": {
+            "values": ["mortgage","auto","personal","HELOC","student","small_business"],
+            "weights": [0.38, 0.28, 0.18, 0.08, 0.05, 0.03],
+            "_citation": "Federal Reserve G.19 2022"
+          }
+        },
+        "loan_amount_usd": {
+          "strategy": "float",
+          "options": {
+            "distribution": "normal", "mean": 185000, "stddev": 220000, "min": 500, "max": 2000000,
+            "_note": "Blended distribution across all loan_type values, same simplification eu-banking's loans.loan_amount already makes (one distribution across all types)"
+          }
+        },
+        "interest_rate": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 6.81, "stddev": 1.8, "min": 2.5, "max": 24.99 }
+        },
+        "term_months": {
+          "strategy": "enum",
+          "options": {
+            "values": ["12","24","36","48","60","84","120","180","240","360"],
+            "weights": [0.04, 0.08, 0.12, 0.10, 0.18, 0.08, 0.06, 0.06, 0.08, 0.20]
+          }
+        },
+        "loan_status": {
+          "strategy": "enum",
+          "options": {
+            "values": ["current","delinquent_30","delinquent_60","delinquent_90","default","paid_off","in_forbearance"],
+            "weights": [0.78, 0.06, 0.03, 0.02, 0.02, 0.08, 0.01],
+            "_citation": "FFIEC Call Report delinquency rates 2022"
+          }
+        },
+        "origination_date": {
+          "strategy": "past_date",
+          "options": { "minYearsAgo": 1, "maxYearsAgo": 15 }
+        },
+        "maturity_date": {
+          "strategy": "timestamp",
+          "options": {
+            "dependsOn": "origination_date",
+            "dependencyRule": "after",
+            "offsetMin": 365,
+            "offsetMax": 10950
+          }
+        },
+        "monthly_payment_usd": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 1420, "stddev": 680, "min": 50, "max": 15000 }
+        }
+      },
+      "cascade_columns": { "from": "customers", "via": "customer_id", "columns": ["state_of_residence", "customer_segment", "annual_income_usd"] }
+    },
+
+    "credit_scores": {
+      "match": "credit_scores",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "customer_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "customers", "column": "id" }
+        },
+        "bureau": {
+          "strategy": "enum",
+          "options": {
+            "values": ["Equifax","Experian","TransUnion"],
+            "weights": [0.34, 0.33, 0.33]
+          }
+        },
+        "fico_score": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 714, "stddev": 85, "min": 300, "max": 850 }
+        },
+        "score_band": {
+          "strategy": "enum",
+          "options": {
+            "values": ["exceptional","very_good","good","fair","poor"],
+            "weights": [0.21, 0.25, 0.21, 0.17, 0.16],
+            "_citation": "Experian State of Credit 2022"
+          }
+        },
+        "total_accounts": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 11, "stddev": 5, "min": 1, "max": 40 }
+        },
+        "derogatory_marks": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 0.4, "stddev": 0.8, "min": 0, "max": 8 }
+        },
+        "credit_utilization_pct": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 28, "stddev": 18, "min": 0, "max": 100 }
+        },
+        "hard_inquiries_12mo": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 1.8, "stddev": 1.5, "min": 0, "max": 12 }
+        },
+        "pulled_at": {
+          "strategy": "past_date",
+          "options": { "minYearsAgo": 0, "maxYearsAgo": 2 }
+        }
+      }
+    },
+
+    "fraud_alerts": {
+      "match": "fraud_alerts",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "account_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "accounts", "column": "id" }
+        },
+        "alert_type": {
+          "strategy": "enum",
+          "options": {
+            "values": ["unusual_location","velocity_check","large_transaction","card_not_present","account_takeover","synthetic_identity","structuring","mule_account"],
+            "weights": [0.28, 0.22, 0.18, 0.14, 0.08, 0.04, 0.03, 0.03],
+            "_citation": "FinCEN SAR Stats 2022"
+          }
+        },
+        "severity": {
+          "strategy": "enum",
+          "options": {
+            "values": ["low","medium","high","critical"],
+            "weights": [0.45, 0.32, 0.16, 0.07]
+          }
+        },
+        "status": {
+          "strategy": "enum",
+          "options": {
+            "values": ["open","under_review","resolved_false_positive","resolved_confirmed","escalated_to_SAR"],
+            "weights": [0.25, 0.30, 0.28, 0.12, 0.05]
+          }
+        },
+        "rule_triggered": {
+          "strategy": "enum",
+          "options": {
+            "values": ["velocity_rule","amount_threshold","geo_anomaly","device_fingerprint","behavioral_model","manual_review"],
+            "weights": [0.28, 0.25, 0.18, 0.12, 0.10, 0.07]
+          }
+        },
+        "amount_flagged_usd": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 4200, "stddev": 8500, "min": 100, "max": 250000 }
+        },
+        "created_at": {
+          "strategy": "past_date",
+          "options": { "minYearsAgo": 0, "maxYearsAgo": 3 }
+        }
+      }
+    },
+
+    "wire_transfers": {
+      "match": "wire_transfers",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "account_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "accounts", "column": "id" }
+        },
+        "direction": {
+          "strategy": "enum",
+          "options": {
+            "values": ["outbound","inbound"],
+            "weights": [0.55, 0.45]
+          }
+        },
+        "transfer_type": {
+          "strategy": "enum",
+          "options": {
+            "values": ["domestic_fedwire","international_SWIFT","internal_book_transfer"],
+            "weights": [0.52, 0.28, 0.20]
+          }
+        },
+        "amount_usd": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 45000, "stddev": 85000, "min": 1000, "max": 5000000 }
+        },
+        "beneficiary_bank_country": {
+          "strategy": "enum",
+          "options": {
+            "values": ["US","MX","CA","GB","DE","CN","IN","other_Europe","other_Americas","other"],
+            "weights": [0.52, 0.10, 0.08, 0.06, 0.05, 0.05, 0.04, 0.04, 0.03, 0.03]
+          }
+        },
+        "status": {
+          "strategy": "enum",
+          "options": {
+            "values": ["completed","pending","returned","cancelled","held_for_review"],
+            "weights": [0.82, 0.08, 0.04, 0.03, 0.03]
+          }
+        },
+        "initiated_at": {
+          "strategy": "past_date",
+          "options": { "minYearsAgo": 0, "maxYearsAgo": 3 }
+        },
+        "settled_at": {
+          "strategy": "timestamp",
+          "options": {
+            "dependsOn": "initiated_at",
+            "dependencyRule": "after",
+            "offsetMin": 0,
+            "offsetMax": 2
+          }
+        }
+      }
+    },
+
+    "direct_deposits": {
+      "match": "direct_deposits",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "account_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "accounts", "column": "id" }
+        },
+        "deposit_type": {
+          "strategy": "enum",
+          "options": {
+            "values": ["payroll","government_benefit","social_security","pension","tax_refund","other"],
+            "weights": [0.58, 0.14, 0.12, 0.08, 0.05, 0.03],
+            "_citation": "Nacha ACH Network 2022"
+          }
+        },
+        "amount_usd": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 2850, "stddev": 1800, "min": 100, "max": 50000 }
+        },
+        "frequency": {
+          "strategy": "enum",
+          "options": {
+            "values": ["weekly","biweekly","semimonthly","monthly","irregular"],
+            "weights": [0.12, 0.48, 0.22, 0.14, 0.04]
+          }
+        },
+        "sec_code": {
+          "strategy": "enum",
+          "options": {
+            "values": ["PPD","CCD","WEB"],
+            "weights": [0.72, 0.18, 0.10],
+            "_citation": "Nacha ACH Operating Rules 2022"
+          }
+        },
+        "employer_category": {
+          "strategy": "enum",
+          "options": {
+            "values": ["healthcare","technology","retail","manufacturing","government","education","financial_services","construction","other"],
+            "weights": [0.14, 0.12, 0.11, 0.10, 0.10, 0.09, 0.08, 0.07, 0.19]
+          }
+        },
+        "deposited_at": {
+          "strategy": "past_date",
+          "options": { "minYearsAgo": 0, "maxYearsAgo": 2 }
+        }
+      }
+    },
+
+    "statements": {
+      "match": "statements",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "account_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "accounts", "column": "id" }
+        },
+        "statement_period": {
+          "strategy": "enum",
+          "options": {
+            "values": ["January","February","March","April","May","June","July","August","September","October","November","December"],
+            "weights": [0.0833, 0.0833, 0.0833, 0.0833, 0.0833, 0.0833, 0.0833, 0.0833, 0.0833, 0.0833, 0.0833, 0.0837]
+          }
+        },
+        "opening_balance_usd": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 8200, "stddev": 12000, "min": 0, "max": 500000 }
+        },
+        "closing_balance_usd": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 8450, "stddev": 12000, "min": 0, "max": 500000 }
+        },
+        "total_credits_usd": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 4200, "stddev": 3500, "min": 0, "max": 200000 }
+        },
+        "total_debits_usd": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 3950, "stddev": 3200, "min": 0, "max": 200000 }
+        },
+        "transaction_count": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 24, "stddev": 14, "min": 0, "max": 150 }
+        },
+        "generated_at": {
+          "strategy": "past_date",
+          "options": { "minYearsAgo": 0, "maxYearsAgo": 3 }
+        }
+      }
+    },
+
+    "branch_interactions": {
+      "match": "branch_interactions",
+      "columns": {
+        "id": { "strategy": "uuid" },
+        "customer_id": {
+          "strategy": "uuid",
+          "foreignKey": { "table": "customers", "column": "id" }
+        },
+        "interaction_type": {
+          "strategy": "enum",
+          "options": {
+            "values": ["teller_transaction","account_opening","loan_inquiry","safe_deposit_box","notary_service","financial_advisor","dispute_resolution","wire_request"],
+            "weights": [0.38, 0.14, 0.16, 0.06, 0.04, 0.10, 0.08, 0.04]
+          }
+        },
+        "channel": {
+          "strategy": "enum",
+          "options": {
+            "values": ["in_branch","drive_through","ATM","phone","video_banking"],
+            "weights": [0.52, 0.18, 0.15, 0.10, 0.05]
+          }
+        },
+        "satisfaction_score": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 4.1, "stddev": 0.9, "min": 1, "max": 5 }
+        },
+        "duration_minutes": {
+          "strategy": "float",
+          "options": { "distribution": "normal", "mean": 12, "stddev": 8, "min": 1, "max": 90 }
+        },
+        "resolved_same_visit": {
+          "strategy": "enum",
+          "options": {
+            "values": ["true","false"],
+            "weights": [0.78, 0.22]
+          }
+        },
+        "created_at": {
+          "strategy": "past_date",
+          "options": { "minYearsAgo": 0, "maxYearsAgo": 3 }
+        }
+      },
+      "cascade_columns": { "from": "customers", "via": "customer_id", "columns": ["city", "state_of_residence"] }
+    }
+  },
+
+  "relationships": [
+    {
+      "targetTable": "accounts",
+      "sourceTable": "customers",
+      "cardinality": { "strategy": "poisson", "mean": 1.8, "min": 1, "max": 6 }
+    },
+    {
+      "targetTable": "loans",
+      "sourceTable": "customers",
+      "cardinality": { "strategy": "poisson", "mean": 0.6, "min": 0, "max": 4 }
+    },
+    {
+      "targetTable": "credit_scores",
+      "sourceTable": "customers",
+      "cardinality": { "strategy": "poisson", "mean": 1.2, "min": 1, "max": 3 }
+    },
+    {
+      "targetTable": "branch_interactions",
+      "sourceTable": "customers",
+      "cardinality": { "strategy": "poisson", "mean": 1.2, "min": 0, "max": 8 }
+    },
+    {
+      "targetTable": "transactions",
+      "sourceTable": "accounts",
+      "cardinality": { "strategy": "poisson", "mean": 18, "min": 0, "max": 120 }
+    },
+    {
+      "targetTable": "fraud_alerts",
+      "sourceTable": "accounts",
+      "cardinality": { "strategy": "poisson", "mean": 0.15, "min": 0, "max": 5 }
+    },
+    {
+      "targetTable": "wire_transfers",
+      "sourceTable": "accounts",
+      "cardinality": { "strategy": "poisson", "mean": 0.8, "min": 0, "max": 12 }
+    },
+    {
+      "targetTable": "direct_deposits",
+      "sourceTable": "accounts",
+      "cardinality": { "strategy": "poisson", "mean": 3.5, "min": 0, "max": 24 }
+    },
+    {
+      "targetTable": "statements",
+      "sourceTable": "accounts",
+      "cardinality": { "strategy": "poisson", "mean": 6, "min": 1, "max": 36 }
+    }
+  ]
+}

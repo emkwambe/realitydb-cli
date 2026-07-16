@@ -200,6 +200,7 @@ export async function runCommand(options: RunOptions): Promise<void> {
     'eu-telecom': 'EU Telecom — 12 tables (BEREC, EECC, GDPR consent)',
     'us-healthcare': 'US Healthcare — 14 tables (ICD-10-CM, MS-DRG, HIPAA)',
     'us-telecom': 'US Telecom — 12 tables (FCC, CCPA/TCPA, CTIA)',
+    'us-banking': 'US Banking — 10 tables (ABA routing, FICO, BSA/AML)',
   };
 
   // If pack is a built-in name (no slashes, no .json extension), try bundled pack

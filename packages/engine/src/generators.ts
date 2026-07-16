@@ -1,3 +1,5 @@
+import { generateABARouting } from './aba-utils';
+
 // ─── Seeded PRNG — mulberry32 ────────────────────────────────────────────────
 // Inlined to preserve @realitydb/engine's zero-dependency contract.
 // Same seed always produces the identical output sequence; an undefined seed
@@ -103,6 +105,39 @@ export function generateByStrategy(strategy: string, options: any, colName?: str
   switch (strategy) {
     case 'uuid':
       return `${randomHex(8, rng)}-${randomHex(4, rng)}-4${randomHex(3, rng)}-${randomHex(4, rng)}-${randomHex(12, rng)}`;
+    // ── us-banking pack (Sub-Sprint): country-agnostic name strategies ──
+    // name_first/name_last already exist in engine.ts's row-dependent
+    // dispatcher, but only reachable when options.country_source is set
+    // (keyed against EU_NAME_POOLS — no "US" entry exists). Without a
+    // country_source, these strategies would otherwise fall through to
+    // this dispatcher's `default` case and emit a mock_name_first_N
+    // placeholder. These self-contained cases give packs a real fallback
+    // when they don't need country-specific name pools — no effect on
+    // any existing pack, since every current caller supplies country_source
+    // and is routed to the other dispatcher first.
+    case 'name_first': {
+      const usFirstNames = ['James', 'Maria', 'Chen', 'Fatima', 'Alex', 'Priya', 'Omar', 'Sarah', 'Michael', 'Jennifer', 'David', 'Ashley', 'Robert', 'Jessica', 'Christopher', 'Amanda'];
+      return usFirstNames[Math.floor(rng() * usFirstNames.length)];
+    }
+    case 'name_last': {
+      const usLastNames = ['Smith', 'Garcia', 'Wang', 'Johnson', 'Patel', 'Kim', 'Brown', 'Ali', 'Williams', 'Davis', 'Miller', 'Wilson', 'Moore', 'Taylor', 'Anderson', 'Thomas'];
+      return usLastNames[Math.floor(rng() * usLastNames.length)];
+    }
+    // ── us-banking pack: SSN-format synthetic token, NOT a real SSN ──
+    case 'ssn_token': {
+      const digits = (n: number) => Math.floor(rng() * Math.pow(10, n)).toString().padStart(n, '0');
+      return `${digits(3)}-${digits(2)}-${digits(4)}`;
+    }
+    // ── us-banking pack: generic N-digit numeric string (account numbers, etc) ──
+    case 'digit_string': {
+      const len = options?.length ?? 10;
+      let s = '';
+      for (let i = 0; i < len; i++) s += Math.floor(rng() * 10);
+      return s;
+    }
+    // ── us-banking pack: ABA/Federal Reserve routing number, MOD-10 valid ──
+    case 'aba_routing':
+      return generateABARouting(rng);
     case 'company_name': {
       const companies = pickCompanyNamePool(colName, tableName);
       return companies[Math.floor(rng() * companies.length)];
