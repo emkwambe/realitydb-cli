@@ -4096,6 +4096,22 @@ async function processDodoEvent(env: Env, event: any): Promise<void> {
         const credit = DODO_CREDIT_PRODUCTS[productKey];
         if (!credit) break;
 
+        const paymentId: string | null = data.payment_id || data.id || null;
+
+        // Idempotency check — Dodo (like most webhook providers) may redeliver
+        // payment.succeeded for the same payment. Without this, a replay grants
+        // credits twice for one purchase.
+        if (paymentId) {
+          const existing = await env.DB.prepare(
+            `SELECT id FROM dataset_purchases WHERE stripe_payment_id = ? AND status = 'completed'`
+          ).bind(paymentId).first();
+
+          if (existing) {
+            console.log(`Dodo webhook: duplicate delivery for payment ${paymentId} — skipping (already granted)`);
+            break;
+          }
+        }
+
         const creditsRemaining = credit.runs ?? credit.euRuns ?? (credit.researchDays ? -1 : 0);
         const purId = 'pur-' + crypto.randomUUID().split('-')[0];
         await env.DB.prepare(
@@ -4103,7 +4119,7 @@ async function processDodoEvent(env: Env, event: any): Promise<void> {
            VALUES (?, ?, ?, ?, ?, ?, 'completed', ?, ?, ?)`
         ).bind(
           purId, email, productKey, credit.maxRowsPerRun, 0,
-          data.payment_id || data.id || null, creditsRemaining, now, now
+          paymentId, creditsRemaining, now, now
         ).run();
 
         console.log(`Dodo credits: ${email} → ${productKey} (credits=${creditsRemaining}, maxRowsPerRun=${credit.maxRowsPerRun}, euComply=${!!credit.euComplyEnabled})`);

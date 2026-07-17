@@ -50,6 +50,12 @@ CREATE TABLE IF NOT EXISTS dataset_purchases (
 CREATE INDEX IF NOT EXISTS idx_purchases_user ON dataset_purchases(user_id);
 CREATE INDEX IF NOT EXISTS idx_purchases_template ON dataset_purchases(user_id, template);
 
+-- Idempotency guard for webhook replays (Dodo/Stripe payment IDs land here) —
+-- applied to production via migration, added to CREATE-form schema for parity.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_dataset_purchases_stripe_payment_id
+  ON dataset_purchases(stripe_payment_id)
+  WHERE stripe_payment_id IS NOT NULL;
+
 -- ============================================================
 -- CERTIFICATES: Synced from Supabase for public verification
 -- ============================================================
