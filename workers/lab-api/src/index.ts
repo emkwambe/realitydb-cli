@@ -4046,6 +4046,21 @@ async function upsertDodoEntitlement(
   ).run();
 }
 
+// Guards subscription-status handlers against out-of-order webhook delivery —
+// only write if the incoming event is not older than what's already stored.
+// A missing timestamp on either side fails open (treated as newer) since we
+// have no basis to reject the write; this only closes the gap when both a
+// stored and incoming timestamp are actually available to compare.
+function isNewerThan(
+  incomingTimestamp: string | null,
+  storedTimestamp: string | null
+): boolean {
+  if (!incomingTimestamp) return true;
+  if (!storedTimestamp) return true;
+  return new Date(incomingTimestamp) >
+         new Date(storedTimestamp);
+}
+
 // Process a verified Dodo webhook event.
 // NOTE: the entitlements schema has no runs / max_rows_per_run / research_expires_at /
 // eu_runs / eu_comply_enabled columns, so one-time credit grants are recorded in the
@@ -4059,6 +4074,11 @@ async function processDodoEvent(env: Env, event: any): Promise<void> {
   const productId: string | undefined = data.product_id || data.product_cart?.[0]?.product_id;
   const email: string | undefined = data.customer?.email || data.metadata?.user_email;
   const productKey = productId ? dodoProductKey(productId) : undefined;
+  const eventTimestamp: string =
+    data.created_at ||
+    data.timestamp ||
+    data.current_period_end ||
+    now;
 
   try {
     switch (type) {
@@ -4139,17 +4159,37 @@ async function processDodoEvent(env: Env, event: any): Promise<void> {
       case 'subscription.cancelled': {
         if (!email) break;
         // Keep access until current_period_end; only flip status.
-        await env.DB.prepare(`UPDATE entitlements SET status = 'cancelled', updated_at = ? WHERE user_id = ?`)
-          .bind(now, email).run();
+        const current = await env.DB.prepare(
+          'SELECT updated_at FROM entitlements WHERE user_id = ?'
+        ).bind(email).first();
+        if (!isNewerThan(eventTimestamp, current?.updated_at as string)) {
+          console.log(`Dodo: stale cancelled event for ${email} — skipping`);
+          break;
+        }
+        await env.DB.prepare(
+          `UPDATE entitlements SET status = 'cancelled',
+           updated_at = ? WHERE user_id = ?`
+        ).bind(now, email).run();
         console.log(`Dodo subscription cancelled: ${email}`);
         break;
       }
 
       case 'subscription.renewed': {
         if (!email) break;
-        const periodEnd: string | null = data.current_period_end || data.next_billing_date || null;
-        await env.DB.prepare(`UPDATE entitlements SET current_period_end = ?, status = 'active', updated_at = ? WHERE user_id = ?`)
-          .bind(periodEnd, now, email).run();
+        const periodEnd: string | null =
+          data.current_period_end ||
+          data.next_billing_date || null;
+        const current = await env.DB.prepare(
+          'SELECT updated_at, current_period_end FROM entitlements WHERE user_id = ?'
+        ).bind(email).first();
+        if (!isNewerThan(eventTimestamp, current?.updated_at as string)) {
+          console.log(`Dodo: stale renewed event for ${email} — skipping`);
+          break;
+        }
+        await env.DB.prepare(
+          `UPDATE entitlements SET current_period_end = ?,
+           status = 'active', updated_at = ? WHERE user_id = ?`
+        ).bind(periodEnd, now, email).run();
         console.log(`Dodo subscription renewed: ${email}`);
         break;
       }
@@ -4157,8 +4197,17 @@ async function processDodoEvent(env: Env, event: any): Promise<void> {
       case 'subscription.on_hold': {
         if (!email) break;
         // Block generation — treat as community tier by marking on_hold.
-        await env.DB.prepare(`UPDATE entitlements SET status = 'on_hold', updated_at = ? WHERE user_id = ?`)
-          .bind(now, email).run();
+        const current = await env.DB.prepare(
+          'SELECT updated_at FROM entitlements WHERE user_id = ?'
+        ).bind(email).first();
+        if (!isNewerThan(eventTimestamp, current?.updated_at as string)) {
+          console.log(`Dodo: stale on_hold event for ${email} — skipping`);
+          break;
+        }
+        await env.DB.prepare(
+          `UPDATE entitlements SET status = 'on_hold',
+           updated_at = ? WHERE user_id = ?`
+        ).bind(now, email).run();
         console.log(`Dodo subscription on_hold: ${email}`);
         break;
       }
