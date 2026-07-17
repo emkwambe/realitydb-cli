@@ -24,32 +24,32 @@ importers:
   apps/cli:
     dependencies:
       axios:
-        specifier: ^1.7.9
+        specifier: 1.15.0
         version: 1.15.0
       open:
-        specifier: ^10.1.0
+        specifier: 10.2.0
         version: 10.2.0
       pg:
-        specifier: ^8.20.0
+        specifier: 8.20.0
         version: 8.20.0
     devDependencies:
       '@types/node':
-        specifier: ^20.11.0
+        specifier: 20.19.39
         version: 20.19.39
       '@types/open':
-        specifier: ^6.2.1
+        specifier: 6.2.1
         version: 6.2.1
       '@types/pg':
-        specifier: ^8.11.0
+        specifier: 8.20.0
         version: 8.20.0
       commander:
-        specifier: ^14.0.3
+        specifier: 14.0.3
         version: 14.0.3
       tsup:
-        specifier: ^8.5.1
+        specifier: 8.5.1
         version: 8.5.1(jiti@2.6.1)(postcss@8.5.9)(tsx@4.21.0)(typescript@5.8.3)
       typescript:
-        specifier: ^5.4.0
+        specifier: 5.8.3
         version: 5.8.3
 
   apps/sandbox:
@@ -212,10 +212,10 @@ importers:
   packages/engine:
     devDependencies:
       tsup:
-        specifier: ^8.5.1
+        specifier: 8.5.1
         version: 8.5.1(jiti@2.6.1)(postcss@8.5.9)(tsx@4.21.0)(typescript@5.8.3)
       typescript:
-        specifier: ^5.4.0
+        specifier: 5.8.3
         version: 5.8.3
 
   packages/generators:
@@ -3035,7 +3035,7 @@ snapshots:
 
   '@types/pg@8.20.0':
     dependencies:
-      '@types/node': 20.19.39
+      '@types/node': 25.6.0
       pg-protocol: 1.13.0
       pg-types: 2.2.0
 

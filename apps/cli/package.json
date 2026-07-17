@@ -47,16 +47,16 @@
     "test": "node smoke-test.cjs"
   },
   "devDependencies": {
-    "@types/node": "^20.11.0",
-    "@types/open": "^6.2.1",
-    "@types/pg": "^8.11.0",
-    "commander": "^14.0.3",
-    "tsup": "^8.5.1",
-    "typescript": "^5.4.0"
+    "@types/node": "20.19.39",
+    "@types/open": "6.2.1",
+    "@types/pg": "8.20.0",
+    "commander": "14.0.3",
+    "tsup": "8.5.1",
+    "typescript": "5.8.3"
   },
   "dependencies": {
-    "axios": "^1.7.9",
-    "open": "^10.1.0",
-    "pg": "^8.20.0"
+    "axios": "1.15.0",
+    "open": "10.2.0",
+    "pg": "8.20.0"
   }
 }
