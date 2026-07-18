@@ -38,6 +38,7 @@ const TIER_LIMITS: Record<string, { maxRows: number; maxActiveLabs: number; down
 
 const DATASET_PRICING: Record<string, Record<string, number>> = {
   banking:        { '5k': 0, '50k': 4900, '100k': 7900, '500k': 29900, '1000k': 49900 },
+  'us-banking':   { '5k': 0, '50k': 4900, '100k': 7900, '500k': 29900, '1000k': 49900 },
   oncology:       { '5k': 0, '50k': 9900, '100k': 14900, '500k': 29900, '1000k': 49900 },
   healthcare:     { '5k': 0, '50k': 9900, '100k': 14900, '500k': 29900, '1000k': 49900 },
   'supply-chain': { '5k': 0, '50k': 4900, '100k': 7900, '500k': 29900, '1000k': 49900 },
