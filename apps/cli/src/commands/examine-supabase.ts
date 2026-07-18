@@ -140,8 +140,8 @@ export async function examineSupabaseCommand(opts: ExamineSupabaseOptions): Prom
     for (const tableName of tableNames) {
       // Get columns
       const colResult = await client.query(`
-        SELECT column_name, data_type, udt_name, is_nullable,
-               column_default,
+        SELECT c.column_name, c.data_type, c.udt_name, c.is_nullable,
+               c.column_default,
                CASE WHEN pk.column_name IS NOT NULL THEN true ELSE false END AS is_pk
         FROM information_schema.columns c
         LEFT JOIN (
