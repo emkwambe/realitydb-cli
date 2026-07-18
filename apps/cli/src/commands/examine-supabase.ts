@@ -5,11 +5,13 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { buildSupabaseConnectionString } from '../utils/supabase-connection.js';
 
 export interface ExamineSupabaseOptions {
   connection?: string;
   supabaseUrl?: string;
   supabaseKey?: string;
+  dbPassword?: string;      // Supabase database password (Project Settings -> Database)
   schema?: string;          // defaults to 'public'
   tables?: string;          // comma-separated subset of tables
   exclude?: string;         // comma-separated tables to exclude
@@ -21,14 +23,13 @@ export interface ExamineSupabaseOptions {
 
 function buildConnectionString(opts: ExamineSupabaseOptions): string {
   if (opts.connection) return opts.connection;
-  if (opts.supabaseUrl && opts.supabaseKey) {
-    const ref = opts.supabaseUrl
-      .replace('https://', '')
-      .replace('.supabase.co', '')
-      .trim();
-    return `postgresql://postgres.${ref}:${opts.supabaseKey}@aws-0-us-east-1.pooler.supabase.com:6543/postgres`;
+  if (opts.supabaseUrl && (opts.dbPassword || opts.supabaseKey)) {
+    // dbPassword is the correct credential for Supavisor; supabaseKey is
+    // kept as a fallback for legacy invocations (will fail against Supavisor
+    // unless it happens to match the DB password).
+    return buildSupabaseConnectionString(opts.supabaseUrl, opts.dbPassword || opts.supabaseKey!);
   }
-  throw new Error('No connection method. Use --connection or --supabase-url + --supabase-key');
+  throw new Error('No connection method. Use --connection or --supabase-url + --db-password');
 }
 
 function maskConn(conn: string): string {
@@ -61,6 +62,11 @@ export async function examineSupabaseCommand(opts: ExamineSupabaseOptions): Prom
     connStr = buildConnectionString(opts);
   } catch (err: any) {
     console.error(`\n\u274C ${err.message}`);
+    console.error(``);
+    console.error(`   Requires two Supabase credentials:`);
+    console.error(`     --supabase-key: your anon or service_role API key (Supabase API authentication)`);
+    console.error(`     --db-password:  your database password (Project Settings \u2192 Database \u2192 Connection string)`);
+    console.error(`                     This is NOT the same as your service_role key.`);
     process.exit(1);
   }
 
@@ -254,9 +260,13 @@ export async function examineSupabaseCommand(opts: ExamineSupabaseOptions): Prom
     console.error(`\n\u274C Examine failed: ${error.message}`);
     if (error.message.includes('ECONNREFUSED')) {
       console.error(`   Hint: Is your Supabase project running?`);
+    } else if (error.message.includes('ENOTFOUND') || error.message.includes('tenant')) {
+      console.error(`   Hint: This usually means --db-password is missing or wrong.`);
+      console.error(`   Supavisor authenticates with your DATABASE password, not your API key.`);
+      console.error(`   Get it: Supabase Dashboard \u2192 Settings \u2192 Database \u2192 Connection string`);
     } else if (error.message.includes('authentication') || error.message.includes('password')) {
-      console.error(`   Hint: Use the service_role key, not the anon key`);
-      console.error(`   Get it: Supabase Dashboard \u2192 Settings \u2192 API \u2192 service_role`);
+      console.error(`   Hint: Use --db-password (Project Settings \u2192 Database), not --supabase-key`);
+      console.error(`   Get it: Supabase Dashboard \u2192 Settings \u2192 Database \u2192 Connection string`);
     }
     process.exit(1);
   } finally {

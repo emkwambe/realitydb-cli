@@ -14,6 +14,7 @@ import {
 } from '@realitydb/engine';
 import * as fs from 'fs';
 import * as path from 'path';
+import { buildSupabaseConnectionString } from '../utils/supabase-connection.js';
 
 export interface SeedSupabaseOptions {
   pack: string;
@@ -26,18 +27,18 @@ export interface SeedSupabaseOptions {
   connection?: string;
   supabaseUrl?: string;
   supabaseKey?: string;
+  dbPassword?: string;    // Supabase database password (Project Settings -> Database)
   createTables?: boolean;
   dropTables?: boolean;
 }
 
 function buildConnectionString(opts: SeedSupabaseOptions): string | null {
   if (opts.connection) return opts.connection;
-  if (opts.supabaseUrl && opts.supabaseKey) {
-    const ref = opts.supabaseUrl
-      .replace('https://', '')
-      .replace('.supabase.co', '')
-      .trim();
-    return `postgresql://postgres.${ref}:${opts.supabaseKey}@aws-0-us-east-1.pooler.supabase.com:6543/postgres`;
+  if (opts.supabaseUrl && (opts.dbPassword || opts.supabaseKey)) {
+    // dbPassword is the correct credential for Supavisor; supabaseKey is
+    // kept as a fallback for legacy invocations (will fail against Supavisor
+    // unless it happens to match the DB password).
+    return buildSupabaseConnectionString(opts.supabaseUrl, opts.dbPassword || opts.supabaseKey!);
   }
   return null;
 }
@@ -125,6 +126,46 @@ export async function seedSupabaseCommand(opts: SeedSupabaseOptions): Promise<vo
     console.error(`\n\u274C Free tier limited to 50,000 rows.`);
     console.error(`   Upgrade: realitydb login --api-key YOUR_KEY\n`);
     process.exit(1);
+  }
+
+  // Resolve built-in template names the same way `run` does \u2014 e.g.
+  // --pack universal instead of requiring the literal dist/packs/universal.json path.
+  const BUILT_IN_PACKS: Record<string, string> = {
+    universal: 'Universal Starter \u2014 6 cross-industry tables (users, transactions, audit_logs, api_requests, errors, addresses)',
+    banking: 'Retail Banking \u2014 16 tables (accounts, transactions, loans, compliance)',
+    healthcare: 'Healthcare Analytics \u2014 14 tables (patients, billing, insurance, labs)',
+    oncology: 'Oncology Research \u2014 20 tables (patients, treatments, clinical trials)',
+    'supply-chain': 'Supply Chain \u2014 24 tables (suppliers, shipments, warehouses)',
+    telecom: 'Telecom & Network \u2014 21 tables (subscribers, towers, billing, churn)',
+    fintech: 'FinTech Platform \u2014 9 tables (customers, accounts, transactions, fraud)',
+    'eu-banking': 'EU Banking \u2014 11 tables (SEPA, PSD2, MiFID II, KYC, AML/SAR)',
+    'eu-healthcare': 'EU Healthcare \u2014 14 tables (ICD-10, EHDS, GDPR Art.9)',
+    'eu-telecom': 'EU Telecom \u2014 12 tables (BEREC, EECC, GDPR consent)',
+    'us-healthcare': 'US Healthcare \u2014 14 tables (ICD-10-CM, MS-DRG, HIPAA)',
+    'us-telecom': 'US Telecom \u2014 12 tables (FCC, CCPA/TCPA, CTIA)',
+    'us-banking': 'US Banking \u2014 10 tables (ABA routing, FICO, BSA/AML)',
+    'us-insurance': 'US Insurance \u2014 11 tables (NAIC, claims, underwriting, reinsurance)',
+  };
+
+  if (!opts.pack.includes('/') && !opts.pack.includes('\\') && !opts.pack.endsWith('.json')) {
+    const requestedName = opts.pack;
+    const packDir = path.resolve(path.dirname(process.argv[1] || __filename), 'packs');
+    const bundledPath = path.resolve(packDir, opts.pack + '.json');
+    if (fs.existsSync(bundledPath)) {
+      opts.pack = bundledPath;
+      console.log(`   Using built-in template: ${requestedName in BUILT_IN_PACKS ? requestedName : 'custom'}`);
+    } else if (BUILT_IN_PACKS[opts.pack]) {
+      const userPackDir = path.resolve(process.env.HOME || process.env.USERPROFILE || '.', '.realitydb', 'templates');
+      const userPath = path.resolve(userPackDir, opts.pack + '.json');
+      if (fs.existsSync(userPath)) {
+        opts.pack = userPath;
+      } else {
+        console.error(`\n   Template "${opts.pack}" is available but not installed locally.`);
+        console.error(`   Download from: https://realitydb-lab-api.eddy-078.workers.dev/v1/store/${opts.pack}`);
+        console.error(`   Or install: realitydb store download ${opts.pack}\n`);
+        process.exit(1);
+      }
+    }
   }
 
   const packPath = path.resolve(opts.pack);
@@ -227,7 +268,12 @@ export async function seedSupabaseCommand(opts: SeedSupabaseOptions): Promise<vo
     console.error(`   Use one of:`);
     console.error(`   --to-file supabase/seed.sql`);
     console.error(`   --connection postgresql://...`);
-    console.error(`   --supabase-url https://[ref].supabase.co --supabase-key [key]`);
+    console.error(`   --supabase-url https://[ref].supabase.co --db-password [db_password]`);
+    console.error(``);
+    console.error(`   Requires two Supabase credentials:`);
+    console.error(`     --supabase-key: your anon or service_role API key (Supabase API authentication)`);
+    console.error(`     --db-password:  your database password (Project Settings \u2192 Database \u2192 Connection string)`);
+    console.error(`                     This is NOT the same as your service_role key.`);
     process.exit(1);
   }
 
@@ -335,9 +381,13 @@ export async function seedSupabaseCommand(opts: SeedSupabaseOptions): Promise<vo
       console.error(`   Hint: Add --create-tables to create the schema first`);
     } else if (error.message.includes('already exists')) {
       console.error(`   Hint: Add --truncate to clear existing data first`);
+    } else if (error.message.includes('ENOTFOUND') || error.message.includes('tenant')) {
+      console.error(`   Hint: This usually means --db-password is missing or wrong.`);
+      console.error(`   Supavisor authenticates with your DATABASE password, not your API key.`);
+      console.error(`   Get it: Supabase Dashboard \u2192 Settings \u2192 Database \u2192 Connection string`);
     } else if (error.message.includes('authentication')) {
-      console.error(`   Hint: Use the service_role key, not the anon key`);
-      console.error(`   Get it: Supabase Dashboard \u2192 Settings \u2192 API \u2192 service_role`);
+      console.error(`   Hint: Use --db-password (Project Settings \u2192 Database), not --supabase-key`);
+      console.error(`   Get it: Supabase Dashboard \u2192 Settings \u2192 Database \u2192 Connection string`);
     }
     process.exit(1);
   } finally {

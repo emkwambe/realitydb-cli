@@ -644,13 +644,22 @@ program
 // SEED SUPABASE COMMAND
 program
   .command('seed:supabase')
-  .description('Generate Supabase-compatible seed data (supabase/seed.sql or direct connection)')
+  .description(
+    'Generate Supabase-compatible seed data (supabase/seed.sql or direct connection). ' +
+    'Requires two Supabase credentials: --supabase-key: your anon or service_role API key ' +
+    '(for Supabase API authentication); --db-password: your database password (from Project ' +
+    'Settings → Database → Connection string). This is NOT the same as your service_role key.'
+  )
   .requiredOption('-p, --pack <file>', 'RealityPack JSON file')
   .option('-r, --rows <number>', 'Number of rows to generate', '10000')
   .option('--to-file [path]', 'Write to file (default: supabase/seed.sql)')
   .option('--connection <string>', 'PostgreSQL connection string')
   .option('--supabase-url <url>', 'Supabase project URL (https://[ref].supabase.co)')
   .option('--supabase-key <key>', 'Supabase service role key')
+  .option('--db-password <password>',
+    'Supabase database password (from Project Settings → Database). ' +
+    'Required for direct connection. If not provided, ' +
+    'falls back to --supabase-key (legacy behavior).')
   .option('--truncate', 'TRUNCATE tables before inserting')
   .option('--create-tables', 'Create tables from pack schema before inserting')
   .option('--drop-tables', 'Drop and recreate tables before inserting')
@@ -666,6 +675,7 @@ program
       connection: options.connection,
       supabaseUrl: options.supabaseUrl,
       supabaseKey: options.supabaseKey,
+      dbPassword: options.dbPassword,
       truncate: options.truncate,
       createTables: options.createTables,
       dropTables: options.dropTables,
@@ -1050,10 +1060,19 @@ examine
 // ============================================================
 examine
   .command('scan:supabase')
-  .description('Infer a RealityDB pack JSON from a live Supabase schema')
+  .description(
+    'Infer a RealityDB pack JSON from a live Supabase schema. ' +
+    'Requires two Supabase credentials: --supabase-key: your anon or service_role API key ' +
+    '(for Supabase API authentication); --db-password: your database password (from Project ' +
+    'Settings → Database → Connection string). This is NOT the same as your service_role key.'
+  )
   .option('--connection <string>', 'PostgreSQL connection string')
   .option('--supabase-url <url>', 'Supabase project URL (https://[ref].supabase.co)')
   .option('--supabase-key <key>', 'Supabase service role key')
+  .option('--db-password <password>',
+    'Supabase database password (from Project Settings → Database). ' +
+    'Required for direct connection. If not provided, ' +
+    'falls back to --supabase-key (legacy behavior).')
   .option('--schema <name>', 'Postgres schema to scan', 'public')
   .option('--output <file>', 'Output pack JSON path')
   .option('--review <file>', 'Output review manifest path')
@@ -1065,6 +1084,7 @@ examine
       connection: options.connection,
       supabaseUrl: options.supabaseUrl,
       supabaseKey: options.supabaseKey,
+      dbPassword: options.dbPassword,
       schema: options.schema,
       output: options.output,
       review: options.review,
@@ -1077,10 +1097,19 @@ examine
 // ============================================================
 examine
   .command('supabase')
-  .description('Assess data quality of a live Supabase database')
+  .description(
+    'Assess data quality of a live Supabase database. ' +
+    'Requires two Supabase credentials: --supabase-key: your anon or service_role API key ' +
+    '(for Supabase API authentication); --db-password: your database password (from Project ' +
+    'Settings → Database → Connection string). This is NOT the same as your service_role key.'
+  )
   .option('--connection <string>', 'PostgreSQL connection string')
   .option('--supabase-url <url>', 'Supabase project URL (https://[ref].supabase.co)')
   .option('--supabase-key <key>', 'Supabase service role key')
+  .option('--db-password <password>',
+    'Supabase database password (from Project Settings → Database). ' +
+    'Required for direct connection. If not provided, ' +
+    'falls back to --supabase-key (legacy behavior).')
   .option('--schema <name>', 'Postgres schema to assess', 'public')
   .option('--tables <names>', 'Comma-separated table names to include')
   .option('--exclude <tables>', 'Comma-separated table names to exclude')
@@ -1094,6 +1123,7 @@ examine
       connection: options.connection,
       supabaseUrl: options.supabaseUrl,
       supabaseKey: options.supabaseKey,
+      dbPassword: options.dbPassword,
       schema: options.schema,
       tables: options.tables,
       exclude: options.exclude,
