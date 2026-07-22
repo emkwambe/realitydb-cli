@@ -257,12 +257,19 @@ app.post('/v1/labs', async (c) => {
   const seed = body.seed ?? null;
   const id = `lab-${crypto.randomUUID().split('-')[0]}`;
 
-  // Check entitlements (skip for api-user default to maintain backward compat)
-  if (userId !== 'api-user') {
-    const check = await checkLabCreationAllowed(env.DB, userId, rows);
-    if (!check.allowed) {
-      return c.json({ error: check.reason, tier: check.tier, upgradeRequired: true }, 403);
-    }
+  // api-user (CLI default) now subject to
+  // free tier limits. Named users with
+  // active entitlements get their tier.
+  // Bypass removed 2026-07-21.
+  const check = await checkLabCreationAllowed(env.DB, userId, rows);
+  if (!check.allowed) {
+    return c.json({
+      error: check.reason,
+      tier: check.tier,
+      upgradeRequired: true,
+      upgradeUrl: 'https://realitydb.dev/pricing',
+      terminalMessage: 'Free tier limit reached. Upgrade at realitydb.dev/pricing or invite a colleague to earn more labs.',
+    }, 403);
   }
 
   // Validate template + rows combo exists in R2
